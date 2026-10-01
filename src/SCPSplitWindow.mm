@@ -119,6 +119,8 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)logDiagnostics;
 - (void)relayoutPanes;
 - (void)layoutPane:(SCPAppPane *)pane;
+- (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live;
+- (void)relayoutPanesLive:(BOOL)live;
 - (CGRect)frameForSlot:(SCPSlot)slot;
 - (CGRect)dividerFrame;
 - (CGRect)pickerFrame;
@@ -311,15 +313,35 @@ static UIImage *SCPAppIcon(NSString *bid)
     CGPoint p = [g locationInView:self.rootWindow];
     CGFloat avail = self.rootWindow.bounds.size.width - SCP_DOCK_WIDTH - SCP_DIVIDER_WIDTH;
     CGFloat r = (p.x - [self paneAreaX] - SCP_DIVIDER_WIDTH / 2) / avail;
-    self.ratio = MIN(0.75, MAX(0.25, r));
-    [self relayoutPanes];
+    r = MIN(0.75, MAX(0.25, r));
+
     if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled) {
+        // Hit ve moc 30 / 50 / 70 neu gan
+        for (NSNumber *snap in @[@0.3, @0.5, @0.7]) {
+            if (fabs(r - snap.doubleValue) < 0.04) { r = snap.doubleValue; break; }
+        }
+        self.ratio = r;
+        [UIView animateWithDuration:0.2 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+            [self relayoutPanesLive:NO];
+        } completion:nil];
         [SCPPrefs setSplitRatio:self.ratio];
         SCPLog("ti le ngan trai = %.2f (da luu)", self.ratio);
+        return;
     }
+    // Dang keo: chi doi khung + scale nhe, khong bat app dan lai, khong animation
+    self.ratio = r;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    [self relayoutPanesLive:YES];
+    [CATransaction commit];
 }
 
 - (void)relayoutPanes
+{
+    [self relayoutPanesLive:NO];
+}
+
+- (void)relayoutPanesLive:(BOOL)live
 {
     BOOL fs = (self.fullscreenSlot != SCPSlotAuto);
     self.dividerView.hidden = fs;
@@ -328,8 +350,8 @@ static UIImage *SCPAppIcon(NSString *bid)
         SCPSlot slot = (p == self.leftPane) ? SCPSlotLeft : SCPSlotRight;
         BOOL hidden = fs && slot != self.fullscreenSlot;
         p.containerView.hidden = hidden;
-        if (!hidden) { p.containerView.frame = [self frameForSlot:slot]; [self layoutPane:p]; }
-        [self layoutExpandButtonForPane:p];
+        if (!hidden) { p.containerView.frame = [self frameForSlot:slot]; [self layoutPane:p live:live]; }
+        if (!live) [self layoutExpandButtonForPane:p];
     }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
 }
@@ -655,6 +677,12 @@ static UIImage *SCPAppIcon(NSString *bid)
 // Scale noi dung app (kich thuoc iPhone) vao ngan
 - (void)layoutPane:(SCPAppPane *)pane
 {
+    [self layoutPane:pane live:NO];
+}
+
+// live=YES: dang keo thanh phan cach -> chi scale bang transform (re), khong resize scene
+- (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live
+{
     if (!pane.appViewController) return;
     id deviceAppVC = getIvar(pane.appViewController, @"_deviceAppViewController");
     id sceneView   = getIvar(deviceAppVC, @"sceneView");
@@ -667,6 +695,10 @@ static UIImage *SCPAppIcon(NSString *bid)
     [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
 
     NSInteger mode = [SCPPrefs scaleMode];
+    if (mode == 2 && live) {
+        // Trong luc keo: giu scene nguyen, chi can clip theo khung (app se dan lai khi tha tay)
+        return;
+    }
     if (mode == 2) {
         // THU NGHIEM: bao app scene co kich thuoc bang ngan -> app tu layout lai, khong meo
         hostingContentView.transform = CGAffineTransformIdentity;
