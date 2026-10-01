@@ -21,6 +21,9 @@
 @property (nonatomic, strong) UIImageView *leftIcon, *rightIcon;
 @property (nonatomic, strong) UILabel *leftLabel, *rightLabel, *infoLabel;
 @property (nonatomic, strong) UIView *leftPhone, *rightPhone;
+@property (nonatomic, strong) UILabel *clockLabel, *leftTime, *rightTime;
+@property (nonatomic, strong) UIImageView *homeIcon, *gridIcon, *swapIcon;
+@property (nonatomic, strong) UIView *wallpaper, *divider;
 - (void)reload;
 @end
 
@@ -39,12 +42,41 @@
     _screenView.clipsToBounds = YES;
     [self addSubview:_screenView];
 
-    _dockView = [[UIView alloc] init];
-    _dockView.backgroundColor = [UIColor colorWithWhite:0.3 alpha:1];
-    [_screenView addSubview:_dockView];
+    // Hinh nen kieu CarPlay (gradient toi)
+    _wallpaper = [[UIView alloc] init];
+    CAGradientLayer *g = [CAGradientLayer layer];
+    g.colors = @[(id)[UIColor colorWithRed:0.10 green:0.12 blue:0.22 alpha:1].CGColor,
+                 (id)[UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1].CGColor];
+    g.startPoint = CGPointMake(0, 0); g.endPoint = CGPointMake(1, 1);
+    [_wallpaper.layer addSublayer:g];
+    [_screenView addSubview:_wallpaper];
 
-    _leftPane  = [self makePaneWithColor:[UIColor colorWithRed:0.12 green:0.25 blue:0.45 alpha:1]];
-    _rightPane = [self makePaneWithColor:[UIColor colorWithRed:0.15 green:0.4 blue:0.25 alpha:1]];
+    // Thanh ben kieu CarPlay: dong ho tren, nut Home duoi
+    _dockView = [[UIView alloc] init];
+    _dockView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.55];
+    [_screenView addSubview:_dockView];
+    _clockLabel = [[UILabel alloc] init];
+    _clockLabel.textColor = [UIColor whiteColor];
+    _clockLabel.textAlignment = NSTextAlignmentCenter;
+    _clockLabel.adjustsFontSizeToFitWidth = YES;
+    [_dockView addSubview:_clockLabel];
+    _gridIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"square.grid.2x2"]];
+    _gridIcon.tintColor = [UIColor whiteColor]; _gridIcon.contentMode = UIViewContentModeScaleAspectFit;
+    [_dockView addSubview:_gridIcon];
+    _swapIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrow.left.arrow.right"]];
+    _swapIcon.tintColor = [UIColor whiteColor]; _swapIcon.contentMode = UIViewContentModeScaleAspectFit;
+    [_dockView addSubview:_swapIcon];
+    _homeIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"circle.grid.3x3.fill"]];
+    _homeIcon.tintColor = [UIColor whiteColor]; _homeIcon.contentMode = UIViewContentModeScaleAspectFit;
+    [_dockView addSubview:_homeIcon];
+
+    _leftPane  = [self makePaneWithColor:[UIColor colorWithWhite:0.06 alpha:1]];
+    _rightPane = [self makePaneWithColor:[UIColor colorWithWhite:0.06 alpha:1]];
+    _leftTime  = [self makeStatusIn:_leftPane];
+    _rightTime = [self makeStatusIn:_rightPane];
+    _divider = [[UIView alloc] init];
+    _divider.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
+    [_screenView addSubview:_divider];
 
     _leftPhone  = [self makePhoneIn:_leftPane];
     _rightPhone = [self makePhoneIn:_rightPane];
@@ -76,13 +108,22 @@
     return v;
 }
 
+// Thanh trang thai gia cua app (gio + pin) de giong app that
+- (UILabel *)makeStatusIn:(UIView *)pane
+{
+    UILabel *l = [[UILabel alloc] init];
+    l.textColor = [UIColor colorWithWhite:1 alpha:0.85];
+    l.textAlignment = NSTextAlignmentCenter;
+    l.adjustsFontSizeToFitWidth = YES;
+    [pane addSubview:l];
+    return l;
+}
+
 - (UIView *)makePhoneIn:(UIView *)pane
 {
     UIView *v = [[UIView alloc] init];
-    v.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
-    v.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.5].CGColor;
-    v.layer.borderWidth = 1;
-    v.layer.cornerRadius = 4;
+    v.backgroundColor = [UIColor colorWithWhite:0.14 alpha:1];
+    v.layer.cornerRadius = 3;
     [pane addSubview:v];
     return v;
 }
@@ -165,13 +206,30 @@ static UIImage *appIcon(NSString *bid)
     CGFloat x = (self.bounds.size.width - W) / 2;
     _screenView.frame = CGRectMake(x, 4, W, H);
 
-    CGFloat dockW = W * 40.0 / 800.0 * 1.6;
-    CGFloat avail = W - dockW;
+    _wallpaper.frame = _screenView.bounds;
+    for (CALayer *l in _wallpaper.layer.sublayers) l.frame = _wallpaper.bounds;
+
+    CGFloat dockW = W * 0.075;          // thanh ben CarPlay ~ 60/800
+    CGFloat divW  = MAX(2, W * 0.012);
+    CGFloat avail = W - dockW - divW;
     CGFloat leftW = floor(avail * ratio), rightW = avail - leftW;
     CGFloat x0 = (dockSide == 1) ? 0 : dockW;
     _dockView.frame  = CGRectMake(dockSide == 1 ? W - dockW : 0, 0, dockW, H);
     _leftPane.frame  = CGRectMake(x0, 0, leftW, H);
-    _rightPane.frame = CGRectMake(x0 + leftW, 0, rightW, H);
+    _divider.frame   = CGRectMake(x0 + leftW, 0, divW, H);
+    _rightPane.frame = CGRectMake(x0 + leftW + divW, 0, rightW, H);
+
+    // noi dung thanh ben
+    static NSDateFormatter *df; if (!df) { df = [NSDateFormatter new]; df.dateFormat = @"HH:mm"; }
+    NSString *now = [df stringFromDate:[NSDate date]];
+    _clockLabel.font = [UIFont systemFontOfSize:dockW * 0.42 weight:UIFontWeightSemibold];
+    _clockLabel.text = now;
+    _clockLabel.frame = CGRectMake(0, 4, dockW, dockW * 0.6);
+    CGFloat ic = dockW * 0.5;
+    _gridIcon.frame = CGRectMake((dockW - ic) / 2, dockW * 0.75, ic, ic);
+    _swapIcon.frame = CGRectMake((dockW - ic) / 2, dockW * 0.75 + ic + 6, ic, ic);
+    _homeIcon.frame = CGRectMake((dockW - ic) / 2, H - ic - 6, ic, ic);
+    _leftTime.text = now; _rightTime.text = now;
 
     [self layoutPane:_leftPane phone:_leftPhone icon:_leftIcon label:_leftLabel bid:left orientation:orient scaleMode:scaleMode];
     [self layoutPane:_rightPane phone:_rightPhone icon:_rightIcon label:_rightLabel bid:right orientation:orient scaleMode:scaleMode];
@@ -187,8 +245,8 @@ static UIImage *appIcon(NSString *bid)
 {
     CGSize p = pane.bounds.size;
     // Khung "man hinh iPhone" trong ngan: keo gian / resize = full ngan; giu ti le = 9:16 (doc) hoac 16:9 (ngang) can giua
-    CGFloat inset = 6;
-    CGFloat pw = p.width - inset * 2, ph = p.height - inset * 2 - 14;
+    CGFloat inset = 0;
+    CGFloat pw = p.width, ph = p.height;
     CGRect phoneRect = CGRectMake(inset, inset, pw, ph);
     if (scaleMode == 1) {
         if (orient == 3) { CGFloat h = MIN(ph, pw * 9.0 / 16.0); CGFloat w = h * 16.0 / 9.0; phoneRect = CGRectMake((p.width - w)/2, inset + (ph - h)/2, w, h); }
@@ -196,13 +254,19 @@ static UIImage *appIcon(NSString *bid)
     }
     phone.frame = phoneRect;
     phone.alpha = 1;
+    // thanh trang thai gia o dau "man hinh iPhone"
+    UILabel *status = (pane == _leftPane) ? _leftTime : _rightTime;
+    status.font = [UIFont systemFontOfSize:MAX(6, phoneRect.size.width * 0.07) weight:UIFontWeightSemibold];
+    status.frame = CGRectMake(phoneRect.origin.x, phoneRect.origin.y + 2, phoneRect.size.width, phoneRect.size.width * 0.1);
+    [pane bringSubviewToFront:status];
 
-    CGFloat is = MIN(44, MIN(pw, ph) * 0.45);
-    icon.frame = CGRectMake((p.width - is) / 2, inset + (ph - is) / 2 - 6, is, is);
+    CGFloat is = MIN(44, MIN(phoneRect.size.width, phoneRect.size.height) * 0.42);
+    icon.frame = CGRectMake(CGRectGetMidX(phoneRect) - is / 2, CGRectGetMidY(phoneRect) - is / 2 - 6, is, is);
     icon.image = appIcon(bid);
     icon.backgroundColor = icon.image ? [UIColor clearColor] : [UIColor colorWithWhite:1 alpha:0.2];
-    label.frame = CGRectMake(2, p.height - 16, p.width - 4, 14);
+    label.frame = CGRectMake(phoneRect.origin.x + 2, CGRectGetMaxY(icon.frame) + 3, phoneRect.size.width - 4, 14);
     label.text = appName(bid);
+    [pane bringSubviewToFront:icon]; [pane bringSubviewToFront:label];
     (void)phoneRect;
 }
 

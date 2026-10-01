@@ -104,6 +104,8 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) UIButton *homeButton;
 @property (nonatomic, strong) UIButton *swapButton;
 @property (nonatomic, strong) UIButton *appsButton;
+@property (nonatomic, strong) UILabel *clockLabel;
+@property (nonatomic, strong) NSTimer *clockTimer;
 @property (nonatomic, strong) UIView *dividerView;
 @property (nonatomic, strong) UIView *pickerView;
 @property (nonatomic) SCPSlot pickerSlot;
@@ -180,7 +182,7 @@ static UIImage *SCPAppIcon(NSString *bid)
         SCPLog("root window tren man xe frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
     }
 
-    self.rootWindow.backgroundColor = [UIColor colorWithRed:0.05 green:0.05 blue:0.2 alpha:1];
+    self.rootWindow.backgroundColor = [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
     [self setupDock];
     [self setupDivider];
     [self setupDebugOverlay];
@@ -223,16 +225,33 @@ static UIImage *SCPAppIcon(NSString *bid)
     CGRect f = self.rootWindow.bounds;
     CGFloat dockX = ([SCPPrefs dockSide] == 1) ? f.size.width - SCP_DOCK_WIDTH : 0;
     self.dockView = [[UIView alloc] initWithFrame:CGRectMake(dockX, 0, SCP_DOCK_WIDTH, f.size.height)];
-    self.dockView.backgroundColor = [UIColor colorWithWhite:0.3 alpha:1];
+    // Giong thanh ben CarPlay: nen toi mo, dong ho tren, Home (luoi cham) duoi
+    self.dockView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6];
     [self.rootWindow addSubview:self.dockView];
+
+    self.clockLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 6, SCP_DOCK_WIDTH, 18)];
+    self.clockLabel.textColor = [UIColor whiteColor];
+    self.clockLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+    self.clockLabel.textAlignment = NSTextAlignmentCenter;
+    self.clockLabel.adjustsFontSizeToFitWidth = YES;
+    [self.dockView addSubview:self.clockLabel];
+    [self updateClock];
+    self.clockTimer = [NSTimer scheduledTimerWithTimeInterval:30 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
 
     CGFloat sz = 32, x = (SCP_DOCK_WIDTH - sz) / 2;
     self.appsButton = [self dockButton:@"square.grid.2x2" tint:[UIColor whiteColor] action:@selector(appsButtonTapped)];
-    self.appsButton.frame = CGRectMake(x, 8, sz, sz);
+    self.appsButton.frame = CGRectMake(x, 32, sz, sz);
     self.swapButton = [self dockButton:@"arrow.left.arrow.right" tint:[UIColor whiteColor] action:@selector(swapPanes)];
-    self.swapButton.frame = CGRectMake(x, 8 + sz + 10, sz, sz);
-    self.homeButton = [self dockButton:@"xmark.circle.fill" tint:[UIColor systemRedColor] action:@selector(dismiss)];
+    self.swapButton.frame = CGRectMake(x, 32 + sz + 10, sz, sz);
+    // Home kieu CarPlay = dong split, ve lai dashboard CarPlay
+    self.homeButton = [self dockButton:@"circle.grid.3x3.fill" tint:[UIColor whiteColor] action:@selector(dismiss)];
     self.homeButton.frame = CGRectMake(x, f.size.height - sz - 8, sz, sz);
+}
+
+- (void)updateClock
+{
+    static NSDateFormatter *df; if (!df) { df = [NSDateFormatter new]; df.dateFormat = @"HH:mm"; }
+    self.clockLabel.text = [df stringFromDate:[NSDate date]];
 }
 
 - (void)appsButtonTapped
@@ -268,7 +287,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)setupDivider
 {
     self.dividerView = [[UIView alloc] initWithFrame:[self dividerFrame]];
-    self.dividerView.backgroundColor = [UIColor colorWithWhite:0.15 alpha:1];
+    self.dividerView.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
     UIView *pill = [[UIView alloc] initWithFrame:CGRectMake(4, self.dividerView.bounds.size.height / 2 - 24, SCP_DIVIDER_WIDTH - 8, 48)];
     pill.backgroundColor = [UIColor colorWithWhite:0.7 alpha:1];
     pill.layer.cornerRadius = (SCP_DIVIDER_WIDTH - 8) / 2;
@@ -665,6 +684,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)dismiss
 {
     SCPLog("dismiss split window");
+    [self.clockTimer invalidate]; self.clockTimer = nil;
     [self hideAppPicker];
     [self closeSlot:SCPSlotLeft];
     [self closeSlot:SCPSlotRight];
