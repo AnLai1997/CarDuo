@@ -364,7 +364,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     objcInvoke_1(pane.appViewController, @"_setCurrentMode:", 0);
     [lockAssertions() removeObject:appID];
     // SBAppViewController la BSInvalidatable: dealloc ma chua invalidate -> assertion crash SpringBoard
-    [pane.appViewController.view removeFromSuperview];
+    [[pane.appViewController view] removeFromSuperview];
     if ([pane.appViewController respondsToSelector:@selector(invalidate)]) {
         objcInvoke(pane.appViewController, @"invalidate");
     }
