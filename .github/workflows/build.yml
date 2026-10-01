@@ -17,7 +17,11 @@ jobs:
         run: make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 
       - name: List .deb contents
-        run: for f in packages/*.deb; do echo "== $f"; dpkg-deb -c "$f"; done
+        run: |
+          for f in packages/*.deb; do
+            echo "== $f"
+            rm -rf /tmp/deb && mkdir -p /tmp/deb && (cd /tmp/deb && ar x "$GITHUB_WORKSPACE/$f" && tar -tf data.tar.*)
+          done
 
       - uses: actions/upload-artifact@v4
         with:
