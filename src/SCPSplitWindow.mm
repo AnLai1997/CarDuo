@@ -84,11 +84,14 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     if (mainScreen) {
         // CHE DO TEST: cua so tren man iPhone, xoay ngang de giong man xe
-        self.rootWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+        CGRect sb = [UIScreen mainScreen].bounds;
+        self.rootWindow = [[UIWindow alloc] initWithFrame:sb];
         self.rootWindow.windowLevel = UIWindowLevelStatusBar + 50;
-        ((void (*)(id, SEL, long long, BOOL, double, BOOL))objc_msgSend)(self.rootWindow,
-            NSSelectorFromString(@"_rotateWindowToOrientation:updateStatusBar:duration:skipCallbacks:"),
-            (long long)UIInterfaceOrientationLandscapeRight, YES, 0.0, NO);
+        // Xoay cua so sang ngang bang transform (bounds = kich thuoc ngang, moi subview dung bounds)
+        if (sb.size.width < sb.size.height) {
+            self.rootWindow.transform = CGAffineTransformMakeRotation(M_PI_2);
+            self.rootWindow.bounds = CGRectMake(0, 0, sb.size.height, sb.size.width);
+        }
         SCPLog("TEST window tren man chinh, frame=%@ bounds=%@",
                NSStringFromCGRect(self.rootWindow.frame), NSStringFromCGRect(self.rootWindow.bounds));
     } else {
@@ -360,6 +363,11 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     objcInvoke_1(pane.appViewController, @"_setCurrentMode:", 0);
     [lockAssertions() removeObject:appID];
+    // SBAppViewController la BSInvalidatable: dealloc ma chua invalidate -> assertion crash SpringBoard
+    [pane.appViewController.view removeFromSuperview];
+    if ([pane.appViewController respondsToSelector:@selector(invalidate)]) {
+        objcInvoke(pane.appViewController, @"invalidate");
+    }
 
     // Dua app ve background neu no khong dang o man hinh chinh
     id appScene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
