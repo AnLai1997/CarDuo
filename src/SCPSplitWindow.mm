@@ -191,11 +191,13 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     id sceneManager = objcInvoke(objc_getClass("SBSceneManagerCoordinator"), @"mainDisplaySceneManager");
     expectClass(sceneManager, "SBMainDisplaySceneManager");
 
-    id layoutStateManager = objcInvoke(sceneManager, @"_layoutStateManager");
+    id layoutStateManager = objcInvoke(sceneManager, @"layoutStateManager");   // iOS 16: khong co dau _
     id displayIdentity    = objcInvoke(sceneManager, @"displayIdentity");
     expectClass(displayIdentity, "FBSDisplayIdentity");
 
-    id sceneIdentity = objcInvoke_2(sceneManager, @"_sceneIdentityForApplication:createPrimaryIfRequired:", pane.application, 1);
+    // iOS 16.5: -sceneIdentityForApplication:createPrimaryIfRequired:sceneSessionRole:
+    id sceneIdentity = objcInvoke_3(sceneManager, @"sceneIdentityForApplication:createPrimaryIfRequired:sceneSessionRole:",
+                                    pane.application, 1, UIWindowSceneSessionRoleApplication);
     expectClass(sceneIdentity, "FBSSceneIdentity");
 
     id request = objcInvoke_3(objc_getClass("SBApplicationSceneHandleRequest"),
@@ -220,7 +222,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     id transaction = objcInvoke_2(appVC, @"_createSceneUpdateTransactionForApplicationSceneEntity:deliveringActions:", entity, 1);
     expectClass(transaction, "SBApplicationSceneUpdateTransaction");
 
-    NSMutableArray *transitions = getIvar(appVC, @"_activeTransitions");
+    NSMutableSet *transitions = getIvar(appVC, @"_activeTransitions");   // iOS 16: NSMutableSet
     __weak SCPSplitWindow *weakSelf = self;
     int orientation = pane.orientation;
     objcInvoke_1(transaction, @"setCompletionBlock:", ^(int result) {
@@ -248,7 +250,9 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     [pane.containerView addSubview:v];
 
     // Theo doi app chet -> dong ngan
-    NSString *sceneID = objcInvoke_1(layoutStateManager, @"primarySceneIdentifierForBundleIdentifier:", appID);
+    // iOS 16.5: -primarySceneIdentifierForBundleIdentifier:sceneSessionRole:displayIdentity:
+    NSString *sceneID = objcInvoke_3(layoutStateManager, @"primarySceneIdentifierForBundleIdentifier:sceneSessionRole:displayIdentity:",
+                                     appID, UIWindowSceneSessionRoleApplication, displayIdentity);
     if (sceneID) {
         pane.sceneMonitor = objcInvoke_1([objc_getClass("FBSceneMonitor") alloc], @"initWithSceneID:", sceneID);
         objcInvoke_1(pane.sceneMonitor, @"setDelegate:", self);
@@ -260,7 +264,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 {
     if (!pane.appViewController) return;
     id deviceAppVC = getIvar(pane.appViewController, @"_deviceAppViewController");
-    id sceneView   = getIvar(deviceAppVC, @"_sceneView");
+    id sceneView   = getIvar(deviceAppVC, @"sceneView");   // property tren iOS 16
     UIView *hostingContentView = getIvar(sceneView, @"_sceneContentContainerView");
     if (!hostingContentView) { SCPLog("chua co _sceneContentContainerView"); return; }
 
@@ -308,11 +312,11 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
         id frontmost = objcInvoke([UIApplication sharedApplication], @"_accessibilityFrontMostApplication");
         BOOL onMainScreen = frontmost && [objcInvoke(frontmost, @"bundleIdentifier") isEqualToString:appID];
         if (!onMainScreen) {
-            id settings = objcInvoke(appScene, @"mutableSettings");
-            objcInvoke_1(settings, @"setBackgrounded:", 1);
-            objcInvoke_1(settings, @"setForeground:", 0);
-            ((void (*)(id, SEL, id, id, void *))objc_msgSend)(appScene,
-                NSSelectorFromString(@"updateSettings:withTransitionContext:completion:"), settings, nil, NULL);
+            // iOS 16: FBScene khong con -mutableSettings, dung -updateSettingsWithBlock:
+            objcInvoke_1(appScene, @"updateSettingsWithBlock:", ^(id settings) {
+                objcInvoke_1(settings, @"setBackgrounded:", 1);
+                objcInvoke_1(settings, @"setForeground:", 0);
+            });
         }
     }
     [pane.containerView removeFromSuperview];

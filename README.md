@@ -28,11 +28,29 @@ Cửa sổ SpringBoard trên màn xe chia làm 2 ngăn (trái/phải), mỗi ng�
 vì ngăn nửa màn 800x480 ~ 380x480 gần với tỉ lệ dọc của iPhone.
 Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái, lần 2 vào ngăn phải.
 
+### Đã đối chiếu với iOS 16.5 (class-dump từ IPSW 20F66, thư mục `headers/` local)
+- Code SpringBoard nằm trong `SpringBoard.framework` (binary SpringBoard chỉ là stub).
+- Code app CarPlay nằm trong `DashBoard.framework`, prefix `DB`: `DBDashboard`, `DBIconView`,
+  `DBEvent`, `DBApplicationLaunchInfo`; `[UIApplication _currentDashboard]` vẫn còn.
+- Đổi tên so với iOS 14: `layoutStateManager` (bỏ `_`),
+  `sceneIdentityForApplication:createPrimaryIfRequired:sceneSessionRole:`,
+  `primarySceneIdentifierForBundleIdentifier:sceneSessionRole:displayIdentity:`,
+  `FBScene.clientProcess` thay `client.process`, `updateSettingsWithBlock:` thay `mutableSettings`,
+  `_setRotatableViewOrientation:(long long)duration:(double)force:(BOOL)`.
+
+### Cách lấy header trên Windows (không cần Mac)
+1. `tools/ipsw/ipsw.exe extract --remote --dmg sys|fs -o dmg <URL IPSW>` tải DMG.
+2. 7-Zip 25 giải nén được root FS (UDIF+LZFSE) và phần lớn dyld cache từ DMG SystemOS (APFS thô),
+   trừ 2 subcache `.dyldlinkedit` và `.symbols` (nén LZFSE trong APFS).
+3. Giả 3 file đó: copy một subcache nhỏ thật, vá UUID (đọc từ header cache chính),
+   vá mapping address/size đúng dải địa chỉ, giữ offset code signature của file mẫu.
+   `ipsw class-dump <DSC> <dylib> --headers -o D:/...` chạy được (ObjC metadata không cần linkedit).
+   Dùng đường dẫn kiểu `D:/...` cho `-o` và `MSYS_NO_PATHCONV=1` trong Git Bash.
+
 ### Lộ trình
-1. Class-dump SpringBoard + CarPlay 16.5 (từ IPSW, tool `ipsw` + 7-Zip) để xác nhận các
-   selector trên còn đúng ở iOS 16.5 (carplay-cast viết cho iOS 14).
-2. Port phần host app của carplay-cast sang ARC + rootless, 1 ngăn, chạy được trên 16.5.
-3. Mở rộng thành 2 ngăn.
+1. ~~Class-dump SpringBoard + CarPlay 16.5~~ xong.
+2. Build xanh, cài, kiểm tra 1 ngăn chạy được trên 16.5.
+3. Kiểm tra 2 ngăn, chỉnh scale/orientation.
 4. Giao diện chọn app, lưu cặp app mặc định.
 
 ## Build (không cần Theos trên Windows)

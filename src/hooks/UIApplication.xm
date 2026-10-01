@@ -23,13 +23,14 @@ static int orientationOverride = -1;
     if (o == -1) o = MAX(1, (int)[[UIDevice currentDevice] orientation]);
     SCPLog("app xoay -> %d", o);
     UIWindow *key = objcInvoke([UIApplication sharedApplication], @"keyWindow");
-    ((void (*)(id, SEL, int, float, int))objc_msgSend)(key,
-        NSSelectorFromString(@"_setRotatableViewOrientation:duration:force:"), o, 0.0f, 1);
+    // iOS 16.5: -_setRotatableViewOrientation:(long long)duration:(double)force:(BOOL)
+    ((void (*)(id, SEL, long long, double, BOOL))objc_msgSend)(key,
+        NSSelectorFromString(@"_setRotatableViewOrientation:duration:force:"), (long long)o, 0.0, YES);
 }
 %end
 
 %hook UIWindow
-- (void)_setRotatableViewOrientation:(int)orientation duration:(float)duration force:(int)force
+- (void)_setRotatableViewOrientation:(long long)orientation duration:(double)duration force:(BOOL)force
 {
     if (orientationOverride > 0) return %orig(orientationOverride, duration, force);
     %orig;

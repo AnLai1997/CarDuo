@@ -2,6 +2,7 @@
 
 // Inject vao process CarPlay (com.apple.CarPlayApp)
 // Long-press icon tren dashboard -> gui yeu cau mo app vao mot ngan sang SpringBoard.
+// iOS 16: code cua app CarPlay nam trong DashBoard.framework, prefix DB (DBDashboard, DBIconView, DBEvent).
 %group CARPLAY
 
 static void SCPRequestLaunch(NSString *bundleID)
@@ -13,7 +14,7 @@ static void SCPRequestLaunch(NSString *bundleID)
     id dashboard = objcInvoke([UIApplication sharedApplication], @"_currentDashboard");
     NSDictionary *fg = objcInvoke(dashboard, @"identifierToForegroundAppScenesMap");
     if (fg.count > 0) {
-        id homeEvent = objcInvoke_2(objc_getClass("CAREvent"), @"eventWithType:context:", 1, @"SplitCarPlay close app");
+        id homeEvent = objcInvoke_2(objc_getClass("DBEvent"), @"eventWithType:context:", (unsigned long long)1, @"SplitCarPlay close app");
         if (homeEvent) objcInvoke_1(dashboard, @"handleEvent:", homeEvent);
     }
 
@@ -21,7 +22,7 @@ static void SCPRequestLaunch(NSString *bundleID)
         postNotificationName:SCP_NOTIF_LAUNCH object:nil userInfo:@{@"identifier": bundleID}];
 }
 
-%hook CARIconView
+%hook DBIconView
 
 %new
 - (void)scp_handleLongPress:(UILongPressGestureRecognizer *)g

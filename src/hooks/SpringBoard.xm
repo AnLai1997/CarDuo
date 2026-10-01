@@ -43,7 +43,7 @@
 {
     BOOL r = %orig;
     if (r) {
-        NSString *bid = objcInvoke(objcInvoke(objcInvoke(scene, @"client"), @"process"), @"bundleIdentifier");
+        NSString *bid = objcInvoke(objcInvoke(scene, @"clientProcess"), @"bundleIdentifier");   // iOS 16: FBScene.clientProcess
         NSArray *assertions = objc_getAssociatedObject([UIApplication sharedApplication], kSCPKey_lockAssertions);
         if (bid && [assertions containsObject:bid]) r = NO;
     }
@@ -55,9 +55,9 @@
 %hook FBScene
 - (void)updateSettings:(id)settings withTransitionContext:(id)ctx completion:(void *)completion
 {
-    id client = objcInvoke(self, @"client");
-    if ([client respondsToSelector:NSSelectorFromString(@"process")]) {
-        NSString *bid = objcInvoke(objcInvoke(client, @"process"), @"bundleIdentifier");
+    id process = objcInvoke(self, @"clientProcess");
+    if (process) {
+        NSString *bid = objcInvoke(process, @"bundleIdentifier");
         NSArray *assertions = objc_getAssociatedObject([UIApplication sharedApplication], kSCPKey_lockAssertions);
         if (bid && [assertions containsObject:bid] && !objcInvokeT(settings, @"isForeground", BOOL)) {
             return;
