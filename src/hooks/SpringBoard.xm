@@ -5,6 +5,7 @@
 
 #define SCP_DARWIN_TEST  "com.anpham.splitcarplay.test"    // nut "Mo split test ngay" trong Settings
 #define SCP_DARWIN_CLOSE "com.anpham.splitcarplay.close"   // nut "Dong split"
+#define SCP_DARWIN_CLEARLOG "com.anpham.splitcarplay.clearlog"
 
 // Inject vao SpringBoard: nhan yeu cau tu CarPlay process / Settings, giu app song khi khoa may
 %group SPRINGBOARD
@@ -50,7 +51,8 @@ static void SCPOpenConfiguredPair(BOOL onMainScreen)
     }];
 
     // Settings -> test tren man iPhone / dong
-    int tok = 0, tokClose = 0;
+    int tok = 0, tokClose = 0, tokClear = 0;
+    notify_register_dispatch(SCP_DARWIN_CLEARLOG, &tokClear, dispatch_get_main_queue(), ^(int t) { SCPLogClear(); SCPLog("log cleared"); });
     notify_register_dispatch(SCP_DARWIN_TEST, &tok, dispatch_get_main_queue(), ^(int t) {
         SCPOpenConfiguredPair(YES);
     });

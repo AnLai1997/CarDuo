@@ -111,7 +111,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>THỬ NGHIỆM (KHÔNG CẦN XE)</string>
-			<key>footerText</key><string>Mở cửa sổ chia đôi ngay trên màn iPhone với 2 app ở trên để kiểm tra cơ chế. Bật "Tự mở sau respring" thì cửa sổ xuất hiện 10 giây sau khi respring.</string>
+			<key>footerText</key><string>Mở cửa sổ chia đôi ngay trên màn iPhone với 2 app ở trên để kiểm tra cơ chế. Log ghi tại /var/mobile/Documents/SplitCarPlay.log (xem bằng Filza).</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
@@ -122,6 +122,19 @@
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Đóng split</string>
 			<key>action</key><string>closeSplit</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Hiện log trên cửa sổ split</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>ShowDebug</string>
+			<key>default</key><true/>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSButtonCell</string>
+			<key>label</key><string>Xoá file log</string>
+			<key>action</key><string>clearLog</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>

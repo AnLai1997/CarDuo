@@ -36,4 +36,9 @@
     notify_post("com.anpham.splitcarplay.close");
 }
 
+- (void)clearLog
+{
+    notify_post("com.anpham.splitcarplay.clearlog");
+}
+
 @end

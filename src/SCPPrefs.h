@@ -14,4 +14,5 @@
 + (NSInteger)paneOrientation;   // 1 = portrait, 3 = landscape
 + (CGFloat)splitRatio;          // ti le be rong ngan trai (0.3 - 0.7)
 + (BOOL)testOnMainScreen;
++ (BOOL)showDebug;             // hien log tren cua so split
 @end

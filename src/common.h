@@ -7,7 +7,7 @@
 #import <dlfcn.h>
 
 #define LOGTAG "[SplitCP]"
-#define SCPLog(fmt, ...) NSLog(@LOGTAG " " fmt, ##__VA_ARGS__)
+#define SCPLog(fmt, ...) SCPLogWrite([NSString stringWithFormat:@fmt, ##__VA_ARGS__])
 
 // Notification CarPlay process -> SpringBoard: yeu cau mo app vao mot ngan
 #define SCP_NOTIF_LAUNCH        @"com.anpham.splitcarplay.launch"
@@ -40,6 +40,10 @@
 extern "C" {
 #endif
 extern int (*orig_BKSDisplayServicesSetScreenBlanked)(int);
+void SCPLogWrite(NSString *msg);
+void SCPLogClear(void);
+NSArray<NSString *> *SCPRecentLogLines(void);
+extern NSString *const SCPLogLineNotification;
 extern const void *kSCPKey_splitWindow;
 extern const void *kSCPKey_lockAssertions;
 id SCPGetCarPlayCADisplay(void);

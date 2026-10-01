@@ -33,5 +33,6 @@ static id value(NSString *key)
     return MIN(0.7, MAX(0.3, r));
 }
 + (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
++ (BOOL)showDebug          { id v = value(@"ShowDebug");        return v ? [v boolValue] : YES; }
 
 @end

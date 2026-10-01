@@ -51,6 +51,8 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 @interface SCPSplitWindow ()
 @property (nonatomic, strong) UIButton *homeButton;
 @property (nonatomic, strong) UIButton *swapButton;
+@property (nonatomic, strong) UILabel *debugLabel;
+@property (nonatomic, strong) id logObserver;
 - (instancetype)initOnMainScreen:(BOOL)mainScreen;
 @end
 
@@ -106,6 +108,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     self.rootWindow.backgroundColor = [UIColor blackColor];
     [self setupDock];
+    [self setupDebugOverlay];
 
     self.rootWindow.alpha = 0;
     self.rootWindow.hidden = NO;
@@ -150,6 +153,36 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     self.swapButton.frame = CGRectMake(x, 8, sz, sz);
     [self.swapButton addTarget:self action:@selector(swapPanes) forControlEvents:UIControlEventTouchUpInside];
     [self.dockView addSubview:self.swapButton];
+}
+
+// Overlay hien log o duoi cua so (bat/tat trong Settings: "Hien log tren cua so")
+- (void)setupDebugOverlay
+{
+    if (![SCPPrefs showDebug]) return;
+    CGRect f = self.rootWindow.bounds;
+    CGFloat h = MIN(140, f.size.height * 0.4);
+    self.debugLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, f.size.height - h, f.size.width, h)];
+    self.debugLabel.numberOfLines = 0;
+    self.debugLabel.font = [UIFont monospacedSystemFontOfSize:9 weight:UIFontWeightRegular];
+    self.debugLabel.textColor = [UIColor greenColor];
+    self.debugLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.75];
+    self.debugLabel.userInteractionEnabled = NO;
+    self.debugLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
+    [self.rootWindow addSubview:self.debugLabel];
+    [self refreshDebugOverlay];
+    __weak SCPSplitWindow *weakSelf = self;
+    self.logObserver = [[NSNotificationCenter defaultCenter] addObserverForName:SCPLogLineNotification object:nil
+        queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *n) { [weakSelf refreshDebugOverlay]; }];
+}
+
+- (void)refreshDebugOverlay
+{
+    if (!self.debugLabel) return;
+    NSArray *lines = SCPRecentLogLines();
+    NSUInteger n = MIN((NSUInteger)10, lines.count);
+    self.debugLabel.text = [[lines subarrayWithRange:NSMakeRange(lines.count - n, n)] componentsJoinedByString:@"
+"];
+    [self.rootWindow bringSubviewToFront:self.debugLabel];
 }
 
 - (CGRect)frameForSlot:(SCPSlot)slot
@@ -380,6 +413,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     }
 
     objc_setAssociatedObject(app, kSCPKey_splitWindow, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (self.logObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.logObserver];
     UIWindow *w = self.rootWindow;
     [UIView animateWithDuration:0.3 animations:^{ w.alpha = 0; } completion:^(BOOL done) {
         w.hidden = YES;
