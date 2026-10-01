@@ -23,6 +23,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) SCPAppPane *leftPane;
 @property (nonatomic, strong) SCPAppPane *rightPane;
 @property (nonatomic) BOOL onMainScreen;
+@property (nonatomic) CGFloat ratio;                 // ti le be rong ngan trai (keo thanh phan cach de doi)
 
 + (instancetype)current;                 // cua so dang mo (nil neu chua)
 + (instancetype)currentOrCreate;         // tao neu chua co (can CarPlay dang ket noi)
@@ -33,4 +34,14 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)swapPanes;
 - (void)dismiss;
 - (NSArray<SCPAppPane *> *)panes;
+
+// Bang chon app (luoi icon moi app trong may). slot = Left -> chon xong tu hoi tiep cho Right.
+- (void)showAppPickerForSlot:(SCPSlot)slot;
+- (void)hideAppPicker;
+@end
+
+// Nut "chia man hinh" noi tren man CarPlay (cua so nho rieng, luon hien khi xe ket noi)
+@interface SCPLauncherButton : NSObject
++ (void)showOnCarDisplay;
++ (void)hide;
 @end

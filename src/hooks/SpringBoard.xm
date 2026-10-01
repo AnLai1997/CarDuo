@@ -74,8 +74,15 @@ static void SCPOpenConfiguredPair(BOOL onMainScreen)
         SCPLog("CarPlay connected=%d", connected);
         SCPSplitWindow *w = [SCPSplitWindow current];
         if (!connected) {
+            [SCPLauncherButton hide];
             if (w && !w.onMainScreen) { SCPLog("CarPlay ngat -> dismiss"); [w dismiss]; }
             return;
+        }
+        // Nut "chia man hinh" tren man xe, hien sau khi dashboard CarPlay len
+        if ([SCPPrefs enabled]) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                if (SCPGetCarPlayCADisplay()) [SCPLauncherButton showOnCarDisplay];
+            });
         }
         if ([SCPPrefs enabled] && [SCPPrefs autoLaunch] && !w) {
             // cho dashboard CarPlay len xong roi moi phu cua so split

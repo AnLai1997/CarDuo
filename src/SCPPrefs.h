@@ -16,4 +16,7 @@
 + (BOOL)testOnMainScreen;
 + (BOOL)showDebug;             // hien log tren cua so split
 + (void)setTestOnMainScreen:(BOOL)v;
++ (void)setSplitRatio:(CGFloat)r;
++ (void)setLeftApp:(NSString *)bid;
++ (void)setRightApp:(NSString *)bid;
 @end
