@@ -17,6 +17,15 @@
     }
 }
 
+// Cell co key "height" trong Root.plist (khung xem truoc)
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    PSSpecifier *sp = [self specifierAtIndexPath:indexPath];
+    id h = [sp propertyForKey:@"height"];
+    if (h) return [h floatValue];
+    return [super tableView:tableView heightForRowAtIndexPath:indexPath];
+}
+
 - (NSArray *)specifiers
 {
     if (!_specifiers) {

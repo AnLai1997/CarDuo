@@ -5,9 +5,9 @@ THEOS_PACKAGE_SCHEME = rootless
 include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = SplitCarPlayPrefs
-SplitCarPlayPrefs_FILES = SCPRootListController.m
+SplitCarPlayPrefs_FILES = SCPRootListController.m SCPPreviewCell.m
 SplitCarPlayPrefs_INSTALL_PATH = /Library/PreferenceBundles
-SplitCarPlayPrefs_FRAMEWORKS = UIKit
+SplitCarPlayPrefs_FRAMEWORKS = UIKit CoreFoundation
 SplitCarPlayPrefs_PRIVATE_FRAMEWORKS = Preferences
 SplitCarPlayPrefs_CFLAGS = -fobjc-arc
 

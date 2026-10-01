@@ -9,6 +9,18 @@
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>XEM TRƯỚC BỐ CỤC TRÊN MÀN XE</string>
+			<key>footerText</key><string>Mô phỏng màn CarPlay 800x480. Thay đổi bên dưới sẽ cập nhật ngay.</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTableCell</string>
+			<key>cellClass</key><string>SCPPreviewCell</string>
+			<key>height</key><integer>230</integer>
+			<key>id</key><string>preview</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CHUNG</string>
 			<key>footerText</key><string>Trên màn CarPlay: giữ icon app 1 giây để mở app đó vào một ngăn. Lần đầu vào ngăn trái, lần sau vào ngăn phải.</string>
 		</dict>
@@ -110,17 +122,17 @@
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>THỬ NGHIỆM (KHÔNG CẦN XE)</string>
-			<key>footerText</key><string>Mở cửa sổ chia đôi ngay trên màn iPhone với 2 app ở trên để kiểm tra cơ chế. Log ghi tại /var/mobile/Documents/SplitCarPlay.log (xem bằng Filza).</string>
+			<key>label</key><string>GỠ LỖI (DÀNH CHO DEV)</string>
+			<key>footerText</key><string>Chỉ để kiểm tra cơ chế host app khi chưa có xe: mở cửa sổ chia đôi tạm trên màn iPhone. Trên xe, tweak tự dùng màn CarPlay. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
-			<key>label</key><string>Mở split test ngay</string>
+			<key>label</key><string>Mở split thử trên màn iPhone</string>
 			<key>action</key><string>runTest</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
-			<key>label</key><string>Đóng split</string>
+			<key>label</key><string>Đóng split thử</string>
 			<key>action</key><string>closeSplit</string>
 		</dict>
 		<dict>
@@ -138,7 +150,7 @@
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Tự mở test sau respring</string>
+			<key>label</key><string>Tự mở split thử sau respring</string>
 			<key>defaults</key><string>com.anpham.splitcarplay</string>
 			<key>key</key><string>TestOnMainScreen</string>
 			<key>default</key><false/>
