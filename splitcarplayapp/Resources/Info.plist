@@ -45,8 +45,6 @@
 	<array>
 		<integer>1</integer>
 	</array>
-	<key>UILaunchStoryboardName</key>
-	<string></string>
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>UISupportedInterfaceOrientations</key>
