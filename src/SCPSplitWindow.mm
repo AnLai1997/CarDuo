@@ -180,8 +180,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     if (!self.debugLabel) return;
     NSArray *lines = SCPRecentLogLines();
     NSUInteger n = MIN((NSUInteger)10, lines.count);
-    self.debugLabel.text = [[lines subarrayWithRange:NSMakeRange(lines.count - n, n)] componentsJoinedByString:@"
-"];
+    self.debugLabel.text = [[lines subarrayWithRange:NSMakeRange(lines.count - n, n)] componentsJoinedByString:@"\n"];
     [self.rootWindow bringSubviewToFront:self.debugLabel];
 }
 
