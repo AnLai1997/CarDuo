@@ -124,10 +124,8 @@ static void dumpWindows(NSString *reason) {
 //  RESIZE hooks - "HostView" duoc map sang class that trong %ctor
 // ---------------------------------------------------------------------
 // Ten "HostView" la ten ao, duoc map sang class that trong %ctor.
-// Khai bao interface de Logos biet self la UIView.
-@interface HostView : UIView
-@end
-
+// Bao ca group trong #if de khi ENABLE_RESIZE=0 khong bi loi "unused function" (-Werror).
+#if ENABLE_RESIZE
 %group Resize
 
 %hook HostView
@@ -146,6 +144,7 @@ static void dumpWindows(NSString *reason) {
 %end
 
 %end // Resize
+#endif
 
 // ---------------------------------------------------------------------
 %ctor {
