@@ -132,7 +132,9 @@ static void dumpWindows(NSString *reason) {
 
 %hook HostView
 - (void)setFrame:(CGRect)frame {
-    UIView *parent = self.superview;
+    // self la `id` vi class duoc map luc runtime -> ep kieu
+    UIView *me = (UIView *)self;
+    UIView *parent = me.superview;
     CGRect bounds = parent ? parent.bounds : frame;
     if (!CGRectIsEmpty(bounds)) {
         frame.origin.x   = 0;
