@@ -16,6 +16,9 @@ jobs:
       - name: Build .deb
         run: make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 
+      - name: List .deb contents
+        run: for f in packages/*.deb; do echo "== $f"; dpkg-deb -c "$f"; done
+
       - uses: actions/upload-artifact@v4
         with:
           name: SplitCarPlay-deb

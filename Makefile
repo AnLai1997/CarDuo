@@ -17,3 +17,9 @@ include $(THEOS_MAKE_PATH)/tweak.mk
 
 SUBPROJECTS += splitcarplayprefs
 include $(THEOS_MAKE_PATH)/aggregate.mk
+
+# entry.plist cho PreferenceLoader -> /var/jb/Library/PreferenceLoader/Preferences/
+after-stage::
+	mkdir -p "$(THEOS_STAGING_DIR)$(THEOS_PACKAGE_INSTALL_PREFIX)/Library/PreferenceLoader/Preferences"
+	cp splitcarplayprefs/entry.plist "$(THEOS_STAGING_DIR)$(THEOS_PACKAGE_INSTALL_PREFIX)/Library/PreferenceLoader/Preferences/SplitCarPlayPrefs.plist"
+	find "$(THEOS_STAGING_DIR)" -type f | sort
