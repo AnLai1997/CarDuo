@@ -1,0 +1,22 @@
+name: Build SplitCarPlay (rootless)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Theos + iOS SDKs
+        uses: Randomblock1/theos-action@v1
+
+      - name: Build .deb
+        run: make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SplitCarPlay-deb
+          path: packages/*.deb
