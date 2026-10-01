@@ -9,8 +9,8 @@ INSTALL_TARGET_PROCESSES = CarPlay SpringBoard
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = SplitCarPlay
-SplitCarPlay_FILES = Tweak.x
-SplitCarPlay_CFLAGS = -fobjc-arc
+SplitCarPlay_FILES = $(wildcard src/hooks/*.xm) $(wildcard src/*.mm)
+SplitCarPlay_CFLAGS = -fobjc-arc -Isrc
 SplitCarPlay_FRAMEWORKS = UIKit QuartzCore
 
 include $(THEOS_MAKE_PATH)/tweak.mk

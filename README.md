@@ -2,23 +2,38 @@
 
 Tweak cá nhân: chia màn hình CarPlay thành 2 app chạy song song.
 
-## Kiến trúc CarPlay trên iOS 16 (tóm tắt)
-- Giao diện CarPlay chạy trong process **`CarPlay`** (bundle `com.apple.CarPlayApp`,
-  `/System/Library/CoreServices/CarPlay.app`), KHÔNG phải SpringBoard.
-- Process này link các private framework: `CarPlayUIServices` (prefix `CAR`),
-  `CarPlaySupport`, `CarKit`, `FrontBoard`. App bên thứ 3 không vẽ trực tiếp,
-  mà được "host" vào một view của process CarPlay (thường tên có chữ `Host`).
-- Muốn chia đôi: (1) co view host của app đang chạy xuống nửa trái,
-  (2) tạo thêm host view cho app thứ 2 ở nửa phải, (3) cập nhật
-  `FBSSceneSettings.frame` để app tự layout đúng kích thước mới chứ không bị cắt.
+## Kiến trúc (đã xác minh qua mã nguồn carplay-cast, iOS 14+)
+Tham khảo `ref/carplay-cast/` (Ethan Arbuckle, github.com/EthanArbuckle/carplay-cast).
+Cách CarBridge/carplay-cast đưa app thường lên CarPlay:
 
-## Lộ trình
-1. **Recon** (code hiện tại, `ENABLE_RESIZE 0`): cài deb, cắm xe/giả lập CarPlay,
-   đọc log `[SplitCP]` để lấy tên class host thật + cây view.
-2. **Resize**: điền `HOST_VIEW_CLASS`, bật `ENABLE_RESIZE 1`, xác nhận app bị ép nửa trái.
-3. **Scene thứ 2**: tìm cách CarPlay tạo scene cho app (hook class quản lý scene
-   tìm được ở bước 1), gọi lại cho app thứ 2 với frame nửa phải.
-4. **Đúng kích thước**: cập nhật scene settings frame thay vì chỉ co view.
+1. **CarPlay process** (`com.apple.CarPlayApp`): hook `CARApplication +_newApplicationLibrary`
+   để icon app thường xuất hiện; hook `CARApplicationLaunchInfo +launchInfoForApplication:...`
+   để khi bấm icon thì gửi `NSDistributedNotification` sang SpringBoard thay vì launch kiểu CarPlay.
+   Đóng app CarPlay native đang chạy bằng `CARDashboard handleEvent:` (CAREvent type 1 = Home).
+2. **SpringBoard** (`CRCarplayWindow`): lấy `CADisplay` của xe qua
+   `AVExternalDevice currentCarPlayExternalDevice` -> `screenIDs`, tạo `FBSDisplayConfiguration`
+   -> `UIRootSceneWindow initWithDisplayConfiguration:` = cửa sổ nằm trên màn xe.
+   Tạo scene cho app: `SBSceneManagerCoordinator mainDisplaySceneManager`
+   -> `_sceneIdentityForApplication:createPrimaryIfRequired:` -> `SBApplicationSceneHandleRequest`
+   -> `fetchOrCreateApplicationSceneHandleForRequest:` -> `SBDeviceApplicationSceneEntity`
+   -> `SBAppViewController initWithIdentifier:andApplicationSceneEntity:`. View của nó
+   add vào cửa sổ, scale bằng `CGAffineTransformMakeScale` cho vừa khung.
+   Giữ app sống khi khoá máy: hook `SBSuspendedUnderLockManager`, `FBScene updateSettings:...`,
+   `BKSDisplayServicesSetScreenBlanked`.
+3. **App process** (UIKit): nhận notification xoay màn hình, ép `UIWindow _setRotatableViewOrientation:...`.
+
+### Thiết kế SplitCarPlay
+Cửa sổ SpringBoard trên màn xe chia làm 2 ngăn (trái/phải), mỗi ngăn host một
+`SBAppViewController` riêng, scale theo kích thước ngăn. App chạy ở hướng dọc (portrait)
+vì ngăn nửa màn 800x480 ~ 380x480 gần với tỉ lệ dọc của iPhone.
+Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái, lần 2 vào ngăn phải.
+
+### Lộ trình
+1. Class-dump SpringBoard + CarPlay 16.5 (từ IPSW, tool `ipsw` + 7-Zip) để xác nhận các
+   selector trên còn đúng ở iOS 16.5 (carplay-cast viết cho iOS 14).
+2. Port phần host app của carplay-cast sang ARC + rootless, 1 ngăn, chạy được trên 16.5.
+3. Mở rộng thành 2 ngăn.
+4. Giao diện chọn app, lưu cặp app mặc định.
 
 ## Build (không cần Theos trên Windows)
 - Push repo lên GitHub -> Actions tự build, tải `SplitCarPlay-deb` ở tab Artifacts.
