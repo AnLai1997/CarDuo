@@ -12,14 +12,19 @@ static NSUserDefaults *defaults(void)
 
 static id value(NSString *key)
 {
-    // synchronize de lay gia tri moi nhat tu cfprefsd
     [defaults() synchronize];
     return [defaults() objectForKey:key];
 }
 
+static NSString *str(NSString *key)
+{
+    id v = value(key);
+    return ([v isKindOfClass:[NSString class]] && [v length]) ? v : nil;
+}
+
 + (BOOL)enabled            { id v = value(@"Enabled");          return v ? [v boolValue] : YES; }
-+ (NSString *)leftApp      { id v = value(@"LeftApp");          return [v isKindOfClass:[NSString class]] && [v length] ? v : nil; }
-+ (NSString *)rightApp     { id v = value(@"RightApp");         return [v isKindOfClass:[NSString class]] && [v length] ? v : nil; }
++ (NSString *)leftApp      { return str(@"LeftApp"); }
++ (NSString *)rightApp     { return str(@"RightApp"); }
 + (BOOL)autoLaunch         { id v = value(@"AutoLaunch");       return v ? [v boolValue] : NO; }
 + (NSInteger)dockSide      { id v = value(@"DockSide");         return v ? [v integerValue] : 0; }
 + (NSInteger)paneOrientation {
@@ -30,11 +35,65 @@ static id value(NSString *key)
 + (CGFloat)splitRatio {
     id v = value(@"SplitRatio");
     CGFloat r = v ? [v doubleValue] : 0.5;
-    return MIN(0.7, MAX(0.3, r));
+    return MIN(0.8, MAX(0.2, r));
 }
 + (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
 + (BOOL)showDebug          { id v = value(@"ShowDebug");        return v ? [v boolValue] : YES; }
 + (NSInteger)scaleMode     { id v = value(@"ScaleMode");        return v ? [v integerValue] : 1; }
++ (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
++ (BOOL)widgetPane         { id v = value(@"WidgetPane");       return v ? [v boolValue] : NO; }
++ (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
++ (BOOL)autoSplitOnIcon    { id v = value(@"AutoSplitOnIcon");  return v ? [v boolValue] : NO; }
+
++ (NSDictionary *)favorite:(NSInteger)index
+{
+    NSString *left = str([NSString stringWithFormat:@"Fav%ldLeft", (long)index]);
+    NSString *right = str([NSString stringWithFormat:@"Fav%ldRight", (long)index]);
+    if (!left && !right) return nil;
+    NSString *name = str([NSString stringWithFormat:@"Fav%ldName", (long)index]) ?: [NSString stringWithFormat:@"Cặp %ld", (long)index];
+    NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:name forKey:@"name"];
+    if (left) d[@"left"] = left;
+    if (right) d[@"right"] = right;
+    return d;
+}
+
+static NSString *pairKey(NSString *left, NSString *right)
+{
+    return [NSString stringWithFormat:@"%@|%@", left ?: @"-", right ?: @"-"];
+}
+
++ (CGFloat)ratioForPairLeft:(NSString *)left right:(NSString *)right
+{
+    NSDictionary *d = value(@"PairRatios");
+    if (![d isKindOfClass:[NSDictionary class]]) return 0;
+    id v = d[pairKey(left, right)];
+    return v ? [v doubleValue] : 0;
+}
+
++ (void)setRatio:(CGFloat)ratio forPairLeft:(NSString *)left right:(NSString *)right
+{
+    NSDictionary *old = value(@"PairRatios");
+    NSMutableDictionary *d = [old isKindOfClass:[NSDictionary class]] ? [old mutableCopy] : [NSMutableDictionary dictionary];
+    d[pairKey(left, right)] = @(ratio);
+    [defaults() setObject:d forKey:@"PairRatios"];
+    [defaults() synchronize];
+}
+
++ (NSDictionary *)takePendingRequest
+{
+    NSString *action = str(@"PendingAction");
+    if (!action) return nil;
+    NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:action forKey:@"action"];
+    NSString *l = str(@"PendingLeft"), *r = str(@"PendingRight");
+    if (l) d[@"left"] = l;
+    if (r) d[@"right"] = r;
+    [defaults() removeObjectForKey:@"PendingAction"];
+    [defaults() removeObjectForKey:@"PendingLeft"];
+    [defaults() removeObjectForKey:@"PendingRight"];
+    [defaults() synchronize];
+    return d;
+}
+
 + (void)setTestOnMainScreen:(BOOL)v { [defaults() setBool:v forKey:@"TestOnMainScreen"]; [defaults() synchronize]; }
 + (void)setSplitRatio:(CGFloat)r     { [defaults() setDouble:r forKey:@"SplitRatio"]; [defaults() synchronize]; }
 + (void)setLeftApp:(NSString *)bid   { [defaults() setObject:bid forKey:@"LeftApp"];  [defaults() synchronize]; }

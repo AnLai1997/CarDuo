@@ -2,25 +2,28 @@
 #import "../SCPPrefs.h"
 
 // Inject vao process CarPlay (com.apple.CarPlayApp)
-// Long-press icon tren dashboard -> gui yeu cau mo app vao mot ngan sang SpringBoard.
+// - Long-press icon tren dashboard -> mo app do vao mot ngan (SpringBoard host).
+// - Bat "Tu chia theo app": bam icon binh thuong -> mo app vao ngan PHAI, ngan trai giu app mac dinh (vd Maps).
 // iOS 16: code cua app CarPlay nam trong DashBoard.framework, prefix DB (DBDashboard, DBIconView, DBEvent).
 %group CARPLAY
 
-static void SCPRequestLaunch(NSString *bundleID)
+static void SCPCloseNativeApp(void)
 {
-    if (!bundleID) return;
-    SCPLog("long-press %@ -> yeu cau split", bundleID);
-
-    // Dong app CarPlay native dang chay (cua so split cua SpringBoard se phu len dashboard)
     id dashboard = objcInvoke([UIApplication sharedApplication], @"_currentDashboard");
     NSDictionary *fg = objcInvoke(dashboard, @"identifierToForegroundAppScenesMap");
     if (fg.count > 0) {
         id homeEvent = objcInvoke_2(objc_getClass("DBEvent"), @"eventWithType:context:", (unsigned long long)1, @"SplitCarPlay close app");
         if (homeEvent) objcInvoke_1(dashboard, @"handleEvent:", homeEvent);
     }
+}
 
+static void SCPRequestLaunch(NSString *bundleID, int slot)
+{
+    if (!bundleID) return;
+    SCPLog("yeu cau split: %@ slot=%d", bundleID, slot);
+    SCPCloseNativeApp();   // cua so split cua SpringBoard se phu len dashboard
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-        postNotificationName:SCP_NOTIF_LAUNCH object:nil userInfo:@{@"identifier": bundleID}];
+        postNotificationName:SCP_NOTIF_LAUNCH object:nil userInfo:@{@"identifier": bundleID, @"slot": @(slot)}];
 }
 
 %hook DBIconView
@@ -32,7 +35,7 @@ static void SCPRequestLaunch(NSString *bundleID)
     if (![SCPPrefs enabled]) return;
     id icon = objcInvoke(self, @"icon");
     NSString *bid = objcInvoke(icon, @"applicationBundleID");
-    SCPRequestLaunch(bid);
+    SCPRequestLaunch(bid, -1);
 }
 
 - (id)initWithConfigurationOptions:(unsigned long long)opts listLayoutProvider:(id)provider
@@ -43,6 +46,25 @@ static void SCPRequestLaunch(NSString *bundleID)
     lp.minimumPressDuration = 1.0;
     [v addGestureRecognizer:lp];
     return v;
+}
+
+%end
+
+// Bam icon tren dashboard (launch binh thuong) -> neu bat AutoSplitOnIcon thi chan va mo vao ngan phai
+%hook DBApplicationLaunchInfo
+
++ (id)launchInfoForApplication:(id)application withActivationSettings:(id)settings
+{
+    if ([SCPPrefs enabled] && [SCPPrefs autoSplitOnIcon]) {
+        NSString *bid = objcInvoke(application, @"bundleIdentifier");
+        NSString *leftDefault = [SCPPrefs leftApp];
+        if (bid && ![bid isEqualToString:leftDefault]) {
+            SCPLog("auto split: %@ -> ngan phai", bid);
+            SCPRequestLaunch(bid, 1);
+            return nil;
+        }
+    }
+    return %orig;
 }
 
 %end

@@ -2,8 +2,8 @@
 
 typedef NS_ENUM(int, SCPSlot) {
     SCPSlotAuto  = -1,
-    SCPSlotLeft  = 0,
-    SCPSlotRight = 1,
+    SCPSlotLeft  = 0,    // trai (hoac tren khi chia tren/duoi)
+    SCPSlotRight = 1,    // phai (hoac duoi)
 };
 
 // Mot ngan chua mot app (port tu CRCarplayWindow cua carplay-cast, rut gon)
@@ -15,6 +15,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) id sceneMonitor;       // FBSceneMonitor
 @property (nonatomic) int orientation;               // UIInterfaceOrientation, mac dinh portrait
 @property (nonatomic, strong) UIButton *expandButton; // nut phong to / thu nho o goc ngan
+@property (nonatomic, strong) UIView *pipHandle;      // thanh keo khi dang PiP
 @end
 
 // Cua so SpringBoard nam tren man hinh xe, chia 2 ngan
@@ -24,23 +25,30 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) SCPAppPane *leftPane;
 @property (nonatomic, strong) SCPAppPane *rightPane;
 @property (nonatomic) BOOL onMainScreen;
-@property (nonatomic) CGFloat ratio;                 // ti le be rong ngan trai (keo thanh phan cach de doi)
+@property (nonatomic) CGFloat ratio;                 // ti le ngan trai (keo thanh phan cach de doi)
 @property (nonatomic) SCPSlot fullscreenSlot;         // SCPSlotAuto = khong fullscreen
+@property (nonatomic) SCPSlot pipSlot;                // ngan dang thu nho thanh PiP, SCPSlotAuto = khong
+@property (nonatomic) BOOL widgetMode;                // ngan phai = widget Now Playing
 
 + (instancetype)current;                 // cua so dang mo (nil neu chua)
 + (instancetype)currentOrCreate;         // tao neu chua co (can CarPlay dang ket noi)
 + (instancetype)currentOrCreateOnMainScreen:(BOOL)mainScreen;   // mainScreen=YES: test ngay tren man iPhone
 
 - (void)launchApp:(NSString *)bundleID inSlot:(SCPSlot)slot;
+- (void)launchPairLeft:(NSString *)left right:(NSString *)right;   // mo 2 app + ap ti le rieng cua cap
+- (void)applyFavorite:(NSInteger)index;                             // cap yeu thich 1..3
 - (void)closeSlot:(SCPSlot)slot;
 - (void)swapPanes;
 - (void)dismiss;
 - (void)applyPresetRatio:(CGFloat)ratio;     // bo cuc dat san: 0.5, 0.7, 0.3
 - (void)cycleLayoutPreset;                   // 50/50 -> 70/30 -> 30/70 -> 50/50
 - (void)toggleFullscreenForSlot:(SCPSlot)slot;   // fullscreen tam mot ngan, bam lai de ve split
+- (void)togglePiPForSlot:(SCPSlot)slot;          // thu ngan thanh o noi nho, bam lai de ve split
+- (void)setWidgetModeEnabled:(BOOL)on;           // ngan phai thanh widget Now Playing
 - (NSArray<SCPAppPane *> *)panes;
 
 // Bang chon app (luoi icon moi app trong may). slot = Left -> chon xong tu hoi tiep cho Right.
+// Giu icon roi keo tha vao nua trai/phai cua bang de chon ngan truc tiep.
 - (void)showAppPickerForSlot:(SCPSlot)slot;
 - (void)hideAppPicker;
 @end

@@ -15,7 +15,7 @@ SplitCarPlay_FRAMEWORKS = UIKit QuartzCore
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
-SUBPROJECTS += splitcarplayprefs
+SUBPROJECTS += splitcarplayprefs splitcarplayapp
 include $(THEOS_MAKE_PATH)/aggregate.mk
 
 # entry.plist cho PreferenceLoader -> /var/jb/Library/PreferenceLoader/Preferences/

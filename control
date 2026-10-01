@@ -1,6 +1,6 @@
 Package: com.anpham.splitcarplay
 Name: SplitCarPlay
-Version: 0.1.0
+Version: 0.2.0
 Architecture: iphoneos-arm64
 Description: Split CarPlay screen - personal build (Dopamine rootless, iOS 16.5)
 Author: An <embteam@vn.innova.com>
