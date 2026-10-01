@@ -1,5 +1,10 @@
 #import "../common.h"
 #import "../SCPSplitWindow.h"
+#import <notify.h>
+
+#define SCP_PREFS_PATH @"/var/jb/var/mobile/Library/Preferences/com.anpham.splitcarplay.plist"
+#define SCP_DARWIN_TEST  "com.anpham.splitcarplay.test"   // notifyutil -p com.anpham.splitcarplay.test
+#define SCP_DARWIN_CLOSE "com.anpham.splitcarplay.close"
 
 // Inject vao SpringBoard: nhan yeu cau tu CarPlay process, giu app song khi khoa may
 %group SPRINGBOARD
@@ -26,12 +31,38 @@
         }
     }];
 
+    // ----- CHE DO TEST tren man iPhone (khong can xe) -----
+    // File prefs: TestLeft / TestRight = bundle id; TestOnMainScreen = YES de tu mo sau 10s khi respring.
+    // Hoac goi bat cu luc nao: notifyutil -p com.anpham.splitcarplay.test
+    void (^runTest)(void) = ^{
+        NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:SCP_PREFS_PATH];
+        NSString *left = prefs[@"TestLeft"], *right = prefs[@"TestRight"];
+        SCPLog("TEST tren man chinh: left=%@ right=%@", left, right);
+        @try {
+            SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:YES];
+            if (left)  [w launchApp:left  inSlot:SCPSlotLeft];
+            if (right) [w launchApp:right inSlot:SCPSlotRight];
+        } @catch (NSException *e) {
+            SCPLog("TEST that bai: %@
+%@", e, e.callStackSymbols);
+        }
+    };
+    int tok = 0, tokClose = 0;
+    notify_register_dispatch(SCP_DARWIN_TEST, &tok, dispatch_get_main_queue(), ^(int t) { runTest(); });
+    notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) {
+        [[SCPSplitWindow current] dismiss];
+    });
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:SCP_PREFS_PATH];
+    if ([prefs[@"TestOnMainScreen"] boolValue]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), runTest);
+    }
+
     // Xe ngat ket noi -> dong cua so
     [[NSNotificationCenter defaultCenter] addObserverForName:@"CarPlayIsConnectedDidChange" object:nil
                                                        queue:[NSOperationQueue mainQueue]
                                                   usingBlock:^(NSNotification *note) {
         SCPSplitWindow *w = [SCPSplitWindow current];
-        if (w && !SCPGetCarPlayCADisplay()) { SCPLog("CarPlay ngat -> dismiss"); [w dismiss]; }
+        if (w && !w.onMainScreen && !SCPGetCarPlayCADisplay()) { SCPLog("CarPlay ngat -> dismiss"); [w dismiss]; }
     }];
 }
 

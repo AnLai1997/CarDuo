@@ -50,6 +50,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 @interface SCPSplitWindow ()
 @property (nonatomic, strong) UIButton *homeButton;
 @property (nonatomic, strong) UIButton *swapButton;
+- (instancetype)initOnMainScreen:(BOOL)mainScreen;
 @end
 
 @implementation SCPSplitWindow
@@ -61,29 +62,46 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
 + (instancetype)currentOrCreate
 {
+    return [self currentOrCreateOnMainScreen:NO];
+}
+
++ (instancetype)currentOrCreateOnMainScreen:(BOOL)mainScreen
+{
     SCPSplitWindow *w = [self current];
     if (w) return w;
-    w = [[SCPSplitWindow alloc] init];
+    w = [[SCPSplitWindow alloc] initOnMainScreen:mainScreen];
     if (w) objc_setAssociatedObject([UIApplication sharedApplication], kSCPKey_splitWindow, w, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return w;
 }
 
-- (instancetype)init
+- (instancetype)initOnMainScreen:(BOOL)mainScreen
 {
     if (!(self = [super init])) return nil;
+    self.onMainScreen = mainScreen;
 
-    id carDisplay = SCPGetCarPlayCADisplay();
-    if (!carDisplay) { SCPLog("khong tim thay CADisplay cua CarPlay"); return nil; }
+    if (mainScreen) {
+        // CHE DO TEST: cua so tren man iPhone, xoay ngang de giong man xe
+        self.rootWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+        self.rootWindow.windowLevel = UIWindowLevelStatusBar + 50;
+        ((void (*)(id, SEL, long long, BOOL, double, BOOL))objc_msgSend)(self.rootWindow,
+            NSSelectorFromString(@"_rotateWindowToOrientation:updateStatusBar:duration:skipCallbacks:"),
+            (long long)UIInterfaceOrientationLandscapeRight, YES, 0.0, NO);
+        SCPLog("TEST window tren man chinh, frame=%@ bounds=%@",
+               NSStringFromCGRect(self.rootWindow.frame), NSStringFromCGRect(self.rootWindow.bounds));
+    } else {
+        id carDisplay = SCPGetCarPlayCADisplay();
+        if (!carDisplay) { SCPLog("khong tim thay CADisplay cua CarPlay"); return nil; }
 
-    id displayConfig = objcInvoke_2([objc_getClass("FBSDisplayConfiguration") alloc],
-                                    @"initWithCADisplay:isMainDisplay:", carDisplay, 0);
-    expectClass(displayConfig, "FBSDisplayConfiguration");
+        id displayConfig = objcInvoke_2([objc_getClass("FBSDisplayConfiguration") alloc],
+                                        @"initWithCADisplay:isMainDisplay:", carDisplay, 0);
+        expectClass(displayConfig, "FBSDisplayConfiguration");
 
-    // Cua so nam tren man hinh xe
-    self.rootWindow = objcInvoke_1([objc_getClass("UIRootSceneWindow") alloc],
-                                   @"initWithDisplayConfiguration:", displayConfig);
-    expectClass(self.rootWindow, "UIRootSceneWindow");
-    SCPLog("root window frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
+        // Cua so nam tren man hinh xe
+        self.rootWindow = objcInvoke_1([objc_getClass("UIRootSceneWindow") alloc],
+                                       @"initWithDisplayConfiguration:", displayConfig);
+        expectClass(self.rootWindow, "UIRootSceneWindow");
+        SCPLog("root window frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
+    }
 
     self.rootWindow.backgroundColor = [UIColor blackColor];
     [self setupDock];

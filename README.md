@@ -57,6 +57,23 @@ Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái,
 - Push repo lên GitHub -> Actions tự build, tải `SplitCarPlay-deb` ở tab Artifacts.
 - Hoặc cài WSL Ubuntu + Theos: `make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless`.
 
+## Test ngay trên màn iPhone (chưa có xe)
+Tạo file prefs qua SSH (đổi bundle id tuỳ ý, nên dùng app bên thứ ba):
+```
+cat > /var/jb/var/mobile/Library/Preferences/com.anpham.splitcarplay.plist <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>TestLeft</key><string>com.google.ios.youtube</string>
+  <key>TestRight</key><string>com.apple.mobilesafari</string>
+  <key>TestOnMainScreen</key><true/>
+</dict></plist>
+PLIST
+```
+- Respring: sau 10 giây cửa sổ chia đôi hiện trên màn iPhone (xoay ngang).
+- Hoặc không cần respring: `notifyutil -p com.anpham.splitcarplay.test` (package `notifyutil`/`darwintools`).
+- Đóng: bấm nút X trong dock trái, hoặc `notifyutil -p com.anpham.splitcarplay.close`.
+- Xoá key `TestOnMainScreen` khi không muốn tự mở nữa.
+
 ## Cài & xem log
 ```
 scp packages/*.deb mobile@<ip-iphone>:/var/jb/tmp/
