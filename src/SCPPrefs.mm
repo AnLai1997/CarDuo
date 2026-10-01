@@ -34,6 +34,7 @@ static id value(NSString *key)
 }
 + (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
 + (BOOL)showDebug          { id v = value(@"ShowDebug");        return v ? [v boolValue] : YES; }
++ (NSInteger)scaleMode     { id v = value(@"ScaleMode");        return v ? [v integerValue] : 1; }
 + (void)setTestOnMainScreen:(BOOL)v { [defaults() setBool:v forKey:@"TestOnMainScreen"]; [defaults() synchronize]; }
 + (void)setSplitRatio:(CGFloat)r     { [defaults() setDouble:r forKey:@"SplitRatio"]; [defaults() synchronize]; }
 + (void)setLeftApp:(NSString *)bid   { [defaults() setObject:bid forKey:@"LeftApp"];  [defaults() synchronize]; }

@@ -153,10 +153,15 @@ static UIImage *appIcon(NSString *bid)
     CGFloat ratio = prefValue(@"SplitRatio") ? [prefValue(@"SplitRatio") doubleValue] : 0.5;
     ratio = MIN(0.7, MAX(0.3, ratio));
 
-    // Man xe ti le 800x480, can giua
-    CGFloat W = self.bounds.size.width - 24, H = W * 480.0 / 800.0;
+    // Ti le man xe theo Settings (16:9 mac dinh), can giua
+    NSString *aspect = prefValue(@"ScreenAspect") ?: @"16:9";
+    CGFloat aw = 16, ah = 9;
+    if ([aspect isEqualToString:@"5:3"]) { aw = 5; ah = 3; }
+    else if ([aspect isEqualToString:@"8:3"]) { aw = 8; ah = 3; }
+    NSInteger scaleMode = prefValue(@"ScaleMode") ? [prefValue(@"ScaleMode") integerValue] : 1;
+    CGFloat W = self.bounds.size.width - 24, H = W * ah / aw;
     CGFloat maxH = self.bounds.size.height - 30;
-    if (H > maxH) { H = maxH; W = H * 800.0 / 480.0; }
+    if (H > maxH) { H = maxH; W = H * aw / ah; }
     CGFloat x = (self.bounds.size.width - W) / 2;
     _screenView.frame = CGRectMake(x, 4, W, H);
 
@@ -168,26 +173,28 @@ static UIImage *appIcon(NSString *bid)
     _leftPane.frame  = CGRectMake(x0, 0, leftW, H);
     _rightPane.frame = CGRectMake(x0 + leftW, 0, rightW, H);
 
-    [self layoutPane:_leftPane phone:_leftPhone icon:_leftIcon label:_leftLabel bid:left orientation:orient];
-    [self layoutPane:_rightPane phone:_rightPhone icon:_rightIcon label:_rightLabel bid:right orientation:orient];
+    [self layoutPane:_leftPane phone:_leftPhone icon:_leftIcon label:_leftLabel bid:left orientation:orient scaleMode:scaleMode];
+    [self layoutPane:_rightPane phone:_rightPhone icon:_rightIcon label:_rightLabel bid:right orientation:orient scaleMode:scaleMode];
 
     _infoLabel.frame = CGRectMake(0, CGRectGetMaxY(_screenView.frame) + 4, self.bounds.size.width, 18);
-    _infoLabel.text = [NSString stringWithFormat:@"Dock %@ · Ngăn trái %.0f%% · App %@",
-                       dockSide == 1 ? @"phải" : @"trái", ratio * 100, orient == 3 ? @"ngang" : @"dọc"];
+    NSString *modeName = scaleMode == 0 ? @"kéo giãn" : (scaleMode == 2 ? @"resize" : @"giữ tỉ lệ");
+    _infoLabel.text = [NSString stringWithFormat:@"Dock %@ · Trái %.0f%% · App %@ · %@",
+                       dockSide == 1 ? @"phải" : @"trái", ratio * 100, orient == 3 ? @"ngang" : @"dọc", modeName];
 }
 
 - (void)layoutPane:(UIView *)pane phone:(UIView *)phone icon:(UIImageView *)icon label:(UILabel *)label
-               bid:(NSString *)bid orientation:(NSInteger)orient
+               bid:(NSString *)bid orientation:(NSInteger)orient scaleMode:(NSInteger)scaleMode
 {
     CGSize p = pane.bounds.size;
-    // Khung "man hinh iPhone" scale vao ngan: doc 9:16, ngang 16:9, giong cach tweak ep app
+    // Khung "man hinh iPhone" trong ngan: keo gian / resize = full ngan; giu ti le = 9:16 (doc) hoac 16:9 (ngang) can giua
     CGFloat inset = 6;
     CGFloat pw = p.width - inset * 2, ph = p.height - inset * 2 - 14;
-    CGRect phoneRect;
-    if (orient == 3) { CGFloat h = MIN(ph, pw * 9.0 / 16.0); CGFloat w = h * 16.0 / 9.0; phoneRect = CGRectMake((p.width - w)/2, inset, w, h); }
-    else             { CGFloat w = MIN(pw, ph * 9.0 / 16.0); CGFloat h = w * 16.0 / 9.0; phoneRect = CGRectMake((p.width - w)/2, inset, w, h); }
-    // Tweak ep app bang scale khong deu cho day ngan -> ve khung full ngan, mo nhe
-    phone.frame = CGRectMake(inset, inset, pw, ph);
+    CGRect phoneRect = CGRectMake(inset, inset, pw, ph);
+    if (scaleMode == 1) {
+        if (orient == 3) { CGFloat h = MIN(ph, pw * 9.0 / 16.0); CGFloat w = h * 16.0 / 9.0; phoneRect = CGRectMake((p.width - w)/2, inset + (ph - h)/2, w, h); }
+        else             { CGFloat w = MIN(pw, ph * 9.0 / 16.0); CGFloat h = w * 16.0 / 9.0; phoneRect = CGRectMake((p.width - w)/2, inset + (ph - h)/2, w, h); }
+    }
+    phone.frame = phoneRect;
     phone.alpha = 1;
 
     CGFloat is = MIN(44, MIN(pw, ph) * 0.45);

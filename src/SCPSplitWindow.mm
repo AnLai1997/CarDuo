@@ -572,11 +572,35 @@ static UIImage *SCPAppIcon(NSString *bid)
 
     CGSize paneSize = pane.containerView.bounds.size;
     CGSize phoneSize = boundsForOrientation([UIScreen mainScreen], pane.orientation).size;
+    [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
+
+    NSInteger mode = [SCPPrefs scaleMode];
+    if (mode == 2) {
+        // THU NGHIEM: bao app scene co kich thuoc bang ngan -> app tu layout lai, khong meo
+        hostingContentView.transform = CGAffineTransformIdentity;
+        id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
+        if (scene) {
+            CGRect target = CGRectMake(0, 0, paneSize.width, paneSize.height);
+            objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
+                ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), target);
+            });
+            SCPLog("resize scene %@ -> %@", pane.bundleIdentifier, NSStringFromCGSize(paneSize));
+        }
+        return;
+    }
+
     CGFloat sx = paneSize.width / phoneSize.width;
     CGFloat sy = paneSize.height / phoneSize.height;
+    if (mode == 1) { CGFloat s = MIN(sx, sy); sx = sy = s; }   // giu ti le, phan thua de den
 
+    // Scale tu goc tren-trai roi can giua phan thua
+    hostingContentView.layer.anchorPoint = CGPointMake(0, 0);
+    hostingContentView.transform = CGAffineTransformIdentity;
+    hostingContentView.bounds = CGRectMake(0, 0, phoneSize.width, phoneSize.height);
+    CGFloat ox = (paneSize.width  - phoneSize.width  * sx) / 2;
+    CGFloat oy = (paneSize.height - phoneSize.height * sy) / 2;
+    hostingContentView.layer.position = CGPointMake(ox, oy);
     hostingContentView.transform = CGAffineTransformMakeScale(sx, sy);
-    [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
 }
 
 - (void)sceneMonitor:(id)monitor sceneWasDestroyed:(id)scene

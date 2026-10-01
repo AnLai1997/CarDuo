@@ -10,7 +10,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>XEM TRƯỚC BỐ CỤC TRÊN MÀN XE</string>
-			<key>footerText</key><string>Mô phỏng màn CarPlay 800x480. Thay đổi bên dưới sẽ cập nhật ngay.</string>
+			<key>footerText</key><string>Mô phỏng màn xe. Thay đổi bên dưới sẽ cập nhật ngay. Trên xe, tweak tự dùng độ phân giải thật của màn.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSTableCell</string>
@@ -101,6 +101,26 @@
 			<key>default</key><integer>1</integer>
 			<key>validValues</key><array><integer>1</integer><integer>3</integer></array>
 			<key>validTitles</key><array><string>Dọc (portrait)</string><string>Ngang (landscape)</string></array>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>label</key><string>Cách co giãn app</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>ScaleMode</string>
+			<key>default</key><integer>1</integer>
+			<key>validValues</key><array><integer>0</integer><integer>1</integer><integer>2</integer></array>
+			<key>validTitles</key><array><string>Kéo giãn</string><string>Giữ tỉ lệ</string><string>Resize (thử)</string></array>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>label</key><string>Tỉ lệ màn xe (chỉ cho xem trước)</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>ScreenAspect</string>
+			<key>default</key><string>16:9</string>
+			<key>validValues</key><array><string>16:9</string><string>5:3</string><string>8:3</string></array>
+			<key>validTitles</key><array><string>16:9</string><string>5:3 (800x480)</string><string>8:3 (siêu rộng)</string></array>
 			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
 		</dict>
 		<dict>

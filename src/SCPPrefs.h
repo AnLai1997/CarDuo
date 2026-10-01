@@ -15,6 +15,7 @@
 + (CGFloat)splitRatio;          // ti le be rong ngan trai (0.3 - 0.7)
 + (BOOL)testOnMainScreen;
 + (BOOL)showDebug;             // hien log tren cua so split
++ (NSInteger)scaleMode;        // 0 keo gian, 1 giu ti le (vien den), 2 resize scene (thu nghiem)
 + (void)setTestOnMainScreen:(BOOL)v;
 + (void)setSplitRatio:(CGFloat)r;
 + (void)setLeftApp:(NSString *)bid;
