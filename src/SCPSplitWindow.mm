@@ -85,7 +85,18 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     if (mainScreen) {
         // CHE DO TEST: cua so tren man iPhone, xoay ngang de giong man xe
         CGRect sb = [UIScreen mainScreen].bounds;
-        self.rootWindow = [[UIWindow alloc] initWithFrame:sb];
+        // iOS 13+: UIWindow trong SpringBoard phai gan vao UIWindowScene cua man chinh moi duoc ve
+        UIWindowScene *mainScene = nil;
+        for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
+            if ([sc isKindOfClass:[UIWindowScene class]] && ((UIWindowScene *)sc).screen == [UIScreen mainScreen]) {
+                mainScene = (UIWindowScene *)sc; break;
+            }
+        }
+        SCPLog("main UIWindowScene = %@ (connectedScenes=%lu)", mainScene,
+               (unsigned long)[UIApplication sharedApplication].connectedScenes.count);
+        if (mainScene) self.rootWindow = [[UIWindow alloc] initWithWindowScene:mainScene];
+        else           self.rootWindow = [[UIWindow alloc] initWithFrame:sb];
+        self.rootWindow.frame = sb;
         self.rootWindow.windowLevel = UIWindowLevelStatusBar + 50;
         // Xoay cua so sang ngang bang transform (bounds = kich thuoc ngang, moi subview dung bounds)
         if (sb.size.width < sb.size.height) {
@@ -109,7 +120,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
         SCPLog("root window frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
     }
 
-    self.rootWindow.backgroundColor = [UIColor blackColor];
+    self.rootWindow.backgroundColor = [UIColor colorWithRed:0.05 green:0.05 blue:0.2 alpha:1];   // xanh dam de phan biet voi "den"
     [self setupDock];
     [self setupDebugOverlay];
 
@@ -118,6 +129,10 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     // "unblank" de video/animation van render khi may dang khoa
     if (orig_BKSDisplayServicesSetScreenBlanked) orig_BKSDisplayServicesSetScreenBlanked(0);
     [UIView animateWithDuration:0.5 animations:^{ self.rootWindow.alpha = 1; }];
+    __weak SCPSplitWindow *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf logDiagnostics];
+    });
     return self;
 }
 
@@ -137,7 +152,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     CGRect f = self.rootWindow.bounds;
     CGFloat dockX = ([SCPPrefs dockSide] == 1) ? f.size.width - SCP_DOCK_WIDTH : 0;
     self.dockView = [[UIView alloc] initWithFrame:CGRectMake(dockX, 0, SCP_DOCK_WIDTH, f.size.height)];
-    self.dockView.backgroundColor = [UIColor colorWithWhite:0.1 alpha:1];
+    self.dockView.backgroundColor = [UIColor colorWithWhite:0.3 alpha:1];
     [self.rootWindow addSubview:self.dockView];
 
     id cfg = [UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightRegular];
@@ -156,6 +171,29 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     self.swapButton.frame = CGRectMake(x, 8, sz, sz);
     [self.swapButton addTarget:self action:@selector(swapPanes) forControlEvents:UIControlEventTouchUpInside];
     [self.dockView addSubview:self.swapButton];
+}
+
+// Chan doan: trang thai cua so + tung ngan (ghi vao log sau 3s)
+- (void)logDiagnostics
+{
+    UIWindow *w = self.rootWindow;
+    if (!w) return;
+    SCPLog("DIAG window hidden=%d alpha=%.2f level=%.0f scene=%@ screen=%@ superlayer=%@ key=%d",
+           w.hidden, w.alpha, w.windowLevel, w.windowScene, w.screen, w.layer.superlayer ? @"yes" : @"nil", w.isKeyWindow);
+    SCPLog("DIAG window frame=%@ bounds=%@ subviews=%lu", NSStringFromCGRect(w.frame), NSStringFromCGRect(w.bounds), (unsigned long)w.subviews.count);
+    for (SCPAppPane *p in self.panes) {
+        id appVC = p.appViewController;
+        id appView = objcInvoke(appVC, @"appView");
+        long long mode = objcInvokeT(appView, @"displayMode", long long);
+        id handle = objcInvoke(appVC, @"sceneHandle");
+        id scene  = objcInvoke(handle, @"sceneIfExists");
+        id settings = objcInvoke(scene, @"settings");
+        BOOL fg = settings ? objcInvokeT(settings, @"isForeground", BOOL) : NO;
+        UIView *v = [appVC view];
+        SCPLog("DIAG pane %@: container=%@ vcView=%@ hidden=%d appView=%@ displayMode=%lld scene=%@ foreground=%d",
+               p.bundleIdentifier, NSStringFromCGRect(p.containerView.frame), NSStringFromCGRect(v.frame), v.hidden,
+               appView ? NSStringFromClass([appView class]) : @"nil", mode, scene ? @"yes" : @"nil", fg);
+    }
 }
 
 // Overlay hien log o duoi cua so (bat/tat trong Settings: "Hien log tren cua so")
