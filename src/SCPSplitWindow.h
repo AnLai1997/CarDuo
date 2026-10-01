@@ -14,21 +14,25 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) id appViewController;  // SBAppViewController
 @property (nonatomic, strong) id sceneMonitor;       // FBSceneMonitor
 @property (nonatomic) int orientation;               // UIInterfaceOrientation, mac dinh portrait
-@property (nonatomic, strong) UIButton *expandButton; // nut phong to / thu nho o goc ngan
 @property (nonatomic, strong) UIView *pipHandle;      // thanh keo khi dang PiP
+// Option rieng cua ngan: dau "..." o giua mep tren, keo xuong de hien thanh nut (tu an sau vai giay)
+@property (nonatomic, strong) UIView *actionHandle;
+@property (nonatomic, strong) UIScrollView *actionBar;
+@property (nonatomic) BOOL actionsVisible;
+@property (nonatomic, strong) NSTimer *actionsHideTimer;
+@property (nonatomic, strong) UIButton *fullscreenButton, *pipButton;   // doi icon theo trang thai
+@property (nonatomic, strong) NSArray<UIButton *> *favButtons;
 @end
 
 // Cua so SpringBoard nam tren man hinh xe, chia 2 ngan
 @interface SCPSplitWindow : NSObject
 @property (nonatomic, strong) UIWindow *rootWindow;  // UIRootSceneWindow
-@property (nonatomic, strong) UIView *dockView;      // thanh dieu khien o mep tren, an; keo xuong de hien
 @property (nonatomic, strong) SCPAppPane *leftPane;
 @property (nonatomic, strong) SCPAppPane *rightPane;
 @property (nonatomic) BOOL onMainScreen;
 @property (nonatomic) CGFloat ratio;                 // ti le ngan trai (keo thanh phan cach de doi)
 @property (nonatomic) SCPSlot fullscreenSlot;         // SCPSlotAuto = khong fullscreen
 @property (nonatomic) SCPSlot pipSlot;                // ngan dang thu nho thanh PiP, SCPSlotAuto = khong
-@property (nonatomic) BOOL widgetMode;                // ngan phai = widget Now Playing
 
 + (instancetype)current;                 // cua so dang mo (nil neu chua)
 + (instancetype)currentOrCreate;         // tao neu chua co (can CarPlay dang ket noi)
@@ -44,7 +48,6 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)cycleLayoutPreset;                   // 50/50 -> 70/30 -> 30/70 -> 50/50
 - (void)toggleFullscreenForSlot:(SCPSlot)slot;   // fullscreen tam mot ngan, bam lai de ve split
 - (void)togglePiPForSlot:(SCPSlot)slot;          // thu ngan thanh o noi nho, bam lai de ve split
-- (void)setWidgetModeEnabled:(BOOL)on;           // ngan phai thanh widget Now Playing
 - (NSArray<SCPAppPane *> *)panes;
 
 // Bang chon app (luoi icon moi app trong may). slot = Left -> chon xong tu hoi tiep cho Right.

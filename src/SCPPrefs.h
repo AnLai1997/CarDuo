@@ -15,7 +15,6 @@
 + (BOOL)testOnMainScreen;
 + (BOOL)showDebug;             // hien log tren cua so split
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
-+ (BOOL)widgetPane;            // ngan phai = widget Now Playing
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
 
 // Cap app yeu thich 1..3: @{ @"name", @"left", @"right" } (nil neu chua dat)

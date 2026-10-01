@@ -22,7 +22,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CHUNG</string>
-			<key>footerText</key><string>Trên màn CarPlay có nút tròn ở góc trên phải để mở split và chọn app. Giữ icon app 1 giây trên dashboard cũng mở app đó vào một ngăn. Trong split, các nút điều khiển ẩn ở mép trên: kéo từ mép trên xuống để hiện.</string>
+			<key>footerText</key><string>Trên màn CarPlay có nút tròn ở góc trên phải để mở split và chọn app. Giữ icon app 1 giây trên dashboard cũng mở app đó vào một ngăn. Trong split, mỗi ngăn có dấu "..." ở giữa mép trên: kéo xuống để hiện các option của ngăn đó.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
@@ -82,7 +82,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CẶP APP YÊU THÍCH</string>
-			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trên thanh điều khiển của split (kéo từ mép trên xuống). Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
+			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trong dấu "..." của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSEditTextCell</string>
@@ -229,15 +229,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>TÍNH NĂNG THÊM</string>
-			<key>footerText</key><string>Widget Now Playing: ngăn phải hiện bài đang phát với nút điều khiển thay vì app (nút nốt nhạc trên thanh điều khiển cũng bật/tắt được). PiP: nút trên thanh điều khiển thu ngăn phải thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Ngăn phải là widget Now Playing</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
-			<key>key</key><string>WidgetPane</string>
-			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>footerText</key><string>PiP: option trong dấu "..." của ngăn thu ngăn đó thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>

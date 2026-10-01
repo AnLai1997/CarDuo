@@ -1,6 +1,5 @@
 #import "SCPSplitWindow.h"
 #import "SCPPrefs.h"
-#import "SCPNowPlayingView.h"
 
 // =====================================================================
 //  SCPSplitWindow - cua so tren man CarPlay, host 2 app cua iPhone
@@ -113,19 +112,11 @@ static UIImage *SCPAppIcon(NSString *bid)
 
 // =====================================================================
 @interface SCPSplitWindow ()
-@property (nonatomic, strong) UIButton *homeButton, *swapButton, *appsButton, *layoutButton, *pipButton, *widgetButton;
-@property (nonatomic, strong) NSArray<UIButton *> *favButtons;
-@property (nonatomic, strong) UILabel *clockLabel;
-@property (nonatomic, strong) NSTimer *clockTimer;
-@property (nonatomic, strong) UIView *dockHandle, *dockHandlePill;   // dai mong o mep tren de keo thanh dieu khien xuong
-@property (nonatomic) BOOL dockVisible;
-@property (nonatomic, strong) NSTimer *dockHideTimer;               // tu an thanh dieu khien sau vai giay
 @property (nonatomic, strong) UIView *dividerView, *dividerPill;
 @property (nonatomic, strong) UIView *pickerView;
 @property (nonatomic, strong) UIImageView *dragImage;
 @property (nonatomic, strong) NSString *dragBundleID;
 @property (nonatomic) SCPSlot pickerSlot;
-@property (nonatomic, strong) SCPNowPlayingView *widgetView;
 @property (nonatomic) CGPoint pipOrigin;              // goc PiP trong vung ngan (ti le 0..1)
 @property (nonatomic, strong) NSMutableArray<NSString *> *rightHistory;   // chong app ngan phai (vuot 2 ngon)
 @property (nonatomic, strong) UIWindow *mirrorWindow;  // mirror ngan phai tren iPhone (thu nghiem)
@@ -133,10 +124,13 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) UILabel *debugLabel;
 @property (nonatomic, strong) id logObserver;
 - (instancetype)initOnMainScreen:(BOOL)mainScreen;
-- (void)setupDock;
-- (void)setupDockHandle;
-- (void)setDockVisible:(BOOL)visible animated:(BOOL)animated;
-- (void)scheduleDockHide;
+- (void)setupActionsForPane:(SCPAppPane *)pane;
+- (void)layoutActionsForPane:(SCPAppPane *)pane;
+- (void)setActionsVisible:(BOOL)visible forPane:(SCPAppPane *)pane animated:(BOOL)animated;
+- (void)scheduleActionsHideForPane:(SCPAppPane *)pane;
+- (void)hideAllPaneActions;
+- (SCPAppPane *)paneForView:(UIView *)v;
+- (SCPSlot)slotForPane:(SCPAppPane *)pane;
 - (void)bringChromeToFront;
 - (void)setupDivider;
 - (void)setupDebugOverlay;
@@ -146,7 +140,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)relayoutPanesLive:(BOOL)live;
 - (void)layoutPane:(SCPAppPane *)pane;
 - (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live;
-- (void)layoutExpandButtonForPane:(SCPAppPane *)pane;
 - (void)layoutPipHandleForPane:(SCPAppPane *)pane;
 - (CGRect)frameForSlot:(SCPSlot)slot;
 - (CGRect)dividerFrame;
@@ -155,7 +148,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (BOOL)vertical;
 - (void)saveRatio;
 - (void)applyPairRatioIfAny;
-- (void)updateDockState;
+- (void)updatePaneActionStates;
 - (void)mirrorRightPaneIfEnabled;
 - (void)teardownMirror;
 @end
@@ -209,9 +202,6 @@ static UIImage *SCPAppIcon(NSString *bid)
     self.rootWindow.backgroundColor = [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
     [self setupDivider];
     [self setupDebugOverlay];
-    [self setupDockHandle];
-    [self setupDock];
-    if ([SCPPrefs widgetPane]) [self setWidgetModeEnabled:YES];
 
     self.rootWindow.alpha = 0;
     self.rootWindow.hidden = NO;
@@ -235,198 +225,273 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (BOOL)vertical { return [SCPPrefs splitDirection] == 1; }
 
 // ---------------------------------------------------------------------
-//  Thanh dieu khien: nam ngang o mep tren, binh thuong an (y = -cao).
-//  Keo tu mep tren xuong (hoac cham dai mong o mep tren) de hien; tu an sau vai giay.
+//  Option rieng cua tung ngan: dau "..." o giua mep tren ngan, keo xuong / cham de hien
+//  thanh nut nam tren mep ngan (an o y = -cao). Tu an sau vai giay.
 // ---------------------------------------------------------------------
-- (UIButton *)dockButton:(NSString *)symbol tint:(UIColor *)tint action:(SEL)sel
+- (SCPSlot)slotForPane:(SCPAppPane *)pane
 {
-    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightRegular];
+    return (pane == self.leftPane) ? SCPSlotLeft : SCPSlotRight;
+}
+
+// Tim ngan chua view (nut / handle / bar) bang cach di len superview toi containerView
+- (SCPAppPane *)paneForView:(UIView *)v
+{
+    while (v) {
+        for (SCPAppPane *p in self.panes) if (p.containerView == v) return p;
+        v = v.superview;
+    }
+    return nil;
+}
+
+- (UIButton *)actionButton:(NSString *)symbol action:(SEL)sel inBar:(UIScrollView *)bar
+{
+    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightRegular];
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
     [b setImage:[UIImage systemImageNamed:symbol withConfiguration:cfg] forState:UIControlStateNormal];
-    b.tintColor = tint;
+    b.tintColor = [UIColor whiteColor];
     [b addTarget:self action:sel forControlEvents:UIControlEventTouchUpInside];
-    [b addTarget:self action:@selector(scheduleDockHide) forControlEvents:UIControlEventTouchUpInside];
-    [self.dockView addSubview:b];
+    [b addTarget:self action:@selector(actionButtonTouched:) forControlEvents:UIControlEventTouchUpInside];
+    [bar addSubview:b];
     return b;
 }
 
-- (void)setupDockHandle
+- (void)setupActionsForPane:(SCPAppPane *)pane
 {
-    CGRect f = self.rootWindow.bounds;
-    // Dai trong suot o mep tren: nhan pan/tap de keo thanh dieu khien xuong
-    self.dockHandle = [[UIView alloc] initWithFrame:CGRectMake(0, 0, f.size.width, SCP_DOCK_HANDLE_HEIGHT)];
-    self.dockHandle.backgroundColor = [UIColor clearColor];
-    self.dockHandlePill = [[UIView alloc] initWithFrame:CGRectMake((f.size.width - 44) / 2, 3, 44, 4)];
-    self.dockHandlePill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.45];
-    self.dockHandlePill.layer.cornerRadius = 2;
-    self.dockHandlePill.userInteractionEnabled = NO;
-    [self.dockHandle addSubview:self.dockHandlePill];
-    [self.dockHandle addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dockPanned:)]];
-    [self.dockHandle addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dockHandleTapped)]];
-    [self.rootWindow addSubview:self.dockHandle];
+    // Vien quanh app
+    pane.containerView.layer.borderWidth = SCP_PANE_BORDER;
+    pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.35].CGColor;
+    pane.containerView.layer.cornerRadius = 10;
 
-    // Vuot tu mep tren man hinh (ke ca khi ngon tay dat len app) cung keo thanh xuong
-    UIScreenEdgePanGestureRecognizer *edge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(dockPanned:)];
-    edge.edges = UIRectEdgeTop;
-    [self.rootWindow addGestureRecognizer:edge];
-}
+    // Dau "..." o giua mep tren
+    UIView *h = [[UIView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
+    h.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
+    h.layer.cornerRadius = 6;
+    h.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+    UILabel *dots = [[UILabel alloc] initWithFrame:h.bounds];
+    dots.text = @"•••";
+    dots.textColor = [UIColor colorWithWhite:1 alpha:0.9];
+    dots.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold];
+    dots.textAlignment = NSTextAlignmentCenter;
+    dots.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    dots.userInteractionEnabled = NO;
+    [h addSubview:dots];
+    [h addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(paneActionsPanned:)]];
+    [h addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(paneHandleTapped:)]];
+    pane.actionHandle = h;
+    [pane.containerView addSubview:h];
 
-- (void)setupDock
-{
-    CGRect f = self.rootWindow.bounds;
-    self.dockView = [[UIView alloc] initWithFrame:CGRectMake(0, -SCP_DOCK_HEIGHT, f.size.width, SCP_DOCK_HEIGHT)];
-    self.dockView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.8];
-    self.dockView.layer.cornerRadius = 12;
-    self.dockView.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
-    [self.dockView addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dockPanned:)]];
-    [self.rootWindow addSubview:self.dockView];
-    self.dockVisible = NO;
+    // Thanh nut (cuon ngang neu ngan hep)
+    UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, -SCP_PANE_BAR_HEIGHT, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
+    bar.backgroundColor = [UIColor colorWithWhite:0 alpha:0.82];
+    bar.showsHorizontalScrollIndicator = NO;
+    bar.alwaysBounceHorizontal = NO;
+    [bar addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(paneActionsPanned:)]];
+    pane.actionBar = bar;
+    pane.actionsVisible = NO;
+    [pane.containerView addSubview:bar];
 
-    self.clockLabel = [[UILabel alloc] initWithFrame:CGRectMake(12, 0, 52, SCP_DOCK_HEIGHT)];
-    self.clockLabel.textColor = [UIColor whiteColor];
-    self.clockLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
-    self.clockLabel.textAlignment = NSTextAlignmentLeft;
-    self.clockLabel.adjustsFontSizeToFitWidth = YES;
-    [self.dockView addSubview:self.clockLabel];
-    [self updateClock];
-    self.clockTimer = [NSTimer scheduledTimerWithTimeInterval:30 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
-
-    // Nut xep ngang tu trai sang phai, sau dong ho
-    CGFloat sz = 30, y = (SCP_DOCK_HEIGHT - sz) / 2, x = 76, step = sz + 10;
-    self.appsButton   = [self dockButton:@"square.grid.2x2" tint:[UIColor whiteColor] action:@selector(appsButtonTapped)];
-    self.appsButton.frame = CGRectMake(x, y, sz, sz); x += step;
-    self.swapButton   = [self dockButton:@"arrow.left.arrow.right" tint:[UIColor whiteColor] action:@selector(swapPanes)];
-    self.swapButton.frame = CGRectMake(x, y, sz, sz); x += step;
-    self.layoutButton = [self dockButton:@"rectangle.split.2x1" tint:[UIColor whiteColor] action:@selector(cycleLayoutPreset)];
-    self.layoutButton.frame = CGRectMake(x, y, sz, sz); x += step;
-    self.pipButton    = [self dockButton:@"pip.enter" tint:[UIColor whiteColor] action:@selector(pipButtonTapped)];
-    self.pipButton.frame = CGRectMake(x, y, sz, sz); x += step;
-    self.widgetButton = [self dockButton:@"music.note" tint:[UIColor whiteColor] action:@selector(widgetButtonTapped)];
-    self.widgetButton.frame = CGRectMake(x, y, sz, sz); x += step + 6;
+    CGFloat sz = 30, y = (SCP_PANE_BAR_HEIGHT - sz) / 2, x = 8, step = sz + 8;
+    UIButton *b;
+    b = [self actionButton:@"square.grid.2x2" action:@selector(paneChooseApp:) inBar:bar];           b.frame = CGRectMake(x, y, sz, sz); x += step;
+    b = [self actionButton:@"xmark" action:@selector(paneCloseApp:) inBar:bar];                      b.frame = CGRectMake(x, y, sz, sz); x += step;
+    pane.fullscreenButton = [self actionButton:@"arrow.up.left.and.arrow.down.right" action:@selector(paneToggleFullscreen:) inBar:bar];
+    pane.fullscreenButton.frame = CGRectMake(x, y, sz, sz); x += step;
+    pane.pipButton = [self actionButton:@"pip.enter" action:@selector(paneTogglePiP:) inBar:bar];
+    pane.pipButton.frame = CGRectMake(x, y, sz, sz); x += step;
+    b = [self actionButton:@"arrow.left.arrow.right" action:@selector(paneSwap:) inBar:bar];         b.frame = CGRectMake(x, y, sz, sz); x += step;
+    b = [self actionButton:@"rectangle.split.2x1" action:@selector(paneCycleLayout:) inBar:bar];     b.frame = CGRectMake(x, y, sz, sz); x += step + 4;
 
     // Cap yeu thich 1..3: nut tron nho co so
     NSMutableArray *favs = [NSMutableArray array];
     for (NSInteger i = 1; i <= 3; i++) {
-        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-        [b setTitle:[NSString stringWithFormat:@"%ld", (long)i] forState:UIControlStateNormal];
-        b.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
-        [b setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        b.backgroundColor = [UIColor colorWithWhite:1 alpha:0.18];
-        b.layer.cornerRadius = 11;
-        b.frame = CGRectMake(x, (SCP_DOCK_HEIGHT - 22) / 2, 22, 22); x += 30;
-        b.tag = i;
-        [b addTarget:self action:@selector(favButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-        [b addTarget:self action:@selector(scheduleDockHide) forControlEvents:UIControlEventTouchUpInside];
-        [self.dockView addSubview:b];
-        [favs addObject:b];
+        UIButton *f = [UIButton buttonWithType:UIButtonTypeCustom];
+        [f setTitle:[NSString stringWithFormat:@"%ld", (long)i] forState:UIControlStateNormal];
+        f.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
+        [f setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        f.backgroundColor = [UIColor colorWithWhite:1 alpha:0.18];
+        f.layer.cornerRadius = 11;
+        f.frame = CGRectMake(x, (SCP_PANE_BAR_HEIGHT - 22) / 2, 22, 22); x += 28;
+        f.tag = i;
+        [f addTarget:self action:@selector(paneFavTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [f addTarget:self action:@selector(actionButtonTouched:) forControlEvents:UIControlEventTouchUpInside];
+        [bar addSubview:f];
+        [favs addObject:f];
     }
-    self.favButtons = favs;
+    pane.favButtons = favs;
+    x += 6;
 
-    // Home kieu CarPlay = dong split, ve lai dashboard CarPlay (sat mep phai)
-    self.homeButton = [self dockButton:@"circle.grid.3x3.fill" tint:[UIColor whiteColor] action:@selector(dismiss)];
-    self.homeButton.frame = CGRectMake(f.size.width - sz - 12, y, sz, sz);
-    [self updateDockState];
+    // Home kieu CarPlay = dong split, ve lai dashboard CarPlay
+    b = [self actionButton:@"circle.grid.3x3.fill" action:@selector(dismiss) inBar:bar];
+    b.frame = CGRectMake(x, y, sz, sz); b.tag = 1001; x += step;
+    bar.contentSize = CGSizeMake(x, SCP_PANE_BAR_HEIGHT);
+
+    [self layoutActionsForPane:pane];
 }
 
-// Keo tren dai mep tren / thanh dieu khien / mep man hinh: theo ngon tay, tha thi chot hien hoac an
-- (void)dockPanned:(UIPanGestureRecognizer *)g
+// Dat lai khung handle/bar theo kich thuoc ngan (goi moi lan relayout)
+- (void)layoutActionsForPane:(SCPAppPane *)pane
 {
-    CGFloat ty = [g translationInView:self.rootWindow].y;
-    CGFloat startY = self.dockVisible ? 0 : -SCP_DOCK_HEIGHT;
+    if (!pane.actionBar) return;
+    CGSize s = pane.containerView.bounds.size;
+    BOOL isPip = (self.pipSlot == [self slotForPane:pane]);
+    // Dang PiP: mep tren danh cho thanh keo PiP, an option
+    pane.actionHandle.hidden = isPip;
+    pane.actionBar.hidden = isPip;
+    if (isPip && pane.actionsVisible) { pane.actionsVisible = NO; [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil; }
+
+    pane.actionHandle.frame = CGRectMake((s.width - SCP_PANE_HANDLE_WIDTH) / 2, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT);
+    pane.actionHandle.alpha = pane.actionsVisible ? 0 : 1;
+    CGRect bf = CGRectMake(0, pane.actionsVisible ? 0 : -SCP_PANE_BAR_HEIGHT, s.width, SCP_PANE_BAR_HEIGHT);
+    pane.actionBar.frame = bf;
+    // Khi ngan du rong, day nut Home sat mep phai
+    UIButton *home = (UIButton *)[pane.actionBar viewWithTag:1001];
+    CGFloat natural = pane.actionBar.contentSize.width;
+    if (home && s.width > natural) {
+        CGRect hf = home.frame; hf.origin.x = s.width - hf.size.width - 8; home.frame = hf;
+    } else if (home) {
+        CGRect hf = home.frame; hf.origin.x = natural - hf.size.width - 8; home.frame = hf;
+    }
+    [pane.containerView bringSubviewToFront:pane.actionHandle];
+    [pane.containerView bringSubviewToFront:pane.actionBar];
+}
+
+- (void)paneActionsPanned:(UIPanGestureRecognizer *)g
+{
+    SCPAppPane *pane = [self paneForView:g.view];
+    if (!pane) return;
+    CGFloat ty = [g translationInView:pane.containerView].y;
+    CGFloat startY = pane.actionsVisible ? 0 : -SCP_PANE_BAR_HEIGHT;
     if (g.state == UIGestureRecognizerStateBegan || g.state == UIGestureRecognizerStateChanged) {
-        [self.dockHideTimer invalidate]; self.dockHideTimer = nil;
-        [self bringChromeToFront];
-        CGRect fr = self.dockView.frame;
-        fr.origin.y = MIN(0, MAX(-SCP_DOCK_HEIGHT, startY + ty));
-        self.dockView.frame = fr;
+        [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
+        CGRect fr = pane.actionBar.frame;
+        fr.origin.y = MIN(0, MAX(-SCP_PANE_BAR_HEIGHT, startY + ty));
+        pane.actionBar.frame = fr;
+        pane.actionHandle.alpha = 1 - (fr.origin.y + SCP_PANE_BAR_HEIGHT) / SCP_PANE_BAR_HEIGHT;
         return;
     }
     if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled) {
-        CGFloat vy = [g velocityInView:self.rootWindow].y;
-        BOOL show = (vy > 150) || (vy > -150 && CGRectGetMinY(self.dockView.frame) > -SCP_DOCK_HEIGHT / 2);
-        [self setDockVisible:show animated:YES];
+        CGFloat vy = [g velocityInView:pane.containerView].y;
+        BOOL show = (vy > 150) || (vy > -150 && CGRectGetMinY(pane.actionBar.frame) > -SCP_PANE_BAR_HEIGHT / 2);
+        [self setActionsVisible:show forPane:pane animated:YES];
     }
 }
 
-- (void)dockHandleTapped
+- (void)paneHandleTapped:(UITapGestureRecognizer *)g
 {
-    [self setDockVisible:!self.dockVisible animated:YES];
+    SCPAppPane *pane = [self paneForView:g.view];
+    if (pane) [self setActionsVisible:!pane.actionsVisible forPane:pane animated:YES];
 }
 
-- (void)setDockVisible:(BOOL)visible animated:(BOOL)animated
+- (void)setActionsVisible:(BOOL)visible forPane:(SCPAppPane *)pane animated:(BOOL)animated
 {
-    self.dockVisible = visible;
-    [self.dockHideTimer invalidate]; self.dockHideTimer = nil;
-    [self bringChromeToFront];
-    CGRect fr = self.dockView.frame;
-    fr.origin.y = visible ? 0 : -SCP_DOCK_HEIGHT;
+    if (!pane.actionBar) return;
+    pane.actionsVisible = visible;
+    [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
+    [self updatePaneActionStates];
+    CGRect fr = pane.actionBar.frame;
+    fr.origin.y = visible ? 0 : -SCP_PANE_BAR_HEIGHT;
     void (^apply)(void) = ^{
-        self.dockView.frame = fr;
-        self.dockHandlePill.alpha = visible ? 0 : 1;
+        pane.actionBar.frame = fr;
+        pane.actionHandle.alpha = visible ? 0 : 1;
     };
     if (animated) [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:apply completion:nil];
     else apply();
-    if (visible) [self scheduleDockHide];
+    if (visible) [self scheduleActionsHideForPane:pane];
 }
 
-- (void)scheduleDockHide
+- (void)scheduleActionsHideForPane:(SCPAppPane *)pane
 {
-    [self.dockHideTimer invalidate];
-    if (!self.dockVisible) return;
+    [pane.actionsHideTimer invalidate];
+    if (!pane.actionsVisible) return;
     __weak SCPSplitWindow *weakSelf = self;
-    self.dockHideTimer = [NSTimer scheduledTimerWithTimeInterval:6 repeats:NO block:^(NSTimer *t) {
-        [weakSelf setDockVisible:NO animated:YES];
+    __weak SCPAppPane *weakPane = pane;
+    pane.actionsHideTimer = [NSTimer scheduledTimerWithTimeInterval:6 repeats:NO block:^(NSTimer *t) {
+        if (weakPane) [weakSelf setActionsVisible:NO forPane:weakPane animated:YES];
     }];
 }
 
-// Dai keo + thanh dieu khien luon nam tren cung (tren ca bang chon app va log)
-- (void)bringChromeToFront
+- (void)hideAllPaneActions
 {
-    if (self.debugLabel) [self.rootWindow bringSubviewToFront:self.debugLabel];
-    if (self.dockHandle) [self.rootWindow bringSubviewToFront:self.dockHandle];
-    if (self.dockView)   [self.rootWindow bringSubviewToFront:self.dockView];
+    for (SCPAppPane *p in self.panes) if (p.actionsVisible) [self setActionsVisible:NO forPane:p animated:YES];
 }
 
-- (void)updateDockState
+// Bam nut nao tren bar cung reset bo dem tu an
+- (void)actionButtonTouched:(UIButton *)b
 {
-    for (UIButton *b in self.favButtons) {
-        NSDictionary *fav = [SCPPrefs favorite:b.tag];
-        b.hidden = (fav == nil);
+    SCPAppPane *pane = [self paneForView:b];
+    if (pane) [self scheduleActionsHideForPane:pane];
+}
+
+// Icon fullscreen / PiP doi theo trang thai, nut cap yeu thich an neu chua dat
+- (void)updatePaneActionStates
+{
+    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightRegular];
+    for (SCPAppPane *p in self.panes) {
+        if (!p.actionBar) continue;
+        SCPSlot slot = [self slotForPane:p];
+        BOOL isFull = (self.fullscreenSlot == slot);
+        [p.fullscreenButton setImage:[UIImage systemImageNamed:(isFull ? @"arrow.down.right.and.arrow.up.left" : @"arrow.up.left.and.arrow.down.right")
+                                               withConfiguration:cfg] forState:UIControlStateNormal];
+        p.fullscreenButton.tintColor = isFull ? [UIColor systemYellowColor] : [UIColor whiteColor];
+        p.pipButton.tintColor = (self.pipSlot == slot) ? [UIColor systemYellowColor] : [UIColor whiteColor];
+        for (UIButton *f in p.favButtons) f.hidden = ([SCPPrefs favorite:f.tag] == nil);
     }
-    self.pipButton.tintColor = (self.pipSlot != SCPSlotAuto) ? [UIColor systemYellowColor] : [UIColor whiteColor];
-    self.widgetButton.tintColor = self.widgetMode ? [UIColor systemYellowColor] : [UIColor whiteColor];
 }
 
-- (void)updateClock
+// ---- hanh dong tu bar cua ngan ----
+- (void)paneChooseApp:(UIButton *)b
 {
-    static NSDateFormatter *df; if (!df) { df = [NSDateFormatter new]; df.dateFormat = @"HH:mm"; }
-    self.clockLabel.text = [df stringFromDate:[NSDate date]];
+    SCPAppPane *pane = [self paneForView:b];
+    if (!pane) return;
+    [self showAppPickerForSlot:[self slotForPane:pane]];
 }
 
-- (void)appsButtonTapped
+- (void)paneCloseApp:(UIButton *)b
 {
-    if (self.pickerView) [self hideAppPicker]; else [self showAppPickerForSlot:SCPSlotLeft];
+    SCPAppPane *pane = [self paneForView:b];
+    if (!pane) return;
+    SCPSlot slot = [self slotForPane:pane];
+    [self closeSlot:slot];
+    if (self.panes.count == 0) [self showAppPickerForSlot:slot];   // ngan trong het -> chon app moi
 }
 
-- (void)pipButtonTapped
+- (void)paneToggleFullscreen:(UIButton *)b
 {
-    [self togglePiPForSlot:(self.pipSlot != SCPSlotAuto ? self.pipSlot : SCPSlotRight)];
+    SCPAppPane *pane = [self paneForView:b];
+    if (pane) [self toggleFullscreenForSlot:[self slotForPane:pane]];
 }
 
-- (void)widgetButtonTapped
+- (void)paneTogglePiP:(UIButton *)b
 {
-    [self setWidgetModeEnabled:!self.widgetMode];
+    SCPAppPane *pane = [self paneForView:b];
+    if (pane) [self togglePiPForSlot:[self slotForPane:pane]];
 }
 
-- (void)favButtonTapped:(UIButton *)b
+- (void)paneSwap:(UIButton *)b
+{
+    [self swapPanes];
+}
+
+- (void)paneCycleLayout:(UIButton *)b
+{
+    [self cycleLayoutPreset];
+}
+
+- (void)paneFavTapped:(UIButton *)b
 {
     [self applyFavorite:b.tag];
 }
 
+// Log overlay luon nam tren cung
+- (void)bringChromeToFront
+{
+    if (self.debugLabel) [self.rootWindow bringSubviewToFront:self.debugLabel];
+}
+
 // ---------------------------------------------------------------------
-//  Bo cuc: trai/phai hoac tren/duoi, fullscreen, PiP, widget
+//  Bo cuc: trai/phai hoac tren/duoi, fullscreen, PiP
 // ---------------------------------------------------------------------
-// Thanh dieu khien an o mep tren va phu len app khi hien -> ngan dung het cua so
+// Ngan dung het cua so (option cua ngan nam trong chinh ngan do)
 - (CGRect)paneArea
 {
     return self.rootWindow.bounds;
@@ -550,15 +615,11 @@ static UIImage *SCPAppIcon(NSString *bid)
         p.containerView.hidden = hidden;
         if (!hidden) { p.containerView.frame = [self frameForSlot:slot]; [self layoutPane:p live:live]; }
         if (slot == self.pipSlot) [self.rootWindow bringSubviewToFront:p.containerView];
-        if (!live) { [self layoutExpandButtonForPane:p]; [self layoutPipHandleForPane:p]; }
-    }
-    if (self.widgetView) {
-        self.widgetView.hidden = (self.fullscreenSlot == SCPSlotLeft);
-        self.widgetView.frame = [self frameForSlot:SCPSlotRight];
+        if (!live) { [self layoutActionsForPane:p]; [self layoutPipHandleForPane:p]; }
     }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
     [self bringChromeToFront];
-    [self updateDockState];
+    [self updatePaneActionStates];
 }
 
 // ---- bo cuc dat san ----
@@ -586,36 +647,6 @@ static UIImage *SCPAppIcon(NSString *bid)
     self.fullscreenSlot = (self.fullscreenSlot == slot) ? SCPSlotAuto : slot;
     SCPLog("fullscreen slot = %d", (int)self.fullscreenSlot);
     [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
-}
-
-- (void)expandButtonTapped:(UIButton *)b
-{
-    SCPSlot slot = (SCPSlot)b.tag;
-    if (self.pipSlot == slot) { [self togglePiPForSlot:slot]; return; }   // dang PiP -> ve split
-    [self toggleFullscreenForSlot:slot];
-}
-
-- (void)layoutExpandButtonForPane:(SCPAppPane *)pane
-{
-    if (!pane.containerView) return;
-    SCPSlot slot = (pane == self.leftPane) ? SCPSlotLeft : SCPSlotRight;
-    if (!pane.expandButton) {
-        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-        b.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
-        b.layer.cornerRadius = 13;
-        b.tintColor = [UIColor whiteColor];
-        [b addTarget:self action:@selector(expandButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-        pane.expandButton = b;
-    }
-    pane.expandButton.tag = slot;
-    BOOL isFull = (self.fullscreenSlot == slot) || (self.pipSlot == slot);
-    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIImageSymbolWeightBold];
-    [pane.expandButton setImage:[UIImage systemImageNamed:(isFull ? @"arrow.down.right.and.arrow.up.left" : @"arrow.up.left.and.arrow.down.right")
-                                           withConfiguration:cfg] forState:UIControlStateNormal];
-    CGSize s = pane.containerView.bounds.size;
-    pane.expandButton.frame = CGRectMake(s.width - 26 - 4, 4, 26, 26);
-    [pane.containerView addSubview:pane.expandButton];
-    [pane.containerView bringSubviewToFront:pane.expandButton];
 }
 
 // ---- Picture in Picture ----
@@ -652,7 +683,6 @@ static UIImage *SCPAppIcon(NSString *bid)
     pane.pipHandle.frame = CGRectMake(0, 0, s.width, 18);
     [pane.pipHandle viewWithTag:99].center = CGPointMake(s.width / 2, 9);
     [pane.containerView bringSubviewToFront:pane.pipHandle];
-    [pane.containerView bringSubviewToFront:pane.expandButton];
 }
 
 - (void)pipPanned:(UIPanGestureRecognizer *)g
@@ -676,27 +706,6 @@ static UIImage *SCPAppIcon(NSString *bid)
     if (self.pipSlot != SCPSlotAuto) [self togglePiPForSlot:self.pipSlot];
 }
 
-// ---- Widget Now Playing o ngan phai ----
-- (void)setWidgetModeEnabled:(BOOL)on
-{
-    if (on == self.widgetMode) return;
-    self.widgetMode = on;
-    if (on) {
-        [self closeSlot:SCPSlotRight];
-        if (self.pipSlot == SCPSlotRight) self.pipSlot = SCPSlotAuto;
-        self.widgetView = [[SCPNowPlayingView alloc] initWithFrame:[self frameForSlot:SCPSlotRight]];
-        [self.rootWindow insertSubview:self.widgetView belowSubview:self.dividerView];
-        [self.widgetView start];
-        SCPLog("widget Now Playing bat");
-    } else {
-        [self.widgetView stop];
-        [self.widgetView removeFromSuperview];
-        self.widgetView = nil;
-        SCPLog("widget Now Playing tat");
-    }
-    [self relayoutPanes];
-}
-
 // ---------------------------------------------------------------------
 //  Bang chon app (luoi icon) + keo tha
 // ---------------------------------------------------------------------
@@ -714,7 +723,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     pv.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.97];
     self.pickerView = pv;
     [self.rootWindow addSubview:pv];
-    [self setDockVisible:NO animated:YES];
+    [self hideAllPaneActions];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 14, pv.bounds.size.width - 120, 30)];
     title.text = (self.pickerSlot == SCPSlotLeft) ? @"Chọn app cho ngăn TRÁI  (giữ icon và kéo để thả vào ngăn)" : @"Chọn app cho ngăn PHẢI";
@@ -787,7 +796,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     [self launchApp:bid inSlot:slot];
     if (slot == SCPSlotLeft) {
         [SCPPrefs setLeftApp:bid];
-        if (!self.widgetMode) [self showAppPickerForSlot:SCPSlotRight];   // chon tiep ngan phai
+        if (!self.rightPane) [self showAppPickerForSlot:SCPSlotRight];   // chon tiep ngan phai neu con trong
     } else {
         [SCPPrefs setRightApp:bid];
     }
@@ -820,7 +829,6 @@ static UIImage *SCPAppIcon(NSString *bid)
         BOOL first = [self vertical] ? (p.y < s.height / 2) : (p.x < s.width / 2);
         SCPSlot slot = first ? SCPSlotLeft : SCPSlotRight;
         [self hideAppPicker];
-        if (slot == SCPSlotRight && self.widgetMode) [self setWidgetModeEnabled:NO];
         [self launchApp:bid inSlot:slot];
         if (slot == SCPSlotLeft) [SCPPrefs setLeftApp:bid]; else [SCPPrefs setRightApp:bid];
     }
@@ -922,7 +930,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)launchPairLeft:(NSString *)left right:(NSString *)right
 {
     if (left)  [self launchApp:left  inSlot:SCPSlotLeft];
-    if (right) { if (self.widgetMode) [self setWidgetModeEnabled:NO]; [self launchApp:right inSlot:SCPSlotRight]; }
+    if (right) [self launchApp:right inSlot:SCPSlotRight];
 }
 
 - (void)applyFavorite:(NSInteger)index
@@ -936,15 +944,10 @@ static UIImage *SCPAppIcon(NSString *bid)
 
 - (void)launchApp:(NSString *)bundleID inSlot:(SCPSlot)slot
 {
-    if (slot == SCPSlotAuto) {
-        if (!self.leftPane) slot = SCPSlotLeft;
-        else if (!self.rightPane && !self.widgetMode) slot = SCPSlotRight;
-        else slot = (self.widgetMode ? SCPSlotLeft : SCPSlotRight);
-    }
+    if (slot == SCPSlotAuto) slot = self.leftPane ? SCPSlotRight : SCPSlotLeft;
     for (SCPAppPane *p in self.panes) {
         if ([p.bundleIdentifier isEqualToString:bundleID]) { SCPLog("%@ da dang mo", bundleID); return; }
     }
-    if (slot == SCPSlotRight && self.widgetMode) [self setWidgetModeEnabled:NO];
     [self closeSlot:slot];
 
     SCPAppPane *pane = [SCPAppPane new];
@@ -969,6 +972,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     }
 
     if (slot == SCPSlotLeft) self.leftPane = pane; else self.rightPane = pane;
+    [self setupActionsForPane:pane];   // vien + dau "..." + thanh option rieng cua ngan
     if (slot == SCPSlotRight) {
         [self.rightHistory removeObject:bundleID];
         [self.rightHistory addObject:bundleID];
@@ -1174,6 +1178,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 {
     if (!pane) return;
     if (pane == self.rightPane) [self teardownMirror];
+    [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
     [pane.sceneMonitor invalidate];
     NSString *appID = pane.bundleIdentifier;
 
@@ -1216,7 +1221,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 
 - (void)swapPanes
 {
-    if (self.widgetMode) { SCPLog("dang o che do widget, khong doi cho"); return; }
     SCPAppPane *l = self.leftPane, *r = self.rightPane;
     self.leftPane = r; self.rightPane = l;
     if (self.fullscreenSlot == SCPSlotLeft) self.fullscreenSlot = SCPSlotRight;
@@ -1229,11 +1233,8 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)dismiss
 {
     SCPLog("dismiss split window");
-    [self.clockTimer invalidate]; self.clockTimer = nil;
-    [self.dockHideTimer invalidate]; self.dockHideTimer = nil;
     [self hideAppPicker];
     [self teardownMirror];
-    if (self.widgetView) { [self.widgetView stop]; [self.widgetView removeFromSuperview]; self.widgetView = nil; }
     [self closeSlot:SCPSlotLeft];
     [self closeSlot:SCPSlotRight];
 

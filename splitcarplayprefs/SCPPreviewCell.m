@@ -16,13 +16,12 @@
 // ---------------------------------------------------------------------
 @interface SCPPreviewView : UIView
 @property (nonatomic, strong) UIView *screenView;
-@property (nonatomic, strong) UIView *dockView;
 @property (nonatomic, strong) UIView *leftPane, *rightPane;
 @property (nonatomic, strong) UIImageView *leftIcon, *rightIcon;
 @property (nonatomic, strong) UILabel *leftLabel, *rightLabel, *infoLabel;
 @property (nonatomic, strong) UIView *leftPhone, *rightPhone;
-@property (nonatomic, strong) UILabel *clockLabel, *leftTime, *rightTime;
-@property (nonatomic, strong) UIImageView *homeIcon, *gridIcon, *swapIcon;
+@property (nonatomic, strong) UILabel *leftTime, *rightTime;
+@property (nonatomic, strong) UILabel *leftDots, *rightDots;   // dau "..." tren dau moi ngan
 @property (nonatomic, strong) UIView *wallpaper, *divider;
 - (void)reload;
 @end
@@ -51,25 +50,6 @@
     [_wallpaper.layer addSublayer:g];
     [_screenView addSubview:_wallpaper];
 
-    // Thanh dieu khien o mep tren (tren xe binh thuong an, keo xuong moi hien): dong ho trai, Home phai
-    _dockView = [[UIView alloc] init];
-    _dockView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
-    [_screenView addSubview:_dockView];
-    _clockLabel = [[UILabel alloc] init];
-    _clockLabel.textColor = [UIColor whiteColor];
-    _clockLabel.textAlignment = NSTextAlignmentCenter;
-    _clockLabel.adjustsFontSizeToFitWidth = YES;
-    [_dockView addSubview:_clockLabel];
-    _gridIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"square.grid.2x2"]];
-    _gridIcon.tintColor = [UIColor whiteColor]; _gridIcon.contentMode = UIViewContentModeScaleAspectFit;
-    [_dockView addSubview:_gridIcon];
-    _swapIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrow.left.arrow.right"]];
-    _swapIcon.tintColor = [UIColor whiteColor]; _swapIcon.contentMode = UIViewContentModeScaleAspectFit;
-    [_dockView addSubview:_swapIcon];
-    _homeIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"circle.grid.3x3.fill"]];
-    _homeIcon.tintColor = [UIColor whiteColor]; _homeIcon.contentMode = UIViewContentModeScaleAspectFit;
-    [_dockView addSubview:_homeIcon];
-
     _leftPane  = [self makePaneWithColor:[UIColor colorWithWhite:0.06 alpha:1]];
     _rightPane = [self makePaneWithColor:[UIColor colorWithWhite:0.06 alpha:1]];
     _leftTime  = [self makeStatusIn:_leftPane];
@@ -77,7 +57,6 @@
     _divider = [[UIView alloc] init];
     _divider.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
     [_screenView addSubview:_divider];
-    [_screenView bringSubviewToFront:_dockView];   // thanh dieu khien phu len app
 
     _leftPhone  = [self makePhoneIn:_leftPane];
     _rightPhone = [self makePhoneIn:_rightPane];
@@ -85,6 +64,8 @@
     _rightIcon  = [self makeIconIn:_rightPane];
     _leftLabel  = [self makeLabelIn:_leftPane];
     _rightLabel = [self makeLabelIn:_rightPane];
+    _leftDots   = [self makeDotsIn:_leftPane];
+    _rightDots  = [self makeDotsIn:_rightPane];
 
     _infoLabel = [[UILabel alloc] init];
     _infoLabel.font = [UIFont systemFontOfSize:12];
@@ -105,8 +86,25 @@
     UIView *v = [[UIView alloc] init];
     v.backgroundColor = c;
     v.clipsToBounds = YES;
+    // Vien quanh app nhu tren xe
+    v.layer.borderWidth = 1;
+    v.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.35].CGColor;
+    v.layer.cornerRadius = 4;
     [_screenView addSubview:v];
     return v;
+}
+
+// Dau "..." o giua mep tren ngan: keo xuong de hien option cua ngan
+- (UILabel *)makeDotsIn:(UIView *)pane
+{
+    UILabel *l = [[UILabel alloc] init];
+    l.text = @"•••";
+    l.textColor = [UIColor colorWithWhite:1 alpha:0.9];
+    l.textAlignment = NSTextAlignmentCenter;
+    l.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
+    l.clipsToBounds = YES;
+    [pane addSubview:l];
+    return l;
 }
 
 // Thanh trang thai gia cua app (gio + pin) de giong app that
@@ -209,34 +207,32 @@ static UIImage *appIcon(NSString *bid)
     for (CALayer *l in _wallpaper.layer.sublayers) l.frame = _wallpaper.bounds;
 
     CGFloat divW  = MAX(2, W * 0.012);
-    CGFloat avail = W - divW;           // ngan dung het man, thanh dieu khien phu len tren
+    CGFloat avail = W - divW;           // ngan dung het man
     CGFloat leftW = floor(avail * ratio), rightW = avail - leftW;
-    CGFloat dockH = H * 0.11;           // thanh dieu khien ~ 44/480
-    _dockView.frame  = CGRectMake(0, 0, W, dockH);
-    _dockView.layer.cornerRadius = dockH * 0.3;
-    _dockView.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
     _leftPane.frame  = CGRectMake(0, 0, leftW, H);
     _divider.frame   = CGRectMake(leftW, 0, divW, H);
     _rightPane.frame = CGRectMake(leftW + divW, 0, rightW, H);
 
-    // noi dung thanh dieu khien: dong ho trai, cac nut tiep theo, Home sat phai
     static NSDateFormatter *df; if (!df) { df = [NSDateFormatter new]; df.dateFormat = @"HH:mm"; }
     NSString *now = [df stringFromDate:[NSDate date]];
-    _clockLabel.font = [UIFont systemFontOfSize:dockH * 0.42 weight:UIFontWeightSemibold];
-    _clockLabel.text = now;
-    _clockLabel.textAlignment = NSTextAlignmentLeft;
-    _clockLabel.frame = CGRectMake(dockH * 0.3, 0, dockH * 1.4, dockH);
-    CGFloat ic = dockH * 0.55, iy = (dockH - ic) / 2;
-    _gridIcon.frame = CGRectMake(dockH * 1.9, iy, ic, ic);
-    _swapIcon.frame = CGRectMake(dockH * 1.9 + ic + dockH * 0.3, iy, ic, ic);
-    _homeIcon.frame = CGRectMake(W - ic - dockH * 0.3, iy, ic, ic);
     _leftTime.text = now; _rightTime.text = now;
 
     [self layoutPane:_leftPane phone:_leftPhone icon:_leftIcon label:_leftLabel bid:left orientation:orient];
     [self layoutPane:_rightPane phone:_rightPhone icon:_rightIcon label:_rightLabel bid:right orientation:orient];
 
+    // dau "..." o giua mep tren moi ngan (~64x16 tren man 800x480)
+    CGFloat dw = W * 0.08, dh = H * 0.035;
+    for (UILabel *d in @[_leftDots, _rightDots]) {
+        UIView *pane = d.superview;
+        d.frame = CGRectMake((pane.bounds.size.width - dw) / 2, 0, dw, dh);
+        d.font = [UIFont systemFontOfSize:MAX(5, dh * 0.7) weight:UIFontWeightBold];
+        d.layer.cornerRadius = dh * 0.35;
+        d.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+        [pane bringSubviewToFront:d];
+    }
+
     _infoLabel.frame = CGRectMake(0, CGRectGetMaxY(_screenView.frame) + 4, self.bounds.size.width, 18);
-    _infoLabel.text = [NSString stringWithFormat:@"Trái %.0f%% · App %@ · Kéo mép trên xuống để hiện nút",
+    _infoLabel.text = [NSString stringWithFormat:@"Trái %.0f%% · App %@ · Kéo dấu ... của ngăn xuống để hiện option",
                        ratio * 100, orient == 3 ? @"ngang" : @"dọc"];
 }
 
