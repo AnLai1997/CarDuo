@@ -23,9 +23,9 @@
 
 #define objcInvokeT(a, b, t)            ((t (*)(id, SEL))objc_msgSend)(a, NSSelectorFromString(b))
 #define objcInvoke(a, b)                objcInvokeT(a, b, id)
-#define objcInvoke_1(a, b, c)           ((id (*)(id, SEL, typeof(c)))objc_msgSend)(a, NSSelectorFromString(b), c)
-#define objcInvoke_2(a, b, c, d)        ((id (*)(id, SEL, typeof(c), typeof(d)))objc_msgSend)(a, NSSelectorFromString(b), c, d)
-#define objcInvoke_3(a, b, c, d, e)     ((id (*)(id, SEL, typeof(c), typeof(d), typeof(e)))objc_msgSend)(a, NSSelectorFromString(b), c, d, e)
+#define objcInvoke_1(a, b, c)           ((id (*)(id, SEL, __typeof__(c)))objc_msgSend)(a, NSSelectorFromString(b), c)
+#define objcInvoke_2(a, b, c, d)        ((id (*)(id, SEL, __typeof__(c), __typeof__(d)))objc_msgSend)(a, NSSelectorFromString(b), c, d)
+#define objcInvoke_3(a, b, c, d, e)     ((id (*)(id, SEL, __typeof__(c), __typeof__(d), __typeof__(e)))objc_msgSend)(a, NSSelectorFromString(b), c, d, e)
 
 // Kiem tra object tra ve dung class mong doi, log ro rang neu sai (thay cho assert crash)
 #define expectClass(obj, clsName) \
