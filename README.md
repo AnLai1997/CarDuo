@@ -59,7 +59,9 @@ Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái,
 
 ## Cài đặt trong app Settings
 Vào Cài đặt > SplitCarPlay: bật/tắt, chọn app ngăn trái/phải (AltList), tự mở khi cắm xe,
-vị trí dock, hướng app trong ngăn, tỉ lệ ngăn. Mục "Thử nghiệm" có nút mở/đóng split ngay trên màn iPhone.
+kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn.
+Thanh điều khiển (chọn app, đổi chỗ, bố cục, PiP, widget, cặp yêu thích, Home) ẩn ở mép trên màn xe;
+kéo từ mép trên xuống để hiện, tự ẩn sau 6 giây. Mục "Gỡ lỗi" có nút mở/đóng split ngay trên màn iPhone.
 Cần package `PreferenceLoader` và `AltList` (Sileo tự cài theo Depends).
 
 ## Test ngay trên màn iPhone (chưa có xe, cách cũ qua SSH)
@@ -76,7 +78,7 @@ PLIST
 ```
 - Respring: sau 10 giây cửa sổ chia đôi hiện trên màn iPhone (xoay ngang).
 - Hoặc không cần respring: `notifyutil -p com.anpham.splitcarplay.test` (package `notifyutil`/`darwintools`).
-- Đóng: bấm nút X trong dock trái, hoặc `notifyutil -p com.anpham.splitcarplay.close`.
+- Đóng: kéo mép trên xuống rồi bấm nút Home trên thanh điều khiển, hoặc `notifyutil -p com.anpham.splitcarplay.close`.
 - Xoá key `TestOnMainScreen` khi không muốn tự mở nữa.
 
 ## Cài & xem log

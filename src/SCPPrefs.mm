@@ -26,7 +26,6 @@ static NSString *str(NSString *key)
 + (NSString *)leftApp      { return str(@"LeftApp"); }
 + (NSString *)rightApp     { return str(@"RightApp"); }
 + (BOOL)autoLaunch         { id v = value(@"AutoLaunch");       return v ? [v boolValue] : NO; }
-+ (NSInteger)dockSide      { id v = value(@"DockSide");         return v ? [v integerValue] : 0; }
 + (NSInteger)paneOrientation {
     id v = value(@"PaneOrientation");
     NSInteger o = v ? [v integerValue] : 1;
@@ -39,11 +38,9 @@ static NSString *str(NSString *key)
 }
 + (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
 + (BOOL)showDebug          { id v = value(@"ShowDebug");        return v ? [v boolValue] : YES; }
-+ (NSInteger)scaleMode     { id v = value(@"ScaleMode");        return v ? [v integerValue] : 1; }
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
 + (BOOL)widgetPane         { id v = value(@"WidgetPane");       return v ? [v boolValue] : NO; }
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
-+ (BOOL)autoSplitOnIcon    { id v = value(@"AutoSplitOnIcon");  return v ? [v boolValue] : NO; }
 
 + (NSDictionary *)favorite:(NSInteger)index
 {

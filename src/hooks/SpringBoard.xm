@@ -58,7 +58,7 @@ static void SCPHandlePendingRequest(void)
     %orig;
     SCPLog("SpringBoard ready, dang ky notification");
 
-    // CarPlay process -> mo 1 app vao 1 ngan (long-press icon / bam icon khi bat AutoSplitOnIcon)
+    // CarPlay process -> mo 1 app vao 1 ngan (long-press icon tren dashboard)
     NSNotificationCenter *dnc = [objc_getClass("NSDistributedNotificationCenter") defaultCenter];
     [dnc addObserverForName:SCP_NOTIF_LAUNCH object:nil queue:[NSOperationQueue mainQueue]
                  usingBlock:^(NSNotification *note) {
@@ -69,10 +69,6 @@ static void SCPHandlePendingRequest(void)
         @try {
             SCPSplitWindow *w = [SCPSplitWindow currentOrCreate];
             if (!w) { SCPLog("khong tao duoc cua so (CarPlay chua ket noi?)"); return; }
-            if (slot == SCPSlotRight && !w.leftPane && [SCPPrefs leftApp]) {
-                // "tu chia theo app": giu app mac dinh (vd Maps) o ngan trai
-                [w launchApp:[SCPPrefs leftApp] inSlot:SCPSlotLeft];
-            }
             [w launchApp:bundleID inSlot:(SCPSlot)slot];
         } @catch (NSException *e) {
             SCPLog("launch that bai: %@\n%@", e, e.callStackSymbols);

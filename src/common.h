@@ -16,7 +16,9 @@
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 
-#define SCP_DOCK_WIDTH 40.0
+// Thanh dieu khien nam o mep tren cua so split, binh thuong an; keo tu mep tren xuong de hien
+#define SCP_DOCK_HEIGHT 44.0
+#define SCP_DOCK_HANDLE_HEIGHT 12.0
 
 #define getIvar(object, ivar)        [object valueForKey:ivar]
 #define setIvar(object, ivar, value) [object setValue:value forKey:ivar]

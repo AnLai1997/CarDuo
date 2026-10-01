@@ -3,7 +3,6 @@
 
 // Inject vao process CarPlay (com.apple.CarPlayApp)
 // - Long-press icon tren dashboard -> mo app do vao mot ngan (SpringBoard host).
-// - Bat "Tu chia theo app": bam icon binh thuong -> mo app vao ngan PHAI, ngan trai giu app mac dinh (vd Maps).
 // iOS 16: code cua app CarPlay nam trong DashBoard.framework, prefix DB (DBDashboard, DBIconView, DBEvent).
 %group CARPLAY
 
@@ -46,25 +45,6 @@ static void SCPRequestLaunch(NSString *bundleID, int slot)
     lp.minimumPressDuration = 1.0;
     [v addGestureRecognizer:lp];
     return v;
-}
-
-%end
-
-// Bam icon tren dashboard (launch binh thuong) -> neu bat AutoSplitOnIcon thi chan va mo vao ngan phai
-%hook DBApplicationLaunchInfo
-
-+ (id)launchInfoForApplication:(id)application withActivationSettings:(id)settings
-{
-    if ([SCPPrefs enabled] && [SCPPrefs autoSplitOnIcon]) {
-        NSString *bid = objcInvoke(application, @"bundleIdentifier");
-        NSString *leftDefault = [SCPPrefs leftApp];
-        if (bid && ![bid isEqualToString:leftDefault]) {
-            SCPLog("auto split: %@ -> ngan phai", bid);
-            SCPRequestLaunch(bid, 1);
-            return nil;
-        }
-    }
-    return %orig;
 }
 
 %end

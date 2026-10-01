@@ -51,9 +51,9 @@
     [_wallpaper.layer addSublayer:g];
     [_screenView addSubview:_wallpaper];
 
-    // Thanh ben kieu CarPlay: dong ho tren, nut Home duoi
+    // Thanh dieu khien o mep tren (tren xe binh thuong an, keo xuong moi hien): dong ho trai, Home phai
     _dockView = [[UIView alloc] init];
-    _dockView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.55];
+    _dockView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
     [_screenView addSubview:_dockView];
     _clockLabel = [[UILabel alloc] init];
     _clockLabel.textColor = [UIColor whiteColor];
@@ -77,6 +77,7 @@
     _divider = [[UIView alloc] init];
     _divider.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
     [_screenView addSubview:_divider];
+    [_screenView bringSubviewToFront:_dockView];   // thanh dieu khien phu len app
 
     _leftPhone  = [self makePhoneIn:_leftPane];
     _rightPhone = [self makePhoneIn:_rightPane];
@@ -189,7 +190,6 @@ static UIImage *appIcon(NSString *bid)
     [super layoutSubviews];
 
     NSString *left = prefValue(@"LeftApp"), *right = prefValue(@"RightApp");
-    NSInteger dockSide = [prefValue(@"DockSide") integerValue];
     NSInteger orient = prefValue(@"PaneOrientation") ? [prefValue(@"PaneOrientation") integerValue] : 1;
     CGFloat ratio = prefValue(@"SplitRatio") ? [prefValue(@"SplitRatio") doubleValue] : 0.5;
     ratio = MIN(0.7, MAX(0.3, ratio));
@@ -199,7 +199,6 @@ static UIImage *appIcon(NSString *bid)
     CGFloat aw = 16, ah = 9;
     if ([aspect isEqualToString:@"5:3"]) { aw = 5; ah = 3; }
     else if ([aspect isEqualToString:@"8:3"]) { aw = 8; ah = 3; }
-    NSInteger scaleMode = prefValue(@"ScaleMode") ? [prefValue(@"ScaleMode") integerValue] : 1;
     CGFloat W = self.bounds.size.width - 24, H = W * ah / aw;
     CGFloat maxH = self.bounds.size.height - 30;
     if (H > maxH) { H = maxH; W = H * aw / ah; }
@@ -209,49 +208,44 @@ static UIImage *appIcon(NSString *bid)
     _wallpaper.frame = _screenView.bounds;
     for (CALayer *l in _wallpaper.layer.sublayers) l.frame = _wallpaper.bounds;
 
-    CGFloat dockW = W * 0.075;          // thanh ben CarPlay ~ 60/800
     CGFloat divW  = MAX(2, W * 0.012);
-    CGFloat avail = W - dockW - divW;
+    CGFloat avail = W - divW;           // ngan dung het man, thanh dieu khien phu len tren
     CGFloat leftW = floor(avail * ratio), rightW = avail - leftW;
-    CGFloat x0 = (dockSide == 1) ? 0 : dockW;
-    _dockView.frame  = CGRectMake(dockSide == 1 ? W - dockW : 0, 0, dockW, H);
-    _leftPane.frame  = CGRectMake(x0, 0, leftW, H);
-    _divider.frame   = CGRectMake(x0 + leftW, 0, divW, H);
-    _rightPane.frame = CGRectMake(x0 + leftW + divW, 0, rightW, H);
+    CGFloat dockH = H * 0.11;           // thanh dieu khien ~ 44/480
+    _dockView.frame  = CGRectMake(0, 0, W, dockH);
+    _dockView.layer.cornerRadius = dockH * 0.3;
+    _dockView.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+    _leftPane.frame  = CGRectMake(0, 0, leftW, H);
+    _divider.frame   = CGRectMake(leftW, 0, divW, H);
+    _rightPane.frame = CGRectMake(leftW + divW, 0, rightW, H);
 
-    // noi dung thanh ben
+    // noi dung thanh dieu khien: dong ho trai, cac nut tiep theo, Home sat phai
     static NSDateFormatter *df; if (!df) { df = [NSDateFormatter new]; df.dateFormat = @"HH:mm"; }
     NSString *now = [df stringFromDate:[NSDate date]];
-    _clockLabel.font = [UIFont systemFontOfSize:dockW * 0.42 weight:UIFontWeightSemibold];
+    _clockLabel.font = [UIFont systemFontOfSize:dockH * 0.42 weight:UIFontWeightSemibold];
     _clockLabel.text = now;
-    _clockLabel.frame = CGRectMake(0, 4, dockW, dockW * 0.6);
-    CGFloat ic = dockW * 0.5;
-    _gridIcon.frame = CGRectMake((dockW - ic) / 2, dockW * 0.75, ic, ic);
-    _swapIcon.frame = CGRectMake((dockW - ic) / 2, dockW * 0.75 + ic + 6, ic, ic);
-    _homeIcon.frame = CGRectMake((dockW - ic) / 2, H - ic - 6, ic, ic);
+    _clockLabel.textAlignment = NSTextAlignmentLeft;
+    _clockLabel.frame = CGRectMake(dockH * 0.3, 0, dockH * 1.4, dockH);
+    CGFloat ic = dockH * 0.55, iy = (dockH - ic) / 2;
+    _gridIcon.frame = CGRectMake(dockH * 1.9, iy, ic, ic);
+    _swapIcon.frame = CGRectMake(dockH * 1.9 + ic + dockH * 0.3, iy, ic, ic);
+    _homeIcon.frame = CGRectMake(W - ic - dockH * 0.3, iy, ic, ic);
     _leftTime.text = now; _rightTime.text = now;
 
-    [self layoutPane:_leftPane phone:_leftPhone icon:_leftIcon label:_leftLabel bid:left orientation:orient scaleMode:scaleMode];
-    [self layoutPane:_rightPane phone:_rightPhone icon:_rightIcon label:_rightLabel bid:right orientation:orient scaleMode:scaleMode];
+    [self layoutPane:_leftPane phone:_leftPhone icon:_leftIcon label:_leftLabel bid:left orientation:orient];
+    [self layoutPane:_rightPane phone:_rightPhone icon:_rightIcon label:_rightLabel bid:right orientation:orient];
 
     _infoLabel.frame = CGRectMake(0, CGRectGetMaxY(_screenView.frame) + 4, self.bounds.size.width, 18);
-    NSString *modeName = scaleMode == 0 ? @"kéo giãn" : (scaleMode == 2 ? @"resize" : @"giữ tỉ lệ");
-    _infoLabel.text = [NSString stringWithFormat:@"Dock %@ · Trái %.0f%% · App %@ · %@",
-                       dockSide == 1 ? @"phải" : @"trái", ratio * 100, orient == 3 ? @"ngang" : @"dọc", modeName];
+    _infoLabel.text = [NSString stringWithFormat:@"Trái %.0f%% · App %@ · Kéo mép trên xuống để hiện nút",
+                       ratio * 100, orient == 3 ? @"ngang" : @"dọc"];
 }
 
 - (void)layoutPane:(UIView *)pane phone:(UIView *)phone icon:(UIImageView *)icon label:(UILabel *)label
-               bid:(NSString *)bid orientation:(NSInteger)orient scaleMode:(NSInteger)scaleMode
+               bid:(NSString *)bid orientation:(NSInteger)orient
 {
     CGSize p = pane.bounds.size;
-    // Khung "man hinh iPhone" trong ngan: keo gian / resize = full ngan; giu ti le = 9:16 (doc) hoac 16:9 (ngang) can giua
-    CGFloat inset = 0;
-    CGFloat pw = p.width, ph = p.height;
-    CGRect phoneRect = CGRectMake(inset, inset, pw, ph);
-    if (scaleMode == 1) {
-        if (orient == 3) { CGFloat h = MIN(ph, pw * 9.0 / 16.0); CGFloat w = h * 16.0 / 9.0; phoneRect = CGRectMake((p.width - w)/2, inset + (ph - h)/2, w, h); }
-        else             { CGFloat w = MIN(pw, ph * 9.0 / 16.0); CGFloat h = w * 16.0 / 9.0; phoneRect = CGRectMake((p.width - w)/2, inset + (ph - h)/2, w, h); }
-    }
+    // App duoc resize dung kich thuoc ngan -> khung "man hinh iPhone" chiem het ngan
+    CGRect phoneRect = CGRectMake(0, 0, p.width, p.height);
     phone.frame = phoneRect;
     phone.alpha = 1;
     // thanh trang thai gia o dau "man hinh iPhone"

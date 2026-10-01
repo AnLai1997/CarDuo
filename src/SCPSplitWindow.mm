@@ -75,17 +75,6 @@ static NSMutableArray *lockAssertions(void)
     return a;
 }
 
-static CGRect boundsForOrientation(UIScreen *screen, int orientation)
-{
-    CGFloat w = screen.bounds.size.width, h = screen.bounds.size.height;
-    CGRect r = CGRectZero;
-    if (UIInterfaceOrientationIsLandscape((UIInterfaceOrientation)orientation))
-        r.size = CGSizeMake(MAX(w, h), MIN(w, h));
-    else
-        r.size = CGSizeMake(MIN(w, h), MAX(w, h));
-    return r;
-}
-
 // Danh sach app trong may: @{ @"id", @"name" }, app nguoi dung truoc, app Apple sau
 static NSArray<NSDictionary *> *SCPInstalledApps(void)
 {
@@ -128,6 +117,9 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) NSArray<UIButton *> *favButtons;
 @property (nonatomic, strong) UILabel *clockLabel;
 @property (nonatomic, strong) NSTimer *clockTimer;
+@property (nonatomic, strong) UIView *dockHandle, *dockHandlePill;   // dai mong o mep tren de keo thanh dieu khien xuong
+@property (nonatomic) BOOL dockVisible;
+@property (nonatomic, strong) NSTimer *dockHideTimer;               // tu an thanh dieu khien sau vai giay
 @property (nonatomic, strong) UIView *dividerView, *dividerPill;
 @property (nonatomic, strong) UIView *pickerView;
 @property (nonatomic, strong) UIImageView *dragImage;
@@ -142,6 +134,10 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) id logObserver;
 - (instancetype)initOnMainScreen:(BOOL)mainScreen;
 - (void)setupDock;
+- (void)setupDockHandle;
+- (void)setDockVisible:(BOOL)visible animated:(BOOL)animated;
+- (void)scheduleDockHide;
+- (void)bringChromeToFront;
 - (void)setupDivider;
 - (void)setupDebugOverlay;
 - (void)refreshDebugOverlay;
@@ -211,9 +207,10 @@ static UIImage *SCPAppIcon(NSString *bid)
     }
 
     self.rootWindow.backgroundColor = [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
-    [self setupDock];
     [self setupDivider];
     [self setupDebugOverlay];
+    [self setupDockHandle];
+    [self setupDock];
     if ([SCPPrefs widgetPane]) [self setWidgetModeEnabled:YES];
 
     self.rootWindow.alpha = 0;
@@ -238,7 +235,8 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (BOOL)vertical { return [SCPPrefs splitDirection] == 1; }
 
 // ---------------------------------------------------------------------
-//  Dock: giong thanh ben CarPlay
+//  Thanh dieu khien: nam ngang o mep tren, binh thuong an (y = -cao).
+//  Keo tu mep tren xuong (hoac cham dai mong o mep tren) de hien; tu an sau vai giay.
 // ---------------------------------------------------------------------
 - (UIButton *)dockButton:(NSString *)symbol tint:(UIColor *)tint action:(SEL)sel
 {
@@ -247,38 +245,64 @@ static UIImage *SCPAppIcon(NSString *bid)
     [b setImage:[UIImage systemImageNamed:symbol withConfiguration:cfg] forState:UIControlStateNormal];
     b.tintColor = tint;
     [b addTarget:self action:sel forControlEvents:UIControlEventTouchUpInside];
+    [b addTarget:self action:@selector(scheduleDockHide) forControlEvents:UIControlEventTouchUpInside];
     [self.dockView addSubview:b];
     return b;
+}
+
+- (void)setupDockHandle
+{
+    CGRect f = self.rootWindow.bounds;
+    // Dai trong suot o mep tren: nhan pan/tap de keo thanh dieu khien xuong
+    self.dockHandle = [[UIView alloc] initWithFrame:CGRectMake(0, 0, f.size.width, SCP_DOCK_HANDLE_HEIGHT)];
+    self.dockHandle.backgroundColor = [UIColor clearColor];
+    self.dockHandlePill = [[UIView alloc] initWithFrame:CGRectMake((f.size.width - 44) / 2, 3, 44, 4)];
+    self.dockHandlePill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.45];
+    self.dockHandlePill.layer.cornerRadius = 2;
+    self.dockHandlePill.userInteractionEnabled = NO;
+    [self.dockHandle addSubview:self.dockHandlePill];
+    [self.dockHandle addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dockPanned:)]];
+    [self.dockHandle addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dockHandleTapped)]];
+    [self.rootWindow addSubview:self.dockHandle];
+
+    // Vuot tu mep tren man hinh (ke ca khi ngon tay dat len app) cung keo thanh xuong
+    UIScreenEdgePanGestureRecognizer *edge = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(dockPanned:)];
+    edge.edges = UIRectEdgeTop;
+    [self.rootWindow addGestureRecognizer:edge];
 }
 
 - (void)setupDock
 {
     CGRect f = self.rootWindow.bounds;
-    CGFloat dockX = ([SCPPrefs dockSide] == 1) ? f.size.width - SCP_DOCK_WIDTH : 0;
-    self.dockView = [[UIView alloc] initWithFrame:CGRectMake(dockX, 0, SCP_DOCK_WIDTH, f.size.height)];
-    self.dockView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6];
+    self.dockView = [[UIView alloc] initWithFrame:CGRectMake(0, -SCP_DOCK_HEIGHT, f.size.width, SCP_DOCK_HEIGHT)];
+    self.dockView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.8];
+    self.dockView.layer.cornerRadius = 12;
+    self.dockView.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+    [self.dockView addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dockPanned:)]];
     [self.rootWindow addSubview:self.dockView];
+    self.dockVisible = NO;
 
-    self.clockLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 4, SCP_DOCK_WIDTH, 16)];
+    self.clockLabel = [[UILabel alloc] initWithFrame:CGRectMake(12, 0, 52, SCP_DOCK_HEIGHT)];
     self.clockLabel.textColor = [UIColor whiteColor];
-    self.clockLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-    self.clockLabel.textAlignment = NSTextAlignmentCenter;
+    self.clockLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+    self.clockLabel.textAlignment = NSTextAlignmentLeft;
     self.clockLabel.adjustsFontSizeToFitWidth = YES;
     [self.dockView addSubview:self.clockLabel];
     [self updateClock];
     self.clockTimer = [NSTimer scheduledTimerWithTimeInterval:30 target:self selector:@selector(updateClock) userInfo:nil repeats:YES];
 
-    CGFloat sz = 30, x = (SCP_DOCK_WIDTH - sz) / 2, y = 24, step = sz + 4;
+    // Nut xep ngang tu trai sang phai, sau dong ho
+    CGFloat sz = 30, y = (SCP_DOCK_HEIGHT - sz) / 2, x = 76, step = sz + 10;
     self.appsButton   = [self dockButton:@"square.grid.2x2" tint:[UIColor whiteColor] action:@selector(appsButtonTapped)];
-    self.appsButton.frame = CGRectMake(x, y, sz, sz); y += step;
+    self.appsButton.frame = CGRectMake(x, y, sz, sz); x += step;
     self.swapButton   = [self dockButton:@"arrow.left.arrow.right" tint:[UIColor whiteColor] action:@selector(swapPanes)];
-    self.swapButton.frame = CGRectMake(x, y, sz, sz); y += step;
+    self.swapButton.frame = CGRectMake(x, y, sz, sz); x += step;
     self.layoutButton = [self dockButton:@"rectangle.split.2x1" tint:[UIColor whiteColor] action:@selector(cycleLayoutPreset)];
-    self.layoutButton.frame = CGRectMake(x, y, sz, sz); y += step;
+    self.layoutButton.frame = CGRectMake(x, y, sz, sz); x += step;
     self.pipButton    = [self dockButton:@"pip.enter" tint:[UIColor whiteColor] action:@selector(pipButtonTapped)];
-    self.pipButton.frame = CGRectMake(x, y, sz, sz); y += step;
+    self.pipButton.frame = CGRectMake(x, y, sz, sz); x += step;
     self.widgetButton = [self dockButton:@"music.note" tint:[UIColor whiteColor] action:@selector(widgetButtonTapped)];
-    self.widgetButton.frame = CGRectMake(x, y, sz, sz); y += step + 4;
+    self.widgetButton.frame = CGRectMake(x, y, sz, sz); x += step + 6;
 
     // Cap yeu thich 1..3: nut tron nho co so
     NSMutableArray *favs = [NSMutableArray array];
@@ -289,18 +313,78 @@ static UIImage *SCPAppIcon(NSString *bid)
         [b setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
         b.backgroundColor = [UIColor colorWithWhite:1 alpha:0.18];
         b.layer.cornerRadius = 11;
-        b.frame = CGRectMake((SCP_DOCK_WIDTH - 22) / 2, y, 22, 22); y += 26;
+        b.frame = CGRectMake(x, (SCP_DOCK_HEIGHT - 22) / 2, 22, 22); x += 30;
         b.tag = i;
         [b addTarget:self action:@selector(favButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [b addTarget:self action:@selector(scheduleDockHide) forControlEvents:UIControlEventTouchUpInside];
         [self.dockView addSubview:b];
         [favs addObject:b];
     }
     self.favButtons = favs;
 
-    // Home kieu CarPlay = dong split, ve lai dashboard CarPlay
+    // Home kieu CarPlay = dong split, ve lai dashboard CarPlay (sat mep phai)
     self.homeButton = [self dockButton:@"circle.grid.3x3.fill" tint:[UIColor whiteColor] action:@selector(dismiss)];
-    self.homeButton.frame = CGRectMake(x, f.size.height - sz - 6, sz, sz);
+    self.homeButton.frame = CGRectMake(f.size.width - sz - 12, y, sz, sz);
     [self updateDockState];
+}
+
+// Keo tren dai mep tren / thanh dieu khien / mep man hinh: theo ngon tay, tha thi chot hien hoac an
+- (void)dockPanned:(UIPanGestureRecognizer *)g
+{
+    CGFloat ty = [g translationInView:self.rootWindow].y;
+    CGFloat startY = self.dockVisible ? 0 : -SCP_DOCK_HEIGHT;
+    if (g.state == UIGestureRecognizerStateBegan || g.state == UIGestureRecognizerStateChanged) {
+        [self.dockHideTimer invalidate]; self.dockHideTimer = nil;
+        [self bringChromeToFront];
+        CGRect fr = self.dockView.frame;
+        fr.origin.y = MIN(0, MAX(-SCP_DOCK_HEIGHT, startY + ty));
+        self.dockView.frame = fr;
+        return;
+    }
+    if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled) {
+        CGFloat vy = [g velocityInView:self.rootWindow].y;
+        BOOL show = (vy > 150) || (vy > -150 && CGRectGetMinY(self.dockView.frame) > -SCP_DOCK_HEIGHT / 2);
+        [self setDockVisible:show animated:YES];
+    }
+}
+
+- (void)dockHandleTapped
+{
+    [self setDockVisible:!self.dockVisible animated:YES];
+}
+
+- (void)setDockVisible:(BOOL)visible animated:(BOOL)animated
+{
+    self.dockVisible = visible;
+    [self.dockHideTimer invalidate]; self.dockHideTimer = nil;
+    [self bringChromeToFront];
+    CGRect fr = self.dockView.frame;
+    fr.origin.y = visible ? 0 : -SCP_DOCK_HEIGHT;
+    void (^apply)(void) = ^{
+        self.dockView.frame = fr;
+        self.dockHandlePill.alpha = visible ? 0 : 1;
+    };
+    if (animated) [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:apply completion:nil];
+    else apply();
+    if (visible) [self scheduleDockHide];
+}
+
+- (void)scheduleDockHide
+{
+    [self.dockHideTimer invalidate];
+    if (!self.dockVisible) return;
+    __weak SCPSplitWindow *weakSelf = self;
+    self.dockHideTimer = [NSTimer scheduledTimerWithTimeInterval:6 repeats:NO block:^(NSTimer *t) {
+        [weakSelf setDockVisible:NO animated:YES];
+    }];
+}
+
+// Dai keo + thanh dieu khien luon nam tren cung (tren ca bang chon app va log)
+- (void)bringChromeToFront
+{
+    if (self.debugLabel) [self.rootWindow bringSubviewToFront:self.debugLabel];
+    if (self.dockHandle) [self.rootWindow bringSubviewToFront:self.dockHandle];
+    if (self.dockView)   [self.rootWindow bringSubviewToFront:self.dockView];
 }
 
 - (void)updateDockState
@@ -342,11 +426,10 @@ static UIImage *SCPAppIcon(NSString *bid)
 // ---------------------------------------------------------------------
 //  Bo cuc: trai/phai hoac tren/duoi, fullscreen, PiP, widget
 // ---------------------------------------------------------------------
+// Thanh dieu khien an o mep tren va phu len app khi hien -> ngan dung het cua so
 - (CGRect)paneArea
 {
-    CGRect f = self.rootWindow.bounds;
-    CGFloat x0 = ([SCPPrefs dockSide] == 1) ? 0 : SCP_DOCK_WIDTH;
-    return CGRectMake(x0, 0, f.size.width - SCP_DOCK_WIDTH, f.size.height);
+    return self.rootWindow.bounds;
 }
 
 - (CGRect)frameForSlot:(SCPSlot)slot
@@ -474,7 +557,7 @@ static UIImage *SCPAppIcon(NSString *bid)
         self.widgetView.frame = [self frameForSlot:SCPSlotRight];
     }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
-    if (self.debugLabel) [self.rootWindow bringSubviewToFront:self.debugLabel];
+    [self bringChromeToFront];
     [self updateDockState];
 }
 
@@ -631,8 +714,9 @@ static UIImage *SCPAppIcon(NSString *bid)
     pv.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.97];
     self.pickerView = pv;
     [self.rootWindow addSubview:pv];
+    [self setDockVisible:NO animated:YES];
 
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 8, pv.bounds.size.width - 120, 30)];
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 14, pv.bounds.size.width - 120, 30)];
     title.text = (self.pickerSlot == SCPSlotLeft) ? @"Chọn app cho ngăn TRÁI  (giữ icon và kéo để thả vào ngăn)" : @"Chọn app cho ngăn PHẢI";
     title.textColor = [UIColor whiteColor];
     title.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
@@ -642,11 +726,11 @@ static UIImage *SCPAppIcon(NSString *bid)
     UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem];
     [cancel setTitle:@"Huỷ" forState:UIControlStateNormal];
     cancel.titleLabel.font = [UIFont systemFontOfSize:17];
-    cancel.frame = CGRectMake(pv.bounds.size.width - 80, 8, 70, 30);
+    cancel.frame = CGRectMake(pv.bounds.size.width - 80, 14, 70, 30);
     [cancel addTarget:self action:@selector(hideAppPicker) forControlEvents:UIControlEventTouchUpInside];
     [pv addSubview:cancel];
 
-    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 44, pv.bounds.size.width, pv.bounds.size.height - 44)];
+    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 50, pv.bounds.size.width, pv.bounds.size.height - 50)];
     scroll.alwaysBounceVertical = YES;
     scroll.tag = 77;
     [pv addSubview:scroll];
@@ -829,7 +913,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     NSArray *lines = SCPRecentLogLines();
     NSUInteger n = MIN((NSUInteger)10, lines.count);
     self.debugLabel.text = [[lines subarrayWithRange:NSMakeRange(lines.count - n, n)] componentsJoinedByString:@"\n"];
-    [self.rootWindow bringSubviewToFront:self.debugLabel];
+    [self bringChromeToFront];
 }
 
 // ---------------------------------------------------------------------
@@ -897,7 +981,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     }
     [self relayoutPanes];
     [self applyPairRatioIfAny];
-    if (self.pickerView) [self.rootWindow bringSubviewToFront:self.pickerView];
+    if (self.pickerView) { [self.rootWindow bringSubviewToFront:self.pickerView]; [self bringChromeToFront]; }
     SCPLog("da mo %@ vao ngan %d", bundleID, (int)slot);
     if (slot == SCPSlotRight) [self mirrorRightPaneIfEnabled];
 }
@@ -992,16 +1076,16 @@ static UIImage *SCPAppIcon(NSString *bid)
     }
 }
 
-// Scale noi dung app (kich thuoc iPhone) vao ngan
+// Resize scene cua app theo dung kich thuoc ngan (app tu layout lai, khong scale)
 - (void)layoutPane:(SCPAppPane *)pane
 {
     [self layoutPane:pane live:NO];
 }
 
-// live=YES: dang keo thanh phan cach -> chi scale bang transform (re), khong resize scene
+// live=YES: dang keo thanh phan cach -> chi doi khung container, resize scene khi tha tay
 - (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live
 {
-    if (!pane.appViewController) return;
+    if (!pane.appViewController || live) return;
     id deviceAppVC = getIvar(pane.appViewController, @"_deviceAppViewController");
     id sceneView   = getIvar(deviceAppVC, @"sceneView");
     UIView *hostingContentView = getIvar(sceneView, @"_sceneContentContainerView");
@@ -1009,34 +1093,16 @@ static UIImage *SCPAppIcon(NSString *bid)
 
     CGSize paneSize = pane.containerView.bounds.size;
     if (paneSize.width < 1) return;
-    CGSize phoneSize = boundsForOrientation([UIScreen mainScreen], pane.orientation).size;
     [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
-
-    NSInteger mode = [SCPPrefs scaleMode];
-    if (mode == 2 && live) return;
-    if (mode == 2) {
-        hostingContentView.transform = CGAffineTransformIdentity;
-        id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
-        if (scene) {
-            CGRect target = CGRectMake(0, 0, paneSize.width, paneSize.height);
-            objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
-                ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), target);
-            });
-        }
-        return;
-    }
-
-    CGFloat sx = paneSize.width / phoneSize.width;
-    CGFloat sy = paneSize.height / phoneSize.height;
-    if (mode == 1) { CGFloat s = MIN(sx, sy); sx = sy = s; }
-
-    hostingContentView.layer.anchorPoint = CGPointMake(0, 0);
     hostingContentView.transform = CGAffineTransformIdentity;
-    hostingContentView.bounds = CGRectMake(0, 0, phoneSize.width, phoneSize.height);
-    CGFloat ox = (paneSize.width  - phoneSize.width  * sx) / 2;
-    CGFloat oy = (paneSize.height - phoneSize.height * sy) / 2;
-    hostingContentView.layer.position = CGPointMake(ox, oy);
-    hostingContentView.transform = CGAffineTransformMakeScale(sx, sy);
+
+    id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
+    if (scene) {
+        CGRect target = CGRectMake(0, 0, paneSize.width, paneSize.height);
+        objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
+            ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), target);
+        });
+    }
 }
 
 - (void)sceneMonitor:(id)monitor sceneWasDestroyed:(id)scene
@@ -1164,6 +1230,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 {
     SCPLog("dismiss split window");
     [self.clockTimer invalidate]; self.clockTimer = nil;
+    [self.dockHideTimer invalidate]; self.dockHideTimer = nil;
     [self hideAppPicker];
     [self teardownMirror];
     if (self.widgetView) { [self.widgetView stop]; [self.widgetView removeFromSuperview]; self.widgetView = nil; }

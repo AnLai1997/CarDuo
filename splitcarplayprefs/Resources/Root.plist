@@ -22,7 +22,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CHUNG</string>
-			<key>footerText</key><string>Trên màn CarPlay có nút tròn ở góc trên phải để mở split và chọn app. Giữ icon app 1 giây trên dashboard cũng mở app đó vào một ngăn.</string>
+			<key>footerText</key><string>Trên màn CarPlay có nút tròn ở góc trên phải để mở split và chọn app. Giữ icon app 1 giây trên dashboard cũng mở app đó vào một ngăn. Trong split, các nút điều khiển ẩn ở mép trên: kéo từ mép trên xuống để hiện.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
@@ -32,23 +32,11 @@
 			<key>default</key><true/>
 			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
 		</dict>
-		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Tự chia theo app</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
-			<key>key</key><string>AutoSplitOnIcon</string>
-			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSGroupCell</string>
-			<key>footerText</key><string>Tự chia theo app: bấm bất kỳ icon nào trên dashboard CarPlay sẽ mở app đó vào ngăn phải, ngăn trái luôn giữ app mặc định (ví dụ Maps). Dùng CarPlay như bình thường mà luôn có bản đồ.</string>
-		</dict>
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>APP MẶC ĐỊNH</string>
-			<key>footerText</key><string>Cặp app dùng cho nút "Mở split", tự mở khi cắm xe, và ngăn trái của chế độ tự chia.</string>
+			<key>footerText</key><string>Cặp app dùng cho nút "Mở split" và tự mở khi cắm xe.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSLinkListCell</string>
@@ -94,7 +82,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CẶP APP YÊU THÍCH</string>
-			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trên dock của split. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
+			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trên thanh điều khiển của split (kéo từ mép trên xuống). Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSEditTextCell</string>
@@ -203,32 +191,12 @@
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
-			<key>label</key><string>Vị trí dock</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
-			<key>key</key><string>DockSide</string>
-			<key>default</key><integer>0</integer>
-			<key>validValues</key><array><integer>0</integer><integer>1</integer></array>
-			<key>validTitles</key><array><string>Dock bên trái</string><string>Dock bên phải</string></array>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSSegmentCell</string>
 			<key>label</key><string>Hướng app trong ngăn</string>
 			<key>defaults</key><string>com.anpham.splitcarplay</string>
 			<key>key</key><string>PaneOrientation</string>
 			<key>default</key><integer>1</integer>
 			<key>validValues</key><array><integer>1</integer><integer>3</integer></array>
 			<key>validTitles</key><array><string>Dọc (portrait)</string><string>Ngang (landscape)</string></array>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSSegmentCell</string>
-			<key>label</key><string>Cách co giãn app</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
-			<key>key</key><string>ScaleMode</string>
-			<key>default</key><integer>1</integer>
-			<key>validValues</key><array><integer>0</integer><integer>1</integer><integer>2</integer></array>
-			<key>validTitles</key><array><string>Kéo giãn</string><string>Giữ tỉ lệ</string><string>Resize (thử)</string></array>
 			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
 		</dict>
 		<dict>
@@ -261,7 +229,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>TÍNH NĂNG THÊM</string>
-			<key>footerText</key><string>Widget Now Playing: ngăn phải hiện bài đang phát với nút điều khiển thay vì app (nút nốt nhạc trên dock cũng bật/tắt được). PiP: nút trên dock thu ngăn phải thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).</string>
+			<key>footerText</key><string>Widget Now Playing: ngăn phải hiện bài đang phát với nút điều khiển thay vì app (nút nốt nhạc trên thanh điều khiển cũng bật/tắt được). PiP: nút trên thanh điều khiển thu ngăn phải thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>

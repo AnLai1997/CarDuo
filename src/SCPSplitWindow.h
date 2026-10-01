@@ -21,7 +21,7 @@ typedef NS_ENUM(int, SCPSlot) {
 // Cua so SpringBoard nam tren man hinh xe, chia 2 ngan
 @interface SCPSplitWindow : NSObject
 @property (nonatomic, strong) UIWindow *rootWindow;  // UIRootSceneWindow
-@property (nonatomic, strong) UIView *dockView;
+@property (nonatomic, strong) UIView *dockView;      // thanh dieu khien o mep tren, an; keo xuong de hien
 @property (nonatomic, strong) SCPAppPane *leftPane;
 @property (nonatomic, strong) SCPAppPane *rightPane;
 @property (nonatomic) BOOL onMainScreen;
