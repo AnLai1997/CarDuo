@@ -483,13 +483,15 @@ static id SCPActionSymbolConfig(void)
     [self showAppPickerForSlot:[self slotForPane:pane]];
 }
 
+// Nut X: tat han app do. Con 1 ngan -> ngan do tu phong to het man; het ngan -> dong split, ve dashboard CarPlay
 - (void)paneCloseApp:(UIButton *)b
 {
     SCPAppPane *pane = [self paneForView:b];
     if (!pane) return;
     SCPSlot slot = [self slotForPane:pane];
-    [self closeSlot:slot];
-    if (self.panes.count == 0) [self showAppPickerForSlot:slot];   // ngan trong het -> chon app moi
+    [self closeSlot:slot terminate:YES];
+    if (self.panes.count == 0) { [self dismiss]; return; }
+    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
 }
 
 - (void)paneToggleFullscreen:(UIButton *)b
@@ -534,11 +536,21 @@ static id SCPActionSymbolConfig(void)
     return self.rootWindow.bounds;
 }
 
+// Chi con 1 ngan dang chay (chua co special) -> ngan do chiem het man
+- (BOOL)singlePane
+{
+    return self.panes.count == 1 && self.fullscreenSlot == SCPSlotAuto && self.pipSlot == SCPSlotAuto;
+}
+
 - (CGRect)frameForSlot:(SCPSlot)slot
 {
     CGRect a = [self paneArea];
     if (self.fullscreenSlot != SCPSlotAuto) {
         return (slot == self.fullscreenSlot) ? a : CGRectMake(a.origin.x, a.origin.y, 0, 0);
+    }
+    if ([self singlePane]) {
+        SCPAppPane *only = self.panes.firstObject;
+        return (slot == [self slotForPane:only]) ? a : CGRectMake(a.origin.x, a.origin.y, 0, 0);
     }
     if (self.pipSlot != SCPSlotAuto) {
         if (slot != self.pipSlot) return a;
@@ -568,11 +580,16 @@ static id SCPActionSymbolConfig(void)
 
 - (void)setupDivider
 {
-    // View vo hinh (rong 0) nam dung duong ranh giua 2 ngan, chi de nhan pan doi ti le
+    // View rong 0 nam dung duong ranh giua 2 ngan, nhan pan doi ti le; gach nho o giua lam diem keo
     self.dividerView = [[SCPDividerView alloc] initWithFrame:[self dividerFrame]];
     self.dividerView.backgroundColor = [UIColor clearColor];
     self.dividerPill = [[UIView alloc] init];
-    self.dividerPill.hidden = YES;
+    self.dividerPill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+    self.dividerPill.layer.shadowColor = [UIColor blackColor].CGColor;
+    self.dividerPill.layer.shadowOpacity = 0.6;
+    self.dividerPill.layer.shadowRadius = 2;
+    self.dividerPill.layer.shadowOffset = CGSizeZero;
+    self.dividerPill.userInteractionEnabled = NO;
     [self.dividerView addSubview:self.dividerPill];
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dividerPanned:)];
     [self.dividerView addGestureRecognizer:pan];
@@ -582,11 +599,11 @@ static id SCPActionSymbolConfig(void)
 
 - (void)layoutDividerPill
 {
-    // Gach nho 3pt o giua khe, dai 36pt
+    // Gach 5pt dai 44pt nam de len duong ranh (divider rong 0, khong clip nen van thay)
     CGSize s = self.dividerView.bounds.size;
-    if ([self vertical]) { self.dividerPill.frame = CGRectMake(s.width / 2 - 18, (s.height - 3) / 2, 36, 3); }
-    else                 { self.dividerPill.frame = CGRectMake((s.width - 3) / 2, s.height / 2 - 18, 3, 36); }
-    self.dividerPill.layer.cornerRadius = 1.5;
+    if ([self vertical]) { self.dividerPill.frame = CGRectMake(s.width / 2 - 22, (s.height - 5) / 2, 44, 5); }
+    else                 { self.dividerPill.frame = CGRectMake((s.width - 5) / 2, s.height / 2 - 22, 5, 44); }
+    self.dividerPill.layer.cornerRadius = 2.5;
 }
 
 - (void)dividerPanned:(UIPanGestureRecognizer *)g
@@ -645,7 +662,7 @@ static id SCPActionSymbolConfig(void)
 - (void)relayoutPanesLive:(BOOL)live
 {
     BOOL special = (self.fullscreenSlot != SCPSlotAuto) || (self.pipSlot != SCPSlotAuto);
-    self.dividerView.hidden = special;
+    self.dividerView.hidden = special || self.panes.count < 2;   // 1 ngan thi khong co gi de keo
     self.dividerView.frame = [self dividerFrame];
     [self layoutDividerPill];
     for (SCPAppPane *p in self.panes) {
@@ -1246,12 +1263,44 @@ static id SCPActionSymbolConfig(void)
     [pane.containerView removeFromSuperview];
 }
 
+// Tat han process cua app (khi nguoi dung bam X). Bo qua neu app do dang mo tren man iPhone.
+static void SCPTerminateApp(NSString *bid)
+{
+    if (!bid) return;
+    id frontmost = objcInvoke([UIApplication sharedApplication], @"_accessibilityFrontMostApplication");
+    if (frontmost && [objcInvoke(frontmost, @"bundleIdentifier") isEqualToString:bid]) {
+        SCPLog("%@ dang mo tren iPhone, khong kill", bid);
+        return;
+    }
+    id svc = objcInvoke(objc_getClass("FBSSystemService"), @"sharedService");
+    SEL sel = NSSelectorFromString(@"terminateApplication:forReason:andReport:withDescription:");
+    if (svc && [svc respondsToSelector:sel]) {
+        ((void (*)(id, SEL, id, long long, BOOL, id))objc_msgSend)(svc, sel, bid, 1, NO, @"SplitCarPlay: user closed pane");
+        SCPLog("terminate %@ (FBSSystemService)", bid);
+        return;
+    }
+    void (*fn)(NSString *, int, BOOL, NSString *) =
+        (void (*)(NSString *, int, BOOL, NSString *))dlsym(RTLD_DEFAULT, "BKSTerminateApplicationForReasonAndReportWithDescription");
+    if (fn) { fn(bid, 1, NO, @"SplitCarPlay"); SCPLog("terminate %@ (BKS)", bid); }
+    else SCPLog("khong tim thay API terminate cho %@", bid);
+}
+
 - (void)closeSlot:(SCPSlot)slot
+{
+    [self closeSlot:slot terminate:NO];
+}
+
+- (void)closeSlot:(SCPSlot)slot terminate:(BOOL)terminate
 {
     SCPAppPane *pane = (slot == SCPSlotLeft) ? self.leftPane : self.rightPane;
     if (!pane) return;
+    NSString *bid = pane.bundleIdentifier;
     [self teardownPane:pane];
     if (slot == SCPSlotLeft) self.leftPane = nil; else self.rightPane = nil;
+    if (terminate) {
+        [self.rightHistory removeObject:bid];
+        SCPTerminateApp(bid);
+    }
     BOOL changed = NO;
     if (self.fullscreenSlot == slot) { self.fullscreenSlot = SCPSlotAuto; changed = YES; }
     if (self.pipSlot == slot)        { self.pipSlot = SCPSlotAuto; changed = YES; }

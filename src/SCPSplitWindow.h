@@ -41,7 +41,8 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)launchApp:(NSString *)bundleID inSlot:(SCPSlot)slot;
 - (void)launchPairLeft:(NSString *)left right:(NSString *)right;   // mo 2 app + ap ti le rieng cua cap
 - (void)applyFavorite:(NSInteger)index;                             // cap yeu thich 1..3
-- (void)closeSlot:(SCPSlot)slot;
+- (void)closeSlot:(SCPSlot)slot;                                   // go app khoi ngan (app van chay nen)
+- (void)closeSlot:(SCPSlot)slot terminate:(BOOL)terminate;         // terminate=YES: tat han app
 - (void)swapPanes;
 - (void)dismiss;
 - (void)applyPresetRatio:(CGFloat)ratio;     // bo cuc dat san: 0.5, 0.7, 0.3

@@ -22,7 +22,7 @@
 @property (nonatomic, strong) UIView *leftPhone, *rightPhone;
 @property (nonatomic, strong) UILabel *leftTime, *rightTime;
 @property (nonatomic, strong) UILabel *leftDots, *rightDots;   // dau "..." tren dau moi ngan
-@property (nonatomic, strong) UIView *wallpaper, *divider;
+@property (nonatomic, strong) UIView *wallpaper, *divider, *grip;
 - (void)reload;
 @end
 
@@ -55,8 +55,11 @@
     _leftTime  = [self makeStatusIn:_leftPane];
     _rightTime = [self makeStatusIn:_rightPane];
     _divider = [[UIView alloc] init];
-    _divider.backgroundColor = [UIColor clearColor];   // chi la khe giua 2 vien
+    _divider.backgroundColor = [UIColor clearColor];   // khong co khe, chi co gach keo o giua
     [_screenView addSubview:_divider];
+    _grip = [[UIView alloc] init];
+    _grip.backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+    [_screenView addSubview:_grip];
 
     _leftPhone  = [self makePhoneIn:_leftPane];
     _rightPhone = [self makePhoneIn:_rightPane];
@@ -212,6 +215,11 @@ static UIImage *appIcon(NSString *bid)
     _leftPane.frame  = CGRectMake(0, 0, leftW, H);
     _divider.frame   = CGRectMake(leftW, 0, divW, H);
     _rightPane.frame = CGRectMake(leftW + divW, 0, rightW, H);
+    // gach keo o giua duong ranh (~5x44 tren man 480 cao)
+    CGFloat gw = MAX(2, H * 0.01), gh = H * 0.09;
+    _grip.frame = CGRectMake(leftW - gw / 2, (H - gh) / 2, gw, gh);
+    _grip.layer.cornerRadius = gw / 2;
+    [_screenView bringSubviewToFront:_grip];
 
     static NSDateFormatter *df; if (!df) { df = [NSDateFormatter new]; df.dateFormat = @"HH:mm"; }
     NSString *now = [df stringFromDate:[NSDate date]];
