@@ -55,7 +55,7 @@
     _leftTime  = [self makeStatusIn:_leftPane];
     _rightTime = [self makeStatusIn:_rightPane];
     _divider = [[UIView alloc] init];
-    _divider.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
+    _divider.backgroundColor = [UIColor clearColor];   // chi la khe giua 2 vien
     [_screenView addSubview:_divider];
 
     _leftPhone  = [self makePhoneIn:_leftPane];
@@ -206,8 +206,8 @@ static UIImage *appIcon(NSString *bid)
     _wallpaper.frame = _screenView.bounds;
     for (CALayer *l in _wallpaper.layer.sublayers) l.frame = _wallpaper.bounds;
 
-    CGFloat divW  = MAX(2, W * 0.012);
-    CGFloat avail = W - divW;           // ngan dung het man
+    CGFloat divW  = MAX(1, W * 0.0075);   // khe mong ~6/800, ngan da co vien
+    CGFloat avail = W - divW;             // ngan dung het man
     CGFloat leftW = floor(avail * ratio), rightW = avail - leftW;
     _leftPane.frame  = CGRectMake(0, 0, leftW, H);
     _divider.frame   = CGRectMake(leftW, 0, divW, H);

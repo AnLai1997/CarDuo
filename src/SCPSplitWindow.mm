@@ -10,8 +10,19 @@ int (*orig_BKSDisplayServicesSetScreenBlanked)(int) = NULL;
 const void *kSCPKey_splitWindow   = &kSCPKey_splitWindow;
 const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
-#define SCP_DIVIDER_WIDTH 14.0
+#define SCP_DIVIDER_WIDTH 6.0      // khe mong giua 2 ngan (ngan da co vien), vung cham de keo rong hon
+#define SCP_DIVIDER_HIT   14.0     // mo rong vung cham moi ben
 #define SCP_PIP_SCALE     0.36
+
+// Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
+@interface SCPDividerView : UIView
+@end
+@implementation SCPDividerView
+- (BOOL)pointInside:(CGPoint)p withEvent:(UIEvent *)e
+{
+    return CGRectContainsPoint(CGRectInset(self.bounds, -SCP_DIVIDER_HIT, -SCP_DIVIDER_HIT), p);
+}
+@end
 
 @interface UIImage (SCPPrivate)
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bid format:(int)format scale:(double)scale;
@@ -243,12 +254,22 @@ static UIImage *SCPAppIcon(NSString *bid)
     return nil;
 }
 
+// Nut tron 32pt nen trang mo, symbol 14pt semibold - dong bo cho moi nut tren bar
+#define SCP_ACTION_BTN 32.0
+static id SCPActionSymbolConfig(void)
+{
+    static id cfg;
+    if (!cfg) cfg = [UIImageSymbolConfiguration configurationWithPointSize:14 weight:UIImageSymbolWeightSemibold scale:UIImageSymbolScaleMedium];
+    return cfg;
+}
+
 - (UIButton *)actionButton:(NSString *)symbol action:(SEL)sel inBar:(UIScrollView *)bar
 {
-    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightRegular];
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-    [b setImage:[UIImage systemImageNamed:symbol withConfiguration:cfg] forState:UIControlStateNormal];
+    [b setImage:[UIImage systemImageNamed:symbol withConfiguration:SCPActionSymbolConfig()] forState:UIControlStateNormal];
     b.tintColor = [UIColor whiteColor];
+    b.backgroundColor = [UIColor colorWithWhite:1 alpha:0.14];
+    b.layer.cornerRadius = SCP_ACTION_BTN / 2;
     [b addTarget:self action:sel forControlEvents:UIControlEventTouchUpInside];
     [b addTarget:self action:@selector(actionButtonTouched:) forControlEvents:UIControlEventTouchUpInside];
     [bar addSubview:b];
@@ -262,16 +283,16 @@ static UIImage *SCPAppIcon(NSString *bid)
     pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.35].CGColor;
     pane.containerView.layer.cornerRadius = 10;
 
-    // Dau "..." o giua mep tren
+    // Dau "..." o giua mep tren (SF Symbol ellipsis tren nen toi mo, bo goc duoi)
     UIView *h = [[UIView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
-    h.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
-    h.layer.cornerRadius = 6;
+    h.backgroundColor = [UIColor colorWithWhite:0 alpha:0.5];
+    h.layer.cornerRadius = SCP_PANE_HANDLE_HEIGHT / 2;
     h.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
-    UILabel *dots = [[UILabel alloc] initWithFrame:h.bounds];
-    dots.text = @"•••";
-    dots.textColor = [UIColor colorWithWhite:1 alpha:0.9];
-    dots.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold];
-    dots.textAlignment = NSTextAlignmentCenter;
+    id dotsCfg = [UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIImageSymbolWeightBold];
+    UIImageView *dots = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis" withConfiguration:dotsCfg]];
+    dots.tintColor = [UIColor colorWithWhite:1 alpha:0.9];
+    dots.contentMode = UIViewContentModeCenter;
+    dots.frame = h.bounds;
     dots.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     dots.userInteractionEnabled = NO;
     [h addSubview:dots];
@@ -282,7 +303,9 @@ static UIImage *SCPAppIcon(NSString *bid)
 
     // Thanh nut (cuon ngang neu ngan hep)
     UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, -SCP_PANE_BAR_HEIGHT, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
-    bar.backgroundColor = [UIColor colorWithWhite:0 alpha:0.82];
+    bar.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.9];
+    bar.layer.cornerRadius = 10;
+    bar.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
     bar.showsHorizontalScrollIndicator = NO;
     bar.alwaysBounceHorizontal = NO;
     [bar addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(paneActionsPanned:)]];
@@ -290,27 +313,33 @@ static UIImage *SCPAppIcon(NSString *bid)
     pane.actionsVisible = NO;
     [pane.containerView addSubview:bar];
 
-    CGFloat sz = 30, y = (SCP_PANE_BAR_HEIGHT - sz) / 2, x = 8, step = sz + 8;
+    CGFloat sz = SCP_ACTION_BTN, y = (SCP_PANE_BAR_HEIGHT - sz) / 2, x = 8, step = sz + 6;
     UIButton *b;
-    b = [self actionButton:@"square.grid.2x2" action:@selector(paneChooseApp:) inBar:bar];           b.frame = CGRectMake(x, y, sz, sz); x += step;
+    b = [self actionButton:@"square.grid.2x2.fill" action:@selector(paneChooseApp:) inBar:bar];      b.frame = CGRectMake(x, y, sz, sz); x += step;
     b = [self actionButton:@"xmark" action:@selector(paneCloseApp:) inBar:bar];                      b.frame = CGRectMake(x, y, sz, sz); x += step;
     pane.fullscreenButton = [self actionButton:@"arrow.up.left.and.arrow.down.right" action:@selector(paneToggleFullscreen:) inBar:bar];
     pane.fullscreenButton.frame = CGRectMake(x, y, sz, sz); x += step;
-    pane.pipButton = [self actionButton:@"pip.enter" action:@selector(paneTogglePiP:) inBar:bar];
+    pane.pipButton = [self actionButton:@"pip" action:@selector(paneTogglePiP:) inBar:bar];
     pane.pipButton.frame = CGRectMake(x, y, sz, sz); x += step;
     b = [self actionButton:@"arrow.left.arrow.right" action:@selector(paneSwap:) inBar:bar];         b.frame = CGRectMake(x, y, sz, sz); x += step;
-    b = [self actionButton:@"rectangle.split.2x1" action:@selector(paneCycleLayout:) inBar:bar];     b.frame = CGRectMake(x, y, sz, sz); x += step + 4;
+    b = [self actionButton:@"rectangle.lefthalf.inset.filled" action:@selector(paneCycleLayout:) inBar:bar]; b.frame = CGRectMake(x, y, sz, sz); x += step;
 
-    // Cap yeu thich 1..3: nut tron nho co so
+    // Vach ngan nho giua nhom nut ngan va nhom cap yeu thich
+    UIView *sep = [[UIView alloc] initWithFrame:CGRectMake(x + 2, (SCP_PANE_BAR_HEIGHT - 18) / 2, 1, 18)];
+    sep.backgroundColor = [UIColor colorWithWhite:1 alpha:0.2];
+    [bar addSubview:sep];
+    x += 11;
+
+    // Cap yeu thich 1..3: cung kich thuoc, cung nen, chi khac la so thay cho icon
     NSMutableArray *favs = [NSMutableArray array];
     for (NSInteger i = 1; i <= 3; i++) {
         UIButton *f = [UIButton buttonWithType:UIButtonTypeCustom];
         [f setTitle:[NSString stringWithFormat:@"%ld", (long)i] forState:UIControlStateNormal];
-        f.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
+        f.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
         [f setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        f.backgroundColor = [UIColor colorWithWhite:1 alpha:0.18];
-        f.layer.cornerRadius = 11;
-        f.frame = CGRectMake(x, (SCP_PANE_BAR_HEIGHT - 22) / 2, 22, 22); x += 28;
+        f.backgroundColor = [UIColor colorWithWhite:1 alpha:0.14];
+        f.layer.cornerRadius = sz / 2;
+        f.frame = CGRectMake(x, y, sz, sz); x += step;
         f.tag = i;
         [f addTarget:self action:@selector(paneFavTapped:) forControlEvents:UIControlEventTouchUpInside];
         [f addTarget:self action:@selector(actionButtonTouched:) forControlEvents:UIControlEventTouchUpInside];
@@ -318,11 +347,11 @@ static UIImage *SCPAppIcon(NSString *bid)
         [favs addObject:f];
     }
     pane.favButtons = favs;
-    x += 6;
+    x += 4;
 
-    // Home kieu CarPlay = dong split, ve lai dashboard CarPlay
-    b = [self actionButton:@"circle.grid.3x3.fill" action:@selector(dismiss) inBar:bar];
-    b.frame = CGRectMake(x, y, sz, sz); b.tag = 1001; x += step;
+    // Home = dong split, ve lai dashboard CarPlay
+    b = [self actionButton:@"house.fill" action:@selector(dismiss) inBar:bar];
+    b.frame = CGRectMake(x, y, sz, sz); b.tag = 1001; x += step + 2;
     bar.contentSize = CGSizeMake(x, SCP_PANE_BAR_HEIGHT);
 
     [self layoutActionsForPane:pane];
@@ -425,15 +454,19 @@ static UIImage *SCPAppIcon(NSString *bid)
 // Icon fullscreen / PiP doi theo trang thai, nut cap yeu thich an neu chua dat
 - (void)updatePaneActionStates
 {
-    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightRegular];
+    UIColor *on = [UIColor systemYellowColor], *off = [UIColor whiteColor];
+    UIColor *onBg = [[UIColor systemYellowColor] colorWithAlphaComponent:0.22], *offBg = [UIColor colorWithWhite:1 alpha:0.14];
     for (SCPAppPane *p in self.panes) {
         if (!p.actionBar) continue;
         SCPSlot slot = [self slotForPane:p];
-        BOOL isFull = (self.fullscreenSlot == slot);
+        BOOL isFull = (self.fullscreenSlot == slot), isPip = (self.pipSlot == slot);
         [p.fullscreenButton setImage:[UIImage systemImageNamed:(isFull ? @"arrow.down.right.and.arrow.up.left" : @"arrow.up.left.and.arrow.down.right")
-                                               withConfiguration:cfg] forState:UIControlStateNormal];
-        p.fullscreenButton.tintColor = isFull ? [UIColor systemYellowColor] : [UIColor whiteColor];
-        p.pipButton.tintColor = (self.pipSlot == slot) ? [UIColor systemYellowColor] : [UIColor whiteColor];
+                                               withConfiguration:SCPActionSymbolConfig()] forState:UIControlStateNormal];
+        p.fullscreenButton.tintColor = isFull ? on : off;
+        p.fullscreenButton.backgroundColor = isFull ? onBg : offBg;
+        [p.pipButton setImage:[UIImage systemImageNamed:(isPip ? @"pip.exit" : @"pip") withConfiguration:SCPActionSymbolConfig()] forState:UIControlStateNormal];
+        p.pipButton.tintColor = isPip ? on : off;
+        p.pipButton.backgroundColor = isPip ? onBg : offBg;
         for (UIButton *f in p.favButtons) f.hidden = ([SCPPrefs favorite:f.tag] == nil);
     }
 }
@@ -531,10 +564,10 @@ static UIImage *SCPAppIcon(NSString *bid)
 
 - (void)setupDivider
 {
-    self.dividerView = [[UIView alloc] initWithFrame:[self dividerFrame]];
-    self.dividerView.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
+    self.dividerView = [[SCPDividerView alloc] initWithFrame:[self dividerFrame]];
+    self.dividerView.backgroundColor = [UIColor clearColor];   // chi la khe, ngan da co vien
     self.dividerPill = [[UIView alloc] init];
-    self.dividerPill.backgroundColor = [UIColor colorWithWhite:0.7 alpha:1];
+    self.dividerPill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.5];
     [self.dividerView addSubview:self.dividerPill];
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dividerPanned:)];
     [self.dividerView addGestureRecognizer:pan];
@@ -544,10 +577,11 @@ static UIImage *SCPAppIcon(NSString *bid)
 
 - (void)layoutDividerPill
 {
+    // Gach nho 3pt o giua khe, dai 36pt
     CGSize s = self.dividerView.bounds.size;
-    if ([self vertical]) { self.dividerPill.frame = CGRectMake(s.width / 2 - 24, 4, 48, s.height - 8); }
-    else                 { self.dividerPill.frame = CGRectMake(4, s.height / 2 - 24, s.width - 8, 48); }
-    self.dividerPill.layer.cornerRadius = ([self vertical] ? s.height - 8 : s.width - 8) / 2;
+    if ([self vertical]) { self.dividerPill.frame = CGRectMake(s.width / 2 - 18, (s.height - 3) / 2, 36, 3); }
+    else                 { self.dividerPill.frame = CGRectMake((s.width - 3) / 2, s.height / 2 - 18, 3, 36); }
+    self.dividerPill.layer.cornerRadius = 1.5;
 }
 
 - (void)dividerPanned:(UIPanGestureRecognizer *)g
