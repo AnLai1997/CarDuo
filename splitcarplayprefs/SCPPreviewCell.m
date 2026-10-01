@@ -58,7 +58,9 @@
     _divider.backgroundColor = [UIColor clearColor];   // khong co khe, chi co gach keo o giua
     [_screenView addSubview:_divider];
     _grip = [[UIView alloc] init];
-    _grip.backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+    _grip.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.9];
+    _grip.layer.borderWidth = 0.5;
+    _grip.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.55].CGColor;
     [_screenView addSubview:_grip];
 
     _leftPhone  = [self makePhoneIn:_leftPane];
@@ -215,8 +217,8 @@ static UIImage *appIcon(NSString *bid)
     _leftPane.frame  = CGRectMake(0, 0, leftW, H);
     _divider.frame   = CGRectMake(leftW, 0, divW, H);
     _rightPane.frame = CGRectMake(leftW + divW, 0, rightW, H);
-    // gach keo o giua duong ranh (~5x44 tren man 480 cao)
-    CGFloat gw = MAX(2, H * 0.01), gh = H * 0.09;
+    // num keo o giua duong ranh (~30x84 tren man 480 cao)
+    CGFloat gw = MAX(3, H * 0.0625), gh = H * 0.175;
     _grip.frame = CGRectMake(leftW - gw / 2, (H - gh) / 2, gw, gh);
     _grip.layer.cornerRadius = gw / 2;
     [_screenView bringSubviewToFront:_grip];

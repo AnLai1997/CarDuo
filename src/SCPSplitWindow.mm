@@ -11,7 +11,9 @@ const void *kSCPKey_splitWindow   = &kSCPKey_splitWindow;
 const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
 #define SCP_DIVIDER_WIDTH 0.0      // khong co khe: 2 vien sat nhau; van keo duoc nho vung cham mo rong
-#define SCP_DIVIDER_HIT   16.0     // vung cham moi ben cua duong ranh giua 2 ngan
+#define SCP_DIVIDER_HIT   28.0     // vung cham moi ben cua duong ranh giua 2 ngan (tong 56pt, de dat ngon tay)
+#define SCP_KNOB_W        30.0     // num keo o giua duong ranh: 30 x 84, nen toi, vach trang
+#define SCP_KNOB_H        84.0
 #define SCP_PIP_SCALE     0.36
 
 // Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
@@ -20,7 +22,10 @@ const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 @implementation SCPDividerView
 - (BOOL)pointInside:(CGPoint)p withEvent:(UIEvent *)e
 {
-    return CGRectContainsPoint(CGRectInset(self.bounds, -SCP_DIVIDER_HIT, -SCP_DIVIDER_HIT), p);
+    if (CGRectContainsPoint(CGRectInset(self.bounds, -SCP_DIVIDER_HIT, -SCP_DIVIDER_HIT), p)) return YES;
+    // num keo (subview) cung nhan cham, ke ca phan nhoi ra ngoai duong ranh
+    for (UIView *sub in self.subviews) if (!sub.hidden && CGRectContainsPoint(CGRectInset(sub.frame, -10, -10), p)) return YES;
+    return NO;
 }
 @end
 
@@ -580,18 +585,30 @@ static id SCPActionSymbolConfig(void)
 
 - (void)setupDivider
 {
-    // View rong 0 nam dung duong ranh giua 2 ngan, nhan pan doi ti le; gach nho o giua lam diem keo
+    // View rong 0 nam dung duong ranh giua 2 ngan, nhan pan doi ti le.
+    // Num keo (dividerPill) la vien thuoc 30x84 nen toi, co 3 vach trang, nam de len duong ranh.
     self.dividerView = [[SCPDividerView alloc] initWithFrame:[self dividerFrame]];
     self.dividerView.backgroundColor = [UIColor clearColor];
-    self.dividerPill = [[UIView alloc] init];
-    self.dividerPill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
-    self.dividerPill.layer.shadowColor = [UIColor blackColor].CGColor;
-    self.dividerPill.layer.shadowOpacity = 0.6;
-    self.dividerPill.layer.shadowRadius = 2;
-    self.dividerPill.layer.shadowOffset = CGSizeZero;
-    self.dividerPill.userInteractionEnabled = NO;
-    [self.dividerView addSubview:self.dividerPill];
+    UIView *knob = [[UIView alloc] init];
+    knob.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.9];
+    knob.layer.borderWidth = 1.5;
+    knob.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.55].CGColor;
+    knob.layer.shadowColor = [UIColor blackColor].CGColor;
+    knob.layer.shadowOpacity = 0.7;
+    knob.layer.shadowRadius = 4;
+    knob.layer.shadowOffset = CGSizeZero;
+    knob.userInteractionEnabled = NO;
+    for (NSInteger i = 0; i < 3; i++) {
+        UIView *line = [[UIView alloc] init];
+        line.backgroundColor = [UIColor colorWithWhite:1 alpha:0.9];
+        line.layer.cornerRadius = 1.5;
+        line.tag = 200 + i;
+        [knob addSubview:line];
+    }
+    self.dividerPill = knob;
+    [self.dividerView addSubview:knob];
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dividerPanned:)];
+    pan.maximumNumberOfTouches = 1;
     [self.dividerView addGestureRecognizer:pan];
     [self.rootWindow addSubview:self.dividerView];
     [self layoutDividerPill];
@@ -599,24 +616,39 @@ static id SCPActionSymbolConfig(void)
 
 - (void)layoutDividerPill
 {
-    // Gach 5pt dai 44pt nam de len duong ranh (divider rong 0, khong clip nen van thay)
     CGSize s = self.dividerView.bounds.size;
-    if ([self vertical]) { self.dividerPill.frame = CGRectMake(s.width / 2 - 22, (s.height - 5) / 2, 44, 5); }
-    else                 { self.dividerPill.frame = CGRectMake((s.width - 5) / 2, s.height / 2 - 22, 5, 44); }
-    self.dividerPill.layer.cornerRadius = 2.5;
+    BOOL v = [self vertical];
+    CGFloat kw = v ? SCP_KNOB_H : SCP_KNOB_W, kh = v ? SCP_KNOB_W : SCP_KNOB_H;   // chia tren/duoi thi num nam ngang
+    // dung bounds/center (khong dung frame) vi num co the dang scale khi keo
+    self.dividerPill.bounds = CGRectMake(0, 0, kw, kh);
+    self.dividerPill.center = CGPointMake(s.width / 2, s.height / 2);
+    self.dividerPill.layer.cornerRadius = SCP_KNOB_W / 2;
+    // 3 vach: nam doc theo chieu keo (ngang khi chia trai/phai)
+    for (NSInteger i = 0; i < 3; i++) {
+        UIView *line = [self.dividerPill viewWithTag:200 + i];
+        CGFloat off = (i - 1) * 7;
+        if (v) line.frame = CGRectMake(kw / 2 - 1.5 + off, kh / 2 - 9, 3, 18);
+        else   line.frame = CGRectMake(kw / 2 - 9, kh / 2 - 1.5 + off, 18, 3);
+    }
 }
 
 - (void)dividerPanned:(UIPanGestureRecognizer *)g
 {
-    CGPoint p = [g locationInView:self.rootWindow];
+    // Keo theo do doi cua ngon tay tu ti le luc bat dau -> khong bi nhay khi cham lech khoi duong ranh
+    static CGFloat startRatio = 0.5;
     CGRect a = [self paneArea];
     BOOL v = [self vertical];
     CGFloat len = (v ? a.size.height : a.size.width) - SCP_DIVIDER_WIDTH;
-    CGFloat pos = v ? (p.y - a.origin.y) : (p.x - a.origin.x);
-    CGFloat r = (pos - SCP_DIVIDER_WIDTH / 2) / len;
+    if (g.state == UIGestureRecognizerStateBegan) {
+        startRatio = self.ratio;
+        [UIView animateWithDuration:0.15 animations:^{ self.dividerPill.transform = CGAffineTransformMakeScale(1.15, 1.15); }];
+    }
+    CGPoint t = [g translationInView:self.rootWindow];
+    CGFloat r = startRatio + (v ? t.y : t.x) / len;
     r = MIN(0.8, MAX(0.2, r));
 
     if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled) {
+        [UIView animateWithDuration:0.15 animations:^{ self.dividerPill.transform = CGAffineTransformIdentity; }];
         for (NSNumber *snap in @[@0.3, @0.5, @0.7]) {
             if (fabs(r - snap.doubleValue) < 0.04) { r = snap.doubleValue; break; }
         }
