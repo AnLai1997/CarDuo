@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key>
+	<string>SplitCarPlay</string>
+	<key>items</key>
+	<array>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>CHUNG</string>
+			<key>footerText</key><string>Trên màn CarPlay: giữ icon app 1 giây để mở app đó vào một ngăn. Lần đầu vào ngăn trái, lần sau vào ngăn phải.</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Bật SplitCarPlay</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>Enabled</string>
+			<key>default</key><true/>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>APP MẶC ĐỊNH</string>
+			<key>footerText</key><string>Cặp app dùng cho nút "Mở split" và chế độ tự mở khi cắm xe.</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkListCell</string>
+			<key>detail</key><string>ATLApplicationListSelectionController</string>
+			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
+			<key>label</key><string>Ngăn trái</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>LeftApp</string>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>sections</key>
+			<array>
+				<dict><key>sectionType</key><string>User</string></dict>
+				<dict><key>sectionType</key><string>System</string></dict>
+			</array>
+			<key>useSearchBar</key><true/>
+			<key>showIdentifiersAsSubtitle</key><true/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkListCell</string>
+			<key>detail</key><string>ATLApplicationListSelectionController</string>
+			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
+			<key>label</key><string>Ngăn phải</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>RightApp</string>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>sections</key>
+			<array>
+				<dict><key>sectionType</key><string>User</string></dict>
+				<dict><key>sectionType</key><string>System</string></dict>
+			</array>
+			<key>useSearchBar</key><true/>
+			<key>showIdentifiersAsSubtitle</key><true/>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Tự mở split khi cắm xe</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>AutoLaunch</string>
+			<key>default</key><false/>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>GIAO DIỆN</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>label</key><string>Vị trí dock</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>DockSide</string>
+			<key>default</key><integer>0</integer>
+			<key>validValues</key><array><integer>0</integer><integer>1</integer></array>
+			<key>validTitles</key><array><string>Dock bên trái</string><string>Dock bên phải</string></array>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>label</key><string>Hướng app trong ngăn</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>PaneOrientation</string>
+			<key>default</key><integer>1</integer>
+			<key>validValues</key><array><integer>1</integer><integer>3</integer></array>
+			<key>validTitles</key><array><string>Dọc (portrait)</string><string>Ngang (landscape)</string></array>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>TỈ LỆ NGĂN TRÁI</string>
+			<key>footerText</key><string>0.5 là chia đều. Kéo sang phải để ngăn trái rộng hơn.</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSliderCell</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>SplitRatio</string>
+			<key>default</key><real>0.5</real>
+			<key>min</key><real>0.3</real>
+			<key>max</key><real>0.7</real>
+			<key>showValue</key><true/>
+			<key>isSegmented</key><false/>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>THỬ NGHIỆM (KHÔNG CẦN XE)</string>
+			<key>footerText</key><string>Mở cửa sổ chia đôi ngay trên màn iPhone với 2 app ở trên để kiểm tra cơ chế. Bật "Tự mở sau respring" thì cửa sổ xuất hiện 10 giây sau khi respring.</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSButtonCell</string>
+			<key>label</key><string>Mở split test ngay</string>
+			<key>action</key><string>runTest</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSButtonCell</string>
+			<key>label</key><string>Đóng split</string>
+			<key>action</key><string>closeSplit</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Tự mở test sau respring</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>TestOnMainScreen</string>
+			<key>default</key><false/>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>footerText</key><string>SplitCarPlay 0.1 - personal build. Cơ chế host app dựa trên carplay-cast (Ethan Arbuckle).</string>
+		</dict>
+	</array>
+</dict>
+</plist>

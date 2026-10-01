@@ -57,7 +57,12 @@ Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái,
 - Push repo lên GitHub -> Actions tự build, tải `SplitCarPlay-deb` ở tab Artifacts.
 - Hoặc cài WSL Ubuntu + Theos: `make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless`.
 
-## Test ngay trên màn iPhone (chưa có xe)
+## Cài đặt trong app Settings
+Vào Cài đặt > SplitCarPlay: bật/tắt, chọn app ngăn trái/phải (AltList), tự mở khi cắm xe,
+vị trí dock, hướng app trong ngăn, tỉ lệ ngăn. Mục "Thử nghiệm" có nút mở/đóng split ngay trên màn iPhone.
+Cần package `PreferenceLoader` và `AltList` (Sileo tự cài theo Depends).
+
+## Test ngay trên màn iPhone (chưa có xe, cách cũ qua SSH)
 Tạo file prefs qua SSH (đổi bundle id tuỳ ý, nên dùng app bên thứ ba):
 ```
 cat > /var/jb/var/mobile/Library/Preferences/com.anpham.splitcarplay.plist <<'PLIST'

@@ -1,13 +1,29 @@
 #import "../common.h"
 #import "../SCPSplitWindow.h"
+#import "../SCPPrefs.h"
 #import <notify.h>
 
-#define SCP_PREFS_PATH @"/var/jb/var/mobile/Library/Preferences/com.anpham.splitcarplay.plist"
-#define SCP_DARWIN_TEST  "com.anpham.splitcarplay.test"   // notifyutil -p com.anpham.splitcarplay.test
-#define SCP_DARWIN_CLOSE "com.anpham.splitcarplay.close"
+#define SCP_DARWIN_TEST  "com.anpham.splitcarplay.test"    // nut "Mo split test ngay" trong Settings
+#define SCP_DARWIN_CLOSE "com.anpham.splitcarplay.close"   // nut "Dong split"
 
-// Inject vao SpringBoard: nhan yeu cau tu CarPlay process, giu app song khi khoa may
+// Inject vao SpringBoard: nhan yeu cau tu CarPlay process / Settings, giu app song khi khoa may
 %group SPRINGBOARD
+
+// Mo cap app mac dinh (LeftApp/RightApp trong Settings) vao cua so split
+static void SCPOpenConfiguredPair(BOOL onMainScreen)
+{
+    NSString *left = [SCPPrefs leftApp], *right = [SCPPrefs rightApp];
+    SCPLog("mo cap app mac dinh (mainScreen=%d): left=%@ right=%@", onMainScreen, left, right);
+    if (!left && !right) { SCPLog("chua chon app nao trong Settings"); return; }
+    @try {
+        SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:onMainScreen];
+        if (!w) { SCPLog("khong tao duoc cua so (CarPlay chua ket noi?)"); return; }
+        if (left)  [w launchApp:left  inSlot:SCPSlotLeft];
+        if (right) [w launchApp:right inSlot:SCPSlotRight];
+    } @catch (NSException *e) {
+        SCPLog("mo cap app that bai: %@\n%@", e, e.callStackSymbols);
+    }
+}
 
 %hook SpringBoard
 
@@ -15,10 +31,12 @@
 {
     %orig;
     SCPLog("SpringBoard ready, dang ky notification");
-    // NSDistributedNotificationCenter khong co trong SDK iOS -> dung qua NSNotificationCenter (lop cha)
+
+    // CarPlay process -> mo 1 app vao 1 ngan (long-press icon tren dashboard)
     NSNotificationCenter *dnc = [objc_getClass("NSDistributedNotificationCenter") defaultCenter];
     [dnc addObserverForName:SCP_NOTIF_LAUNCH object:nil queue:[NSOperationQueue mainQueue]
                  usingBlock:^(NSNotification *note) {
+        if (![SCPPrefs enabled]) return;
         NSString *bundleID = note.userInfo[@"identifier"];
         int slot = note.userInfo[@"slot"] ? [note.userInfo[@"slot"] intValue] : SCPSlotAuto;
         SCPLog("yeu cau mo %@ slot=%d", bundleID, slot);
@@ -31,38 +49,37 @@
         }
     }];
 
-    // ----- CHE DO TEST tren man iPhone (khong can xe) -----
-    // File prefs: TestLeft / TestRight = bundle id; TestOnMainScreen = YES de tu mo sau 10s khi respring.
-    // Hoac goi bat cu luc nao: notifyutil -p com.anpham.splitcarplay.test
-    void (^runTest)(void) = ^{
-        NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:SCP_PREFS_PATH];
-        NSString *left = prefs[@"TestLeft"], *right = prefs[@"TestRight"];
-        SCPLog("TEST tren man chinh: left=%@ right=%@", left, right);
-        @try {
-            SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:YES];
-            if (left)  [w launchApp:left  inSlot:SCPSlotLeft];
-            if (right) [w launchApp:right inSlot:SCPSlotRight];
-        } @catch (NSException *e) {
-            SCPLog("TEST that bai: %@
-%@", e, e.callStackSymbols);
-        }
-    };
+    // Settings -> test tren man iPhone / dong
     int tok = 0, tokClose = 0;
-    notify_register_dispatch(SCP_DARWIN_TEST, &tok, dispatch_get_main_queue(), ^(int t) { runTest(); });
+    notify_register_dispatch(SCP_DARWIN_TEST, &tok, dispatch_get_main_queue(), ^(int t) {
+        SCPOpenConfiguredPair(YES);
+    });
     notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) {
         [[SCPSplitWindow current] dismiss];
     });
-    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:SCP_PREFS_PATH];
-    if ([prefs[@"TestOnMainScreen"] boolValue]) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), runTest);
+    if ([SCPPrefs testOnMainScreen]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            SCPOpenConfiguredPair(YES);
+        });
     }
 
-    // Xe ngat ket noi -> dong cua so
+    // Xe ket noi / ngat ket noi
     [[NSNotificationCenter defaultCenter] addObserverForName:@"CarPlayIsConnectedDidChange" object:nil
                                                        queue:[NSOperationQueue mainQueue]
                                                   usingBlock:^(NSNotification *note) {
+        BOOL connected = SCPGetCarPlayCADisplay() != nil;
+        SCPLog("CarPlay connected=%d", connected);
         SCPSplitWindow *w = [SCPSplitWindow current];
-        if (w && !w.onMainScreen && !SCPGetCarPlayCADisplay()) { SCPLog("CarPlay ngat -> dismiss"); [w dismiss]; }
+        if (!connected) {
+            if (w && !w.onMainScreen) { SCPLog("CarPlay ngat -> dismiss"); [w dismiss]; }
+            return;
+        }
+        if ([SCPPrefs enabled] && [SCPPrefs autoLaunch] && !w) {
+            // cho dashboard CarPlay len xong roi moi phu cua so split
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                if (SCPGetCarPlayCADisplay() && ![SCPSplitWindow current]) SCPOpenConfiguredPair(NO);
+            });
+        }
     }];
 }
 

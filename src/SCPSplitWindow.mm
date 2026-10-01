@@ -1,4 +1,5 @@
 #import "SCPSplitWindow.h"
+#import "SCPPrefs.h"
 
 // =====================================================================
 //  SCPSplitWindow - cua so tren man CarPlay, host 2 app cua iPhone
@@ -128,7 +129,8 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 - (void)setupDock
 {
     CGRect f = self.rootWindow.bounds;
-    self.dockView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, SCP_DOCK_WIDTH, f.size.height)];
+    CGFloat dockX = ([SCPPrefs dockSide] == 1) ? f.size.width - SCP_DOCK_WIDTH : 0;
+    self.dockView = [[UIView alloc] initWithFrame:CGRectMake(dockX, 0, SCP_DOCK_WIDTH, f.size.height)];
     self.dockView.backgroundColor = [UIColor colorWithWhite:0.1 alpha:1];
     [self.rootWindow addSubview:self.dockView];
 
@@ -153,9 +155,12 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 - (CGRect)frameForSlot:(SCPSlot)slot
 {
     CGRect f = self.rootWindow.bounds;
-    CGFloat paneW = floor((f.size.width - SCP_DOCK_WIDTH) / 2.0);
-    CGFloat x = SCP_DOCK_WIDTH + (slot == SCPSlotRight ? paneW : 0);
-    return CGRectMake(x, 0, paneW, f.size.height);
+    CGFloat avail = f.size.width - SCP_DOCK_WIDTH;
+    CGFloat leftW = floor(avail * [SCPPrefs splitRatio]);
+    CGFloat rightW = avail - leftW;
+    CGFloat x0 = ([SCPPrefs dockSide] == 1) ? 0 : SCP_DOCK_WIDTH;
+    if (slot == SCPSlotLeft) return CGRectMake(x0, 0, leftW, f.size.height);
+    return CGRectMake(x0 + leftW, 0, rightW, f.size.height);
 }
 
 // ---------------------------------------------------------------------
@@ -176,7 +181,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     SCPAppPane *pane = [SCPAppPane new];
     pane.bundleIdentifier = bundleID;
-    pane.orientation = 1; // portrait: ngan nua man gan ti le doc cua iPhone
+    pane.orientation = (int)[SCPPrefs paneOrientation]; // 1 portrait / 3 landscape (Settings)
 
     pane.application = objcInvoke_1(objcInvoke(objc_getClass("SBApplicationController"), @"sharedInstance"),
                                     @"applicationWithBundleIdentifier:", bundleID);

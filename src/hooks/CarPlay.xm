@@ -1,4 +1,5 @@
 #import "../common.h"
+#import "../SCPPrefs.h"
 
 // Inject vao process CarPlay (com.apple.CarPlayApp)
 // Long-press icon tren dashboard -> gui yeu cau mo app vao mot ngan sang SpringBoard.
@@ -28,6 +29,7 @@ static void SCPRequestLaunch(NSString *bundleID)
 - (void)scp_handleLongPress:(UILongPressGestureRecognizer *)g
 {
     if (g.state != UIGestureRecognizerStateBegan) return;
+    if (![SCPPrefs enabled]) return;
     id icon = objcInvoke(self, @"icon");
     NSString *bid = objcInvoke(icon, @"applicationBundleID");
     SCPRequestLaunch(bid);

@@ -14,3 +14,6 @@ SplitCarPlay_CFLAGS = -fobjc-arc -Isrc
 SplitCarPlay_FRAMEWORKS = UIKit QuartzCore
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+
+SUBPROJECTS += splitcarplayprefs
+include $(THEOS_MAKE_PATH)/aggregate.mk
