@@ -10,8 +10,8 @@ int (*orig_BKSDisplayServicesSetScreenBlanked)(int) = NULL;
 const void *kSCPKey_splitWindow   = &kSCPKey_splitWindow;
 const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
-#define SCP_DIVIDER_WIDTH 6.0      // khe mong giua 2 ngan (ngan da co vien), vung cham de keo rong hon
-#define SCP_DIVIDER_HIT   14.0     // mo rong vung cham moi ben
+#define SCP_DIVIDER_WIDTH 0.0      // khong co khe: 2 vien sat nhau; van keo duoc nho vung cham mo rong
+#define SCP_DIVIDER_HIT   16.0     // vung cham moi ben cua duong ranh giua 2 ngan
 #define SCP_PIP_SCALE     0.36
 
 // Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
@@ -263,7 +263,7 @@ static id SCPActionSymbolConfig(void)
     return cfg;
 }
 
-- (UIButton *)actionButton:(NSString *)symbol action:(SEL)sel inBar:(UIScrollView *)bar
+- (UIButton *)actionButton:(NSString *)symbol action:(SEL)sel inBar:(UIView *)bar
 {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
     [b setImage:[UIImage systemImageNamed:symbol withConfiguration:SCPActionSymbolConfig()] forState:UIControlStateNormal];
@@ -313,21 +313,26 @@ static id SCPActionSymbolConfig(void)
     pane.actionsVisible = NO;
     [pane.containerView addSubview:bar];
 
+    // Toan bo nut nam trong 1 view "content" de can giua khi ngan rong hon cum nut
+    UIView *content = [[UIView alloc] init];
+    content.tag = 1002;
+    [bar addSubview:content];
+
     CGFloat sz = SCP_ACTION_BTN, y = (SCP_PANE_BAR_HEIGHT - sz) / 2, x = 8, step = sz + 6;
     UIButton *b;
-    b = [self actionButton:@"square.grid.2x2.fill" action:@selector(paneChooseApp:) inBar:bar];      b.frame = CGRectMake(x, y, sz, sz); x += step;
-    b = [self actionButton:@"xmark" action:@selector(paneCloseApp:) inBar:bar];                      b.frame = CGRectMake(x, y, sz, sz); x += step;
-    pane.fullscreenButton = [self actionButton:@"arrow.up.left.and.arrow.down.right" action:@selector(paneToggleFullscreen:) inBar:bar];
+    b = [self actionButton:@"square.grid.2x2.fill" action:@selector(paneChooseApp:) inBar:content];      b.frame = CGRectMake(x, y, sz, sz); x += step;
+    b = [self actionButton:@"xmark" action:@selector(paneCloseApp:) inBar:content];                      b.frame = CGRectMake(x, y, sz, sz); x += step;
+    pane.fullscreenButton = [self actionButton:@"arrow.up.left.and.arrow.down.right" action:@selector(paneToggleFullscreen:) inBar:content];
     pane.fullscreenButton.frame = CGRectMake(x, y, sz, sz); x += step;
-    pane.pipButton = [self actionButton:@"pip" action:@selector(paneTogglePiP:) inBar:bar];
+    pane.pipButton = [self actionButton:@"pip" action:@selector(paneTogglePiP:) inBar:content];
     pane.pipButton.frame = CGRectMake(x, y, sz, sz); x += step;
-    b = [self actionButton:@"arrow.left.arrow.right" action:@selector(paneSwap:) inBar:bar];         b.frame = CGRectMake(x, y, sz, sz); x += step;
-    b = [self actionButton:@"rectangle.lefthalf.inset.filled" action:@selector(paneCycleLayout:) inBar:bar]; b.frame = CGRectMake(x, y, sz, sz); x += step;
+    b = [self actionButton:@"arrow.left.arrow.right" action:@selector(paneSwap:) inBar:content];         b.frame = CGRectMake(x, y, sz, sz); x += step;
+    b = [self actionButton:@"rectangle.lefthalf.inset.filled" action:@selector(paneCycleLayout:) inBar:content]; b.frame = CGRectMake(x, y, sz, sz); x += step;
 
     // Vach ngan nho giua nhom nut ngan va nhom cap yeu thich
     UIView *sep = [[UIView alloc] initWithFrame:CGRectMake(x + 2, (SCP_PANE_BAR_HEIGHT - 18) / 2, 1, 18)];
     sep.backgroundColor = [UIColor colorWithWhite:1 alpha:0.2];
-    [bar addSubview:sep];
+    [content addSubview:sep];
     x += 11;
 
     // Cap yeu thich 1..3: cung kich thuoc, cung nen, chi khac la so thay cho icon
@@ -343,15 +348,16 @@ static id SCPActionSymbolConfig(void)
         f.tag = i;
         [f addTarget:self action:@selector(paneFavTapped:) forControlEvents:UIControlEventTouchUpInside];
         [f addTarget:self action:@selector(actionButtonTouched:) forControlEvents:UIControlEventTouchUpInside];
-        [bar addSubview:f];
+        [content addSubview:f];
         [favs addObject:f];
     }
     pane.favButtons = favs;
     x += 4;
 
     // Home = dong split, ve lai dashboard CarPlay
-    b = [self actionButton:@"house.fill" action:@selector(dismiss) inBar:bar];
+    b = [self actionButton:@"house.fill" action:@selector(dismiss) inBar:content];
     b.frame = CGRectMake(x, y, sz, sz); b.tag = 1001; x += step + 2;
+    content.frame = CGRectMake(0, 0, x, SCP_PANE_BAR_HEIGHT);
     bar.contentSize = CGSizeMake(x, SCP_PANE_BAR_HEIGHT);
 
     [self layoutActionsForPane:pane];
@@ -372,14 +378,12 @@ static id SCPActionSymbolConfig(void)
     pane.actionHandle.alpha = pane.actionsVisible ? 0 : 1;
     CGRect bf = CGRectMake(0, pane.actionsVisible ? 0 : -SCP_PANE_BAR_HEIGHT, s.width, SCP_PANE_BAR_HEIGHT);
     pane.actionBar.frame = bf;
-    // Khi ngan du rong, day nut Home sat mep phai
-    UIButton *home = (UIButton *)[pane.actionBar viewWithTag:1001];
-    CGFloat natural = pane.actionBar.contentSize.width;
-    if (home && s.width > natural) {
-        CGRect hf = home.frame; hf.origin.x = s.width - hf.size.width - 8; home.frame = hf;
-    } else if (home) {
-        CGRect hf = home.frame; hf.origin.x = natural - hf.size.width - 8; home.frame = hf;
-    }
+    // Can giua cum nut khi ngan rong hon; ngan hep thi cuon ngang
+    UIView *content = [pane.actionBar viewWithTag:1002];
+    CGFloat natural = content.bounds.size.width;
+    CGFloat pad = MAX(0, (s.width - natural) / 2);
+    content.frame = CGRectMake(pad, 0, natural, SCP_PANE_BAR_HEIGHT);
+    pane.actionBar.contentSize = CGSizeMake(MAX(natural, s.width), SCP_PANE_BAR_HEIGHT);
     [pane.containerView bringSubviewToFront:pane.actionHandle];
     [pane.containerView bringSubviewToFront:pane.actionBar];
 }
@@ -564,10 +568,11 @@ static id SCPActionSymbolConfig(void)
 
 - (void)setupDivider
 {
+    // View vo hinh (rong 0) nam dung duong ranh giua 2 ngan, chi de nhan pan doi ti le
     self.dividerView = [[SCPDividerView alloc] initWithFrame:[self dividerFrame]];
-    self.dividerView.backgroundColor = [UIColor clearColor];   // chi la khe, ngan da co vien
+    self.dividerView.backgroundColor = [UIColor clearColor];
     self.dividerPill = [[UIView alloc] init];
-    self.dividerPill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.5];
+    self.dividerPill.hidden = YES;
     [self.dividerView addSubview:self.dividerPill];
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dividerPanned:)];
     [self.dividerView addGestureRecognizer:pan];

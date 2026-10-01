@@ -206,7 +206,7 @@ static UIImage *appIcon(NSString *bid)
     _wallpaper.frame = _screenView.bounds;
     for (CALayer *l in _wallpaper.layer.sublayers) l.frame = _wallpaper.bounds;
 
-    CGFloat divW  = MAX(1, W * 0.0075);   // khe mong ~6/800, ngan da co vien
+    CGFloat divW  = 0;                    // khong co khe, 2 vien sat nhau
     CGFloat avail = W - divW;             // ngan dung het man
     CGFloat leftW = floor(avail * ratio), rightW = avail - leftW;
     _leftPane.frame  = CGRectMake(0, 0, leftW, H);
