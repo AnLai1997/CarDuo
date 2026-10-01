@@ -21,6 +21,11 @@
 #define LOGTAG           "[SplitCP]"
 #define RECON_DELAY_SEC  8.0
 
+// method private co san tren moi UIView
+@interface UIView (SplitCPPrivate)
+- (NSString *)recursiveDescription;
+@end
+
 static BOOL isCarPlayProcess(void) {
     return [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.CarPlayApp"];
 }
@@ -40,22 +45,29 @@ static NSString *viewChain(UIView *v) {
 }
 
 static void dumpWindows(NSString *reason) {
-    NSLog(@LOGTAG " ===== DUMP (%@) screens=%lu =====", reason,
-          (unsigned long)[UIScreen screens].count);
+    NSLog(@LOGTAG " ===== DUMP (%@) =====", reason);
 
-    for (UIScreen *s in [UIScreen screens]) {
-        NSLog(@LOGTAG " screen %@ bounds=%@ scale=%.1f",
+    // UIApplication.windows (iOS 15) va UIScreen.screens (iOS 16) deu deprecated,
+    // Theos bat -Werror -> duyet qua UIWindowScene
+    NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
+    for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
+        if (![sc isKindOfClass:[UIWindowScene class]]) continue;
+        UIWindowScene *ws = (UIWindowScene *)sc;
+        UIScreen *s = ws.screen;
+        NSLog(@LOGTAG " scene %@ role=%@ screen=%@ bounds=%@ scale=%.1f",
+              NSStringFromClass([ws class]), ws.session.role,
               s, NSStringFromCGRect(s.bounds), s.scale);
+        [windows addObjectsFromArray:ws.windows];
     }
-
-    NSArray *windows = [UIApplication sharedApplication].windows;
-    NSLog(@LOGTAG " windows=%lu", (unsigned long)windows.count);
+    NSLog(@LOGTAG " connectedScenes=%lu windows=%lu",
+          (unsigned long)[UIApplication sharedApplication].connectedScenes.count,
+          (unsigned long)windows.count);
     for (UIWindow *w in windows) {
         NSLog(@LOGTAG " --- window %@ frame=%@ level=%.0f hidden=%d scene=%@",
               NSStringFromClass([w class]), NSStringFromCGRect(w.frame),
               w.windowLevel, w.hidden, w.windowScene);
         // recursiveDescription la method private, co san tren moi UIView
-        NSString *desc = [w performSelector:@selector(recursiveDescription)];
+        NSString *desc = [w recursiveDescription];
         // log tung dong de khong bi oslog cat
         for (NSString *line in [desc componentsSeparatedByString:@"\n"]) {
             if (line.length) NSLog(@LOGTAG " | %@", line);
@@ -111,6 +123,11 @@ static void dumpWindows(NSString *reason) {
 // ---------------------------------------------------------------------
 //  RESIZE hooks - "HostView" duoc map sang class that trong %ctor
 // ---------------------------------------------------------------------
+// Ten "HostView" la ten ao, duoc map sang class that trong %ctor.
+// Khai bao interface de Logos biet self la UIView.
+@interface HostView : UIView
+@end
+
 %group Resize
 
 %hook HostView
