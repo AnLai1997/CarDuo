@@ -3,12 +3,18 @@
 
 // =====================================================================
 //  SCPSplitWindow - cua so tren man CarPlay, host 2 app cua iPhone
-//  Co che: port tu carplay-cast (EthanArbuckle) - iOS 14, chinh cho 16.5 + ARC
+//  Co che: port tu carplay-cast (EthanArbuckle) - iOS 14, chinh cho 16.x + ARC
 // =====================================================================
 
 int (*orig_BKSDisplayServicesSetScreenBlanked)(int) = NULL;
 const void *kSCPKey_splitWindow   = &kSCPKey_splitWindow;
 const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
+
+#define SCP_DIVIDER_WIDTH 14.0
+
+@interface UIImage (SCPPrivate)
++ (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bid format:(int)format scale:(double)scale;
+@end
 
 // Tim CADisplay cua man hinh xe
 id SCPGetCarPlayCADisplay(void)
@@ -22,6 +28,19 @@ id SCPGetCarPlayCADisplay(void)
         if ([carplayScreenID isEqualToString:objcInvoke(display, @"uniqueId")]) return display;
     }
     return nil;
+}
+
+// Tao UIRootSceneWindow tren man xe (nil neu xe chua ket noi)
+static UIWindow *SCPMakeCarWindow(void)
+{
+    id carDisplay = SCPGetCarPlayCADisplay();
+    if (!carDisplay) { SCPLog("khong tim thay CADisplay cua CarPlay"); return nil; }
+    id displayConfig = objcInvoke_2([objc_getClass("FBSDisplayConfiguration") alloc],
+                                    @"initWithCADisplay:isMainDisplay:", carDisplay, 0);
+    expectClass(displayConfig, "FBSDisplayConfiguration");
+    UIWindow *w = objcInvoke_1([objc_getClass("UIRootSceneWindow") alloc], @"initWithDisplayConfiguration:", displayConfig);
+    expectClass(w, "UIRootSceneWindow");
+    return w;
 }
 
 static NSMutableArray *lockAssertions(void)
@@ -45,15 +64,63 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     return r;
 }
 
+// Danh sach app trong may: @{ @"id", @"name" }, app nguoi dung truoc, app Apple sau
+static NSArray<NSDictionary *> *SCPInstalledApps(void)
+{
+    id controller = objcInvoke(objc_getClass("SBApplicationController"), @"sharedInstance");
+    NSArray *apps = objcInvoke(controller, @"allInstalledApplications");
+    NSMutableArray *user = [NSMutableArray array], *system = [NSMutableArray array];
+    NSSet *skip = [NSSet setWithArray:@[@"com.apple.springboard", @"com.apple.CarPlayApp", @"com.apple.CarPlaySettings",
+                                        @"com.apple.CarPlayTemplateUIHost", @"com.apple.webapp", @"com.apple.Preferences"]];
+    NSSet *appleAllowed = [NSSet setWithArray:@[@"com.apple.mobilesafari", @"com.apple.Music", @"com.apple.Maps", @"com.apple.podcasts",
+                                                @"com.apple.mobileslideshow", @"com.apple.tv", @"com.apple.MobileSMS",
+                                                @"com.apple.mobilephone", @"com.apple.Bridge", @"com.apple.mobilenotes"]];
+    for (id app in apps) {
+        NSString *bid = objcInvoke(app, @"bundleIdentifier");
+        NSString *name = objcInvoke(app, @"displayName");
+        if (!bid || !name.length || [skip containsObject:bid]) continue;
+        if ([bid hasPrefix:@"com.apple."] && ![appleAllowed containsObject:bid] && objcInvokeT(app, @"isSystemApplication", BOOL)) continue;
+        NSDictionary *d = @{@"id": bid, @"name": name};
+        if ([bid hasPrefix:@"com.apple."]) [system addObject:d]; else [user addObject:d];
+    }
+    NSSortDescriptor *byName = [NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES selector:@selector(localizedCaseInsensitiveCompare:)];
+    [user sortUsingDescriptors:@[byName]]; [system sortUsingDescriptors:@[byName]];
+    return [user arrayByAddingObjectsFromArray:system];
+}
+
+static UIImage *SCPAppIcon(NSString *bid)
+{
+    if ([UIImage respondsToSelector:@selector(_applicationIconImageForBundleIdentifier:format:scale:)]) {
+        return [UIImage _applicationIconImageForBundleIdentifier:bid format:2 scale:2.0];
+    }
+    return nil;
+}
+
 @implementation SCPAppPane
 @end
 
+// =====================================================================
 @interface SCPSplitWindow ()
 @property (nonatomic, strong) UIButton *homeButton;
 @property (nonatomic, strong) UIButton *swapButton;
+@property (nonatomic, strong) UIButton *appsButton;
+@property (nonatomic, strong) UIView *dividerView;
+@property (nonatomic, strong) UIView *pickerView;
+@property (nonatomic) SCPSlot pickerSlot;
 @property (nonatomic, strong) UILabel *debugLabel;
 @property (nonatomic, strong) id logObserver;
 - (instancetype)initOnMainScreen:(BOOL)mainScreen;
+- (void)setupDock;
+- (void)setupDivider;
+- (void)setupDebugOverlay;
+- (void)refreshDebugOverlay;
+- (void)logDiagnostics;
+- (void)relayoutPanes;
+- (void)layoutPane:(SCPAppPane *)pane;
+- (CGRect)frameForSlot:(SCPSlot)slot;
+- (CGRect)dividerFrame;
+- (CGRect)pickerFrame;
+- (CGFloat)paneAreaX;
 @end
 
 @implementation SCPSplitWindow
@@ -81,58 +148,45 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 {
     if (!(self = [super init])) return nil;
     self.onMainScreen = mainScreen;
+    self.ratio = [SCPPrefs splitRatio];
 
     if (mainScreen) {
-        // CHE DO TEST: cua so tren man iPhone, xoay ngang de giong man xe
+        // CHE DO THU: cua so tren man iPhone, xoay ngang de giong man xe
         CGRect sb = [UIScreen mainScreen].bounds;
-        // iOS 13+: UIWindow trong SpringBoard phai gan vao UIWindowScene cua man chinh moi duoc ve
         UIWindowScene *mainScene = nil;
         for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
             if ([sc isKindOfClass:[UIWindowScene class]] && ((UIWindowScene *)sc).screen == [UIScreen mainScreen]) {
                 mainScene = (UIWindowScene *)sc; break;
             }
         }
-        SCPLog("main UIWindowScene = %@ (connectedScenes=%lu)", mainScene,
-               (unsigned long)[UIApplication sharedApplication].connectedScenes.count);
         if (mainScene) self.rootWindow = [[UIWindow alloc] initWithWindowScene:mainScene];
         else           self.rootWindow = [[UIWindow alloc] initWithFrame:sb];
         self.rootWindow.frame = sb;
         self.rootWindow.windowLevel = UIWindowLevelStatusBar + 50;
-        // An toan: cua so thu tren iPhone tu dong dong sau 120s de khong bi ket
+        if (sb.size.width < sb.size.height) {
+            self.rootWindow.transform = CGAffineTransformMakeRotation(M_PI_2);
+            self.rootWindow.bounds = CGRectMake(0, 0, sb.size.height, sb.size.width);
+        }
+        // An toan: tu dong dong sau 120s de khong bi ket
         __weak SCPSplitWindow *weakSelfTest = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(120 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             SCPSplitWindow *s = weakSelfTest;
             if (s && s.onMainScreen && [SCPSplitWindow current] == s) { SCPLog("test window auto-close"); [s dismiss]; }
         });
-        // Xoay cua so sang ngang bang transform (bounds = kich thuoc ngang, moi subview dung bounds)
-        if (sb.size.width < sb.size.height) {
-            self.rootWindow.transform = CGAffineTransformMakeRotation(M_PI_2);
-            self.rootWindow.bounds = CGRectMake(0, 0, sb.size.height, sb.size.width);
-        }
-        SCPLog("TEST window tren man chinh, frame=%@ bounds=%@",
-               NSStringFromCGRect(self.rootWindow.frame), NSStringFromCGRect(self.rootWindow.bounds));
+        SCPLog("TEST window tren man chinh, bounds=%@", NSStringFromCGRect(self.rootWindow.bounds));
     } else {
-        id carDisplay = SCPGetCarPlayCADisplay();
-        if (!carDisplay) { SCPLog("khong tim thay CADisplay cua CarPlay"); return nil; }
-
-        id displayConfig = objcInvoke_2([objc_getClass("FBSDisplayConfiguration") alloc],
-                                        @"initWithCADisplay:isMainDisplay:", carDisplay, 0);
-        expectClass(displayConfig, "FBSDisplayConfiguration");
-
-        // Cua so nam tren man hinh xe
-        self.rootWindow = objcInvoke_1([objc_getClass("UIRootSceneWindow") alloc],
-                                       @"initWithDisplayConfiguration:", displayConfig);
-        expectClass(self.rootWindow, "UIRootSceneWindow");
-        SCPLog("root window frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
+        self.rootWindow = SCPMakeCarWindow();
+        if (!self.rootWindow) return nil;
+        SCPLog("root window tren man xe frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
     }
 
-    self.rootWindow.backgroundColor = [UIColor colorWithRed:0.05 green:0.05 blue:0.2 alpha:1];   // xanh dam de phan biet voi "den"
+    self.rootWindow.backgroundColor = [UIColor colorWithRed:0.05 green:0.05 blue:0.2 alpha:1];
     [self setupDock];
+    [self setupDivider];
     [self setupDebugOverlay];
 
     self.rootWindow.alpha = 0;
     self.rootWindow.hidden = NO;
-    // "unblank" de video/animation van render khi may dang khoa
     if (orig_BKSDisplayServicesSetScreenBlanked) orig_BKSDisplayServicesSetScreenBlanked(0);
     [UIView animateWithDuration:0.5 animations:^{ self.rootWindow.alpha = 1; }];
     __weak SCPSplitWindow *weakSelf = self;
@@ -151,8 +205,19 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 }
 
 // ---------------------------------------------------------------------
-//  Dock ben trai: nut Home (dong split) + nut doi cho 2 ngan
+//  Dock: nut chon app, doi cho, dong
 // ---------------------------------------------------------------------
+- (UIButton *)dockButton:(NSString *)symbol tint:(UIColor *)tint action:(SEL)sel
+{
+    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightRegular];
+    UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+    [b setImage:[UIImage systemImageNamed:symbol withConfiguration:cfg] forState:UIControlStateNormal];
+    b.tintColor = tint;
+    [b addTarget:self action:sel forControlEvents:UIControlEventTouchUpInside];
+    [self.dockView addSubview:b];
+    return b;
+}
+
 - (void)setupDock
 {
     CGRect f = self.rootWindow.bounds;
@@ -161,55 +226,203 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     self.dockView.backgroundColor = [UIColor colorWithWhite:0.3 alpha:1];
     [self.rootWindow addSubview:self.dockView];
 
-    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightRegular];
     CGFloat sz = 32, x = (SCP_DOCK_WIDTH - sz) / 2;
-
-    self.homeButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.homeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill" withConfiguration:cfg] forState:UIControlStateNormal];
-    self.homeButton.tintColor = [UIColor systemRedColor];
+    self.appsButton = [self dockButton:@"square.grid.2x2" tint:[UIColor whiteColor] action:@selector(appsButtonTapped)];
+    self.appsButton.frame = CGRectMake(x, 8, sz, sz);
+    self.swapButton = [self dockButton:@"arrow.left.arrow.right" tint:[UIColor whiteColor] action:@selector(swapPanes)];
+    self.swapButton.frame = CGRectMake(x, 8 + sz + 10, sz, sz);
+    self.homeButton = [self dockButton:@"xmark.circle.fill" tint:[UIColor systemRedColor] action:@selector(dismiss)];
     self.homeButton.frame = CGRectMake(x, f.size.height - sz - 8, sz, sz);
-    [self.homeButton addTarget:self action:@selector(dismiss) forControlEvents:UIControlEventTouchUpInside];
-    [self.dockView addSubview:self.homeButton];
-
-    self.swapButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.swapButton setImage:[UIImage systemImageNamed:@"arrow.left.arrow.right" withConfiguration:cfg] forState:UIControlStateNormal];
-    self.swapButton.tintColor = [UIColor whiteColor];
-    self.swapButton.frame = CGRectMake(x, 8, sz, sz);
-    [self.swapButton addTarget:self action:@selector(swapPanes) forControlEvents:UIControlEventTouchUpInside];
-    [self.dockView addSubview:self.swapButton];
 }
 
-// Chan doan: trang thai cua so + tung ngan (ghi vao log sau 3s)
+- (void)appsButtonTapped
+{
+    if (self.pickerView) [self hideAppPicker]; else [self showAppPickerForSlot:SCPSlotLeft];
+}
+
+// ---------------------------------------------------------------------
+//  Bo cuc ngan + thanh phan cach keo duoc
+// ---------------------------------------------------------------------
+- (CGFloat)paneAreaX
+{
+    return ([SCPPrefs dockSide] == 1) ? 0 : SCP_DOCK_WIDTH;
+}
+
+- (CGRect)frameForSlot:(SCPSlot)slot
+{
+    CGRect f = self.rootWindow.bounds;
+    CGFloat avail = f.size.width - SCP_DOCK_WIDTH - SCP_DIVIDER_WIDTH;
+    CGFloat leftW = floor(avail * self.ratio);
+    CGFloat rightW = avail - leftW;
+    CGFloat x0 = [self paneAreaX];
+    if (slot == SCPSlotLeft) return CGRectMake(x0, 0, leftW, f.size.height);
+    return CGRectMake(x0 + leftW + SCP_DIVIDER_WIDTH, 0, rightW, f.size.height);
+}
+
+- (CGRect)dividerFrame
+{
+    CGRect l = [self frameForSlot:SCPSlotLeft];
+    return CGRectMake(CGRectGetMaxX(l), 0, SCP_DIVIDER_WIDTH, self.rootWindow.bounds.size.height);
+}
+
+- (void)setupDivider
+{
+    self.dividerView = [[UIView alloc] initWithFrame:[self dividerFrame]];
+    self.dividerView.backgroundColor = [UIColor colorWithWhite:0.15 alpha:1];
+    UIView *pill = [[UIView alloc] initWithFrame:CGRectMake(4, self.dividerView.bounds.size.height / 2 - 24, SCP_DIVIDER_WIDTH - 8, 48)];
+    pill.backgroundColor = [UIColor colorWithWhite:0.7 alpha:1];
+    pill.layer.cornerRadius = (SCP_DIVIDER_WIDTH - 8) / 2;
+    pill.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+    [self.dividerView addSubview:pill];
+    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dividerPanned:)];
+    [self.dividerView addGestureRecognizer:pan];
+    [self.rootWindow addSubview:self.dividerView];
+}
+
+- (void)dividerPanned:(UIPanGestureRecognizer *)g
+{
+    CGPoint p = [g locationInView:self.rootWindow];
+    CGFloat avail = self.rootWindow.bounds.size.width - SCP_DOCK_WIDTH - SCP_DIVIDER_WIDTH;
+    CGFloat r = (p.x - [self paneAreaX] - SCP_DIVIDER_WIDTH / 2) / avail;
+    self.ratio = MIN(0.75, MAX(0.25, r));
+    [self relayoutPanes];
+    if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled) {
+        [SCPPrefs setSplitRatio:self.ratio];
+        SCPLog("ti le ngan trai = %.2f (da luu)", self.ratio);
+    }
+}
+
+- (void)relayoutPanes
+{
+    self.dividerView.frame = [self dividerFrame];
+    if (self.leftPane)  { self.leftPane.containerView.frame  = [self frameForSlot:SCPSlotLeft];  [self layoutPane:self.leftPane]; }
+    if (self.rightPane) { self.rightPane.containerView.frame = [self frameForSlot:SCPSlotRight]; [self layoutPane:self.rightPane]; }
+    if (self.pickerView) self.pickerView.frame = [self pickerFrame];
+}
+
+// ---------------------------------------------------------------------
+//  Bang chon app
+// ---------------------------------------------------------------------
+- (CGRect)pickerFrame
+{
+    CGRect f = self.rootWindow.bounds;
+    return CGRectMake([self paneAreaX], 0, f.size.width - SCP_DOCK_WIDTH, f.size.height);
+}
+
+- (void)showAppPickerForSlot:(SCPSlot)slot
+{
+    [self hideAppPicker];
+    self.pickerSlot = (slot == SCPSlotRight) ? SCPSlotRight : SCPSlotLeft;
+
+    UIView *pv = [[UIView alloc] initWithFrame:[self pickerFrame]];
+    pv.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.97];
+    self.pickerView = pv;
+    [self.rootWindow addSubview:pv];
+
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 8, pv.bounds.size.width - 120, 30)];
+    title.text = (self.pickerSlot == SCPSlotLeft) ? @"Chọn app cho ngăn TRÁI" : @"Chọn app cho ngăn PHẢI";
+    title.textColor = [UIColor whiteColor];
+    title.font = [UIFont systemFontOfSize:18 weight:UIFontWeightSemibold];
+    [pv addSubview:title];
+
+    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem];
+    [cancel setTitle:@"Huỷ" forState:UIControlStateNormal];
+    cancel.titleLabel.font = [UIFont systemFontOfSize:17];
+    cancel.frame = CGRectMake(pv.bounds.size.width - 80, 8, 70, 30);
+    [cancel addTarget:self action:@selector(hideAppPicker) forControlEvents:UIControlEventTouchUpInside];
+    [pv addSubview:cancel];
+
+    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 44, pv.bounds.size.width, pv.bounds.size.height - 44)];
+    scroll.alwaysBounceVertical = YES;
+    [pv addSubview:scroll];
+
+    NSArray *apps = SCPInstalledApps();
+    CGFloat cellW = 96, cellH = 92, iconSize = 52;
+    NSInteger cols = MAX(1, (NSInteger)(scroll.bounds.size.width / cellW));
+    CGFloat padX = (scroll.bounds.size.width - cols * cellW) / 2;
+    NSInteger i = 0;
+    for (NSDictionary *app in apps) {
+        NSInteger row = i / cols, col = i % cols;
+        CGFloat x = padX + col * cellW, y = 8 + row * cellH;
+
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+        b.frame = CGRectMake(x, y, cellW, cellH);
+        b.accessibilityIdentifier = app[@"id"];
+        [b addTarget:self action:@selector(pickerAppTapped:) forControlEvents:UIControlEventTouchUpInside];
+
+        UIImageView *iv = [[UIImageView alloc] initWithFrame:CGRectMake((cellW - iconSize) / 2, 6, iconSize, iconSize)];
+        iv.image = SCPAppIcon(app[@"id"]);
+        iv.contentMode = UIViewContentModeScaleAspectFit;
+        iv.layer.cornerRadius = 11; iv.clipsToBounds = YES;
+        iv.backgroundColor = iv.image ? [UIColor clearColor] : [UIColor colorWithWhite:0.3 alpha:1];
+        iv.userInteractionEnabled = NO;
+        [b addSubview:iv];
+
+        UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(2, iconSize + 10, cellW - 4, 28)];
+        l.text = app[@"name"];
+        l.textColor = [UIColor whiteColor];
+        l.font = [UIFont systemFontOfSize:11];
+        l.textAlignment = NSTextAlignmentCenter;
+        l.numberOfLines = 2;
+        l.userInteractionEnabled = NO;
+        [b addSubview:l];
+
+        [scroll addSubview:b];
+        i++;
+    }
+    NSInteger rows = (i + cols - 1) / cols;
+    scroll.contentSize = CGSizeMake(scroll.bounds.size.width, 16 + rows * cellH);
+    SCPLog("picker: %ld app, slot=%d", (long)i, (int)self.pickerSlot);
+}
+
+- (void)pickerAppTapped:(UIButton *)b
+{
+    NSString *bid = b.accessibilityIdentifier;
+    SCPSlot slot = self.pickerSlot;
+    [self hideAppPicker];
+    if (!bid) return;
+    [self launchApp:bid inSlot:slot];
+    if (slot == SCPSlotLeft) {
+        [SCPPrefs setLeftApp:bid];
+        [self showAppPickerForSlot:SCPSlotRight];   // chon tiep ngan phai
+    } else {
+        [SCPPrefs setRightApp:bid];
+    }
+}
+
+- (void)hideAppPicker
+{
+    [self.pickerView removeFromSuperview];
+    self.pickerView = nil;
+}
+
+// ---------------------------------------------------------------------
+//  Chan doan / overlay log
+// ---------------------------------------------------------------------
 - (void)logDiagnostics
 {
     UIWindow *w = self.rootWindow;
     if (!w) return;
-    SCPLog("DIAG window hidden=%d alpha=%.2f level=%.0f scene=%@ screen=%@ superlayer=%@ key=%d",
-           w.hidden, w.alpha, w.windowLevel, w.windowScene, w.screen, w.layer.superlayer ? @"yes" : @"nil", w.isKeyWindow);
-    SCPLog("DIAG window frame=%@ bounds=%@ subviews=%lu", NSStringFromCGRect(w.frame), NSStringFromCGRect(w.bounds), (unsigned long)w.subviews.count);
+    SCPLog("DIAG window hidden=%d alpha=%.2f level=%.0f scene=%@ screen=%@ superlayer=%@",
+           w.hidden, w.alpha, w.windowLevel, w.windowScene, w.screen, w.layer.superlayer ? @"yes" : @"nil");
     for (SCPAppPane *p in self.panes) {
         id appVC = p.appViewController;
         id appView = objcInvoke(appVC, @"appView");
         long long mode = objcInvokeT(appView, @"displayMode", long long);
-        id handle = objcInvoke(appVC, @"sceneHandle");
-        id scene  = objcInvoke(handle, @"sceneIfExists");
+        id scene  = objcInvoke(objcInvoke(appVC, @"sceneHandle"), @"sceneIfExists");
         id settings = objcInvoke(scene, @"settings");
         BOOL fg = settings ? objcInvokeT(settings, @"isForeground", BOOL) : NO;
-        UIView *v = [appVC view];
-        SCPLog("DIAG pane %@: container=%@ vcView=%@ hidden=%d appView=%@ displayMode=%lld scene=%@ foreground=%d",
-               p.bundleIdentifier, NSStringFromCGRect(p.containerView.frame), NSStringFromCGRect(v.frame), v.hidden,
-               appView ? NSStringFromClass([appView class]) : @"nil", mode, scene ? @"yes" : @"nil", fg);
+        SCPLog("DIAG pane %@: container=%@ displayMode=%lld scene=%@ foreground=%d",
+               p.bundleIdentifier, NSStringFromCGRect(p.containerView.frame), mode, scene ? @"yes" : @"nil", fg);
     }
 }
 
-// Overlay hien log o duoi cua so (bat/tat trong Settings: "Hien log tren cua so")
 - (void)setupDebugOverlay
 {
     if (![SCPPrefs showDebug]) return;
     CGRect f = self.rootWindow.bounds;
     CGFloat h = MIN(90, f.size.height * 0.3);
-    CGFloat x = ([SCPPrefs dockSide] == 1) ? 0 : SCP_DOCK_WIDTH;   // chua de dock + nut X
-    self.debugLabel = [[UILabel alloc] initWithFrame:CGRectMake(x, f.size.height - h, f.size.width - SCP_DOCK_WIDTH, h)];
+    self.debugLabel = [[UILabel alloc] initWithFrame:CGRectMake([self paneAreaX], f.size.height - h, f.size.width - SCP_DOCK_WIDTH, h)];
     self.debugLabel.numberOfLines = 0;
     self.debugLabel.font = [UIFont monospacedSystemFontOfSize:8 weight:UIFontWeightRegular];
     self.debugLabel.textColor = [UIColor greenColor];
@@ -232,17 +445,6 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     [self.rootWindow bringSubviewToFront:self.debugLabel];
 }
 
-- (CGRect)frameForSlot:(SCPSlot)slot
-{
-    CGRect f = self.rootWindow.bounds;
-    CGFloat avail = f.size.width - SCP_DOCK_WIDTH;
-    CGFloat leftW = floor(avail * [SCPPrefs splitRatio]);
-    CGFloat rightW = avail - leftW;
-    CGFloat x0 = ([SCPPrefs dockSide] == 1) ? 0 : SCP_DOCK_WIDTH;
-    if (slot == SCPSlotLeft) return CGRectMake(x0, 0, leftW, f.size.height);
-    return CGRectMake(x0 + leftW, 0, rightW, f.size.height);
-}
-
 // ---------------------------------------------------------------------
 //  Mo app vao ngan
 // ---------------------------------------------------------------------
@@ -251,9 +453,8 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     if (slot == SCPSlotAuto) {
         if (!self.leftPane) slot = SCPSlotLeft;
         else if (!self.rightPane) slot = SCPSlotRight;
-        else slot = SCPSlotRight; // ca 2 day -> thay ngan phai
+        else slot = SCPSlotRight;
     }
-    // Neu app da dang o ngan kia thi thoi
     for (SCPAppPane *p in self.panes) {
         if ([p.bundleIdentifier isEqualToString:bundleID]) { SCPLog("%@ da dang mo", bundleID); return; }
     }
@@ -261,7 +462,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     SCPAppPane *pane = [SCPAppPane new];
     pane.bundleIdentifier = bundleID;
-    pane.orientation = (int)[SCPPrefs paneOrientation]; // 1 portrait / 3 landscape (Settings)
+    pane.orientation = (int)[SCPPrefs paneOrientation];
 
     pane.application = objcInvoke_1(objcInvoke(objc_getClass("SBApplicationController"), @"sharedInstance"),
                                     @"applicationWithBundleIdentifier:", bundleID);
@@ -270,7 +471,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     pane.containerView = [[UIView alloc] initWithFrame:[self frameForSlot:slot]];
     pane.containerView.backgroundColor = [UIColor blackColor];
     pane.containerView.clipsToBounds = YES;
-    [self.rootWindow addSubview:pane.containerView];
+    [self.rootWindow insertSubview:pane.containerView belowSubview:self.dividerView];
 
     @try {
         [self setupLiveAppViewForPane:pane];
@@ -282,10 +483,12 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     if (slot == SCPSlotLeft) self.leftPane = pane; else self.rightPane = pane;
     [self layoutPane:pane];
-    SCPLog("da mo %@ vao ngan %d", bundleID, slot);
+    if (self.debugLabel) [self.rootWindow bringSubviewToFront:self.debugLabel];
+    if (self.pickerView) [self.rootWindow bringSubviewToFront:self.pickerView];
+    SCPLog("da mo %@ vao ngan %d", bundleID, (int)slot);
 }
 
-// Port tu CRCarplayWindow -setupLiveAppView
+// Port tu CRCarplayWindow -setupLiveAppView (selector iOS 16.x)
 - (void)setupLiveAppViewForPane:(SCPAppPane *)pane
 {
     NSString *appID = pane.bundleIdentifier;
@@ -294,11 +497,10 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     id sceneManager = objcInvoke(objc_getClass("SBSceneManagerCoordinator"), @"mainDisplaySceneManager");
     expectClass(sceneManager, "SBMainDisplaySceneManager");
 
-    id layoutStateManager = objcInvoke(sceneManager, @"layoutStateManager");   // iOS 16: khong co dau _
+    id layoutStateManager = objcInvoke(sceneManager, @"layoutStateManager");
     id displayIdentity    = objcInvoke(sceneManager, @"displayIdentity");
     expectClass(displayIdentity, "FBSDisplayIdentity");
 
-    // iOS 16.5: -sceneIdentityForApplication:createPrimaryIfRequired:sceneSessionRole:
     id sceneIdentity = objcInvoke_3(sceneManager, @"sceneIdentityForApplication:createPrimaryIfRequired:sceneSessionRole:",
                                     pane.application, 1, UIWindowSceneSessionRoleApplication);
     expectClass(sceneIdentity, "FBSSceneIdentity");
@@ -325,7 +527,7 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     id transaction = objcInvoke_2(appVC, @"_createSceneUpdateTransactionForApplicationSceneEntity:deliveringActions:", entity, 1);
     expectClass(transaction, "SBApplicationSceneUpdateTransaction");
 
-    NSMutableSet *transitions = getIvar(appVC, @"_activeTransitions");   // iOS 16: NSMutableSet
+    NSMutableSet *transitions = getIvar(appVC, @"_activeTransitions");
     __weak SCPSplitWindow *weakSelf = self;
     int orientation = pane.orientation;
     objcInvoke_1(transaction, @"setCompletionBlock:", ^(int result) {
@@ -334,7 +536,6 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
         id process  = objcInvoke(launchTx, @"process");
         if (!process) { SCPLog("khong co FBProcess sau launch (result=%d)", result); return; }
         objcInvoke_1(process, @"_executeBlockAfterLaunchCompletes:", ^{
-            // Bao app xoay theo huong cua ngan
             [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
                 postNotificationName:SCP_NOTIF_ORIENTATION object:appID userInfo:@{@"orientation": @(orientation)}];
             dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf layoutPane:pane]; });
@@ -352,8 +553,6 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     v.backgroundColor = [UIColor clearColor];
     [pane.containerView addSubview:v];
 
-    // Theo doi app chet -> dong ngan
-    // iOS 16.5: -primarySceneIdentifierForBundleIdentifier:sceneSessionRole:displayIdentity:
     NSString *sceneID = objcInvoke_3(layoutStateManager, @"primarySceneIdentifierForBundleIdentifier:sceneSessionRole:displayIdentity:",
                                      appID, UIWindowSceneSessionRoleApplication, displayIdentity);
     if (sceneID) {
@@ -362,12 +561,12 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     }
 }
 
-// Port tu -resizeAppViewForOrientation: scale noi dung app (kich thuoc iPhone) vao ngan
+// Scale noi dung app (kich thuoc iPhone) vao ngan
 - (void)layoutPane:(SCPAppPane *)pane
 {
     if (!pane.appViewController) return;
     id deviceAppVC = getIvar(pane.appViewController, @"_deviceAppViewController");
-    id sceneView   = getIvar(deviceAppVC, @"sceneView");   // property tren iOS 16
+    id sceneView   = getIvar(deviceAppVC, @"sceneView");
     UIView *hostingContentView = getIvar(sceneView, @"_sceneContentContainerView");
     if (!hostingContentView) { SCPLog("chua co _sceneContentContainerView"); return; }
 
@@ -378,11 +577,8 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     hostingContentView.transform = CGAffineTransformMakeScale(sx, sy);
     [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
-    SCPLog("layout %@ pane=%@ phone=%@ scale=(%.2f,%.2f)", pane.bundleIdentifier,
-           NSStringFromCGSize(paneSize), NSStringFromCGSize(phoneSize), sx, sy);
 }
 
-// FBSceneMonitor delegate: app process chet
 - (void)sceneMonitor:(id)monitor sceneWasDestroyed:(id)scene
 {
     for (SCPAppPane *p in self.panes) {
@@ -402,7 +598,6 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     [pane.sceneMonitor invalidate];
     NSString *appID = pane.bundleIdentifier;
 
-    // Bo ep huong xoay
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
         postNotificationName:SCP_NOTIF_ORIENTATION object:appID userInfo:@{@"orientation": @(-1)}];
 
@@ -414,13 +609,11 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
         objcInvoke(pane.appViewController, @"invalidate");
     }
 
-    // Dua app ve background neu no khong dang o man hinh chinh
     id appScene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
     if (appScene) {
         id frontmost = objcInvoke([UIApplication sharedApplication], @"_accessibilityFrontMostApplication");
         BOOL onMainScreen = frontmost && [objcInvoke(frontmost, @"bundleIdentifier") isEqualToString:appID];
         if (!onMainScreen) {
-            // iOS 16: FBScene khong con -mutableSettings, dung -updateSettingsWithBlock:
             objcInvoke_1(appScene, @"updateSettingsWithBlock:", ^(id settings) {
                 objcInvoke_1(settings, @"setBackgrounded:", 1);
                 objcInvoke_1(settings, @"setForeground:", 0);
@@ -442,20 +635,17 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 {
     SCPAppPane *l = self.leftPane, *r = self.rightPane;
     self.leftPane = r; self.rightPane = l;
-    [UIView animateWithDuration:0.25 animations:^{
-        if (self.leftPane)  self.leftPane.containerView.frame  = [self frameForSlot:SCPSlotLeft];
-        if (self.rightPane) self.rightPane.containerView.frame = [self frameForSlot:SCPSlotRight];
-    }];
+    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
 }
 
 - (void)dismiss
 {
     SCPLog("dismiss split window");
+    [self hideAppPicker];
     [self closeSlot:SCPSlotLeft];
     [self closeSlot:SCPSlotRight];
 
     id app = [UIApplication sharedApplication];
-    // Tat man neu may dang khoa va man dang toi
     if (objcInvokeT(app, @"isLocked", BOOL)) {
         void *fn = dlsym(RTLD_DEFAULT, "BKSHIDServicesGetBacklightFactor");
         if (fn && orig_BKSDisplayServicesSetScreenBlanked) {
@@ -475,6 +665,59 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
         postNotificationName:SCP_NOTIF_SPLIT_CLOSED object:nil userInfo:nil];
+}
+
+@end
+
+// =====================================================================
+//  SCPLauncherButton: nut tron nho tren man CarPlay -> mo split + bang chon app
+// =====================================================================
+static UIWindow *sLauncherWindow = nil;
+
+@implementation SCPLauncherButton
+
++ (void)showOnCarDisplay
+{
+    if (sLauncherWindow) return;
+    UIWindow *w = SCPMakeCarWindow();
+    if (!w) return;
+    CGRect screen = w.frame;
+    CGFloat size = 44;
+    // Goc tren ben phai man xe (dock CarPlay thuong o ben trai)
+    w.frame = CGRectMake(screen.size.width - size - 10, 10, size, size);
+    w.windowLevel = UIWindowLevelStatusBar + 60;
+    w.backgroundColor = [UIColor clearColor];
+
+    UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+    b.frame = CGRectMake(0, 0, size, size);
+    b.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
+    b.layer.cornerRadius = size / 2;
+    b.layer.borderWidth = 1.5;
+    b.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.7].CGColor;
+    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightSemibold];
+    [b setImage:[UIImage systemImageNamed:@"rectangle.split.2x1" withConfiguration:cfg] forState:UIControlStateNormal];
+    b.tintColor = [UIColor whiteColor];
+    [b addTarget:self action:@selector(tapped) forControlEvents:UIControlEventTouchUpInside];
+    [w addSubview:b];
+
+    w.hidden = NO;
+    sLauncherWindow = w;
+    SCPLog("launcher button hien tren man xe tai %@", NSStringFromCGRect(w.frame));
+}
+
++ (void)hide
+{
+    sLauncherWindow.hidden = YES;
+    [sLauncherWindow removeFromSuperview];
+    sLauncherWindow = nil;
+}
+
++ (void)tapped
+{
+    SCPLog("launcher tapped");
+    SCPSplitWindow *w = [SCPSplitWindow currentOrCreate];
+    if (!w) return;
+    [w showAppPickerForSlot:SCPSlotLeft];
 }
 
 @end
