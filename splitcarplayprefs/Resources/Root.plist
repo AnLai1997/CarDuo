@@ -150,7 +150,7 @@
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Tự mở split thử sau respring</string>
+			<key>label</key><string>Mở split thử 1 lần sau respring kế tiếp</string>
 			<key>defaults</key><string>com.anpham.splitcarplay</string>
 			<key>key</key><string>TestOnMainScreen</string>
 			<key>default</key><false/>

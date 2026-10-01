@@ -15,4 +15,5 @@
 + (CGFloat)splitRatio;          // ti le be rong ngan trai (0.3 - 0.7)
 + (BOOL)testOnMainScreen;
 + (BOOL)showDebug;             // hien log tren cua so split
++ (void)setTestOnMainScreen:(BOOL)v;
 @end

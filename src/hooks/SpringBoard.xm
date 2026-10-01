@@ -60,6 +60,7 @@ static void SCPOpenConfiguredPair(BOOL onMainScreen)
         [[SCPSplitWindow current] dismiss];
     });
     if ([SCPPrefs testOnMainScreen]) {
+        [SCPPrefs setTestOnMainScreen:NO];   // chi chay 1 lan, tranh ket sau moi respring
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             SCPOpenConfiguredPair(YES);
         });

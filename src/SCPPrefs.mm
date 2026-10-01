@@ -34,5 +34,6 @@ static id value(NSString *key)
 }
 + (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
 + (BOOL)showDebug          { id v = value(@"ShowDebug");        return v ? [v boolValue] : YES; }
++ (void)setTestOnMainScreen:(BOOL)v { [defaults() setBool:v forKey:@"TestOnMainScreen"]; [defaults() synchronize]; }
 
 @end

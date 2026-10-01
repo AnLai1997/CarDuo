@@ -98,6 +98,12 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
         else           self.rootWindow = [[UIWindow alloc] initWithFrame:sb];
         self.rootWindow.frame = sb;
         self.rootWindow.windowLevel = UIWindowLevelStatusBar + 50;
+        // An toan: cua so thu tren iPhone tu dong dong sau 120s de khong bi ket
+        __weak SCPSplitWindow *weakSelfTest = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(120 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            SCPSplitWindow *s = weakSelfTest;
+            if (s && s.onMainScreen && [SCPSplitWindow current] == s) { SCPLog("test window auto-close"); [s dismiss]; }
+        });
         // Xoay cua so sang ngang bang transform (bounds = kich thuoc ngang, moi subview dung bounds)
         if (sb.size.width < sb.size.height) {
             self.rootWindow.transform = CGAffineTransformMakeRotation(M_PI_2);
@@ -159,8 +165,8 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
     CGFloat sz = 32, x = (SCP_DOCK_WIDTH - sz) / 2;
 
     self.homeButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.homeButton setImage:[UIImage systemImageNamed:@"xmark.circle" withConfiguration:cfg] forState:UIControlStateNormal];
-    self.homeButton.tintColor = [UIColor whiteColor];
+    [self.homeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill" withConfiguration:cfg] forState:UIControlStateNormal];
+    self.homeButton.tintColor = [UIColor systemRedColor];
     self.homeButton.frame = CGRectMake(x, f.size.height - sz - 8, sz, sz);
     [self.homeButton addTarget:self action:@selector(dismiss) forControlEvents:UIControlEventTouchUpInside];
     [self.dockView addSubview:self.homeButton];
@@ -201,10 +207,11 @@ static CGRect boundsForOrientation(UIScreen *screen, int orientation)
 {
     if (![SCPPrefs showDebug]) return;
     CGRect f = self.rootWindow.bounds;
-    CGFloat h = MIN(140, f.size.height * 0.4);
-    self.debugLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, f.size.height - h, f.size.width, h)];
+    CGFloat h = MIN(90, f.size.height * 0.3);
+    CGFloat x = ([SCPPrefs dockSide] == 1) ? 0 : SCP_DOCK_WIDTH;   // chua de dock + nut X
+    self.debugLabel = [[UILabel alloc] initWithFrame:CGRectMake(x, f.size.height - h, f.size.width - SCP_DOCK_WIDTH, h)];
     self.debugLabel.numberOfLines = 0;
-    self.debugLabel.font = [UIFont monospacedSystemFontOfSize:9 weight:UIFontWeightRegular];
+    self.debugLabel.font = [UIFont monospacedSystemFontOfSize:8 weight:UIFontWeightRegular];
     self.debugLabel.textColor = [UIColor greenColor];
     self.debugLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.75];
     self.debugLabel.userInteractionEnabled = NO;
