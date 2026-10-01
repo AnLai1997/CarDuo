@@ -14,6 +14,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) id appViewController;  // SBAppViewController
 @property (nonatomic, strong) id sceneMonitor;       // FBSceneMonitor
 @property (nonatomic) int orientation;               // UIInterfaceOrientation, mac dinh portrait
+@property (nonatomic, strong) UIButton *expandButton; // nut phong to / thu nho o goc ngan
 @end
 
 // Cua so SpringBoard nam tren man hinh xe, chia 2 ngan
@@ -24,6 +25,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) SCPAppPane *rightPane;
 @property (nonatomic) BOOL onMainScreen;
 @property (nonatomic) CGFloat ratio;                 // ti le be rong ngan trai (keo thanh phan cach de doi)
+@property (nonatomic) SCPSlot fullscreenSlot;         // SCPSlotAuto = khong fullscreen
 
 + (instancetype)current;                 // cua so dang mo (nil neu chua)
 + (instancetype)currentOrCreate;         // tao neu chua co (can CarPlay dang ket noi)
@@ -33,6 +35,9 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)closeSlot:(SCPSlot)slot;
 - (void)swapPanes;
 - (void)dismiss;
+- (void)applyPresetRatio:(CGFloat)ratio;     // bo cuc dat san: 0.5, 0.7, 0.3
+- (void)cycleLayoutPreset;                   // 50/50 -> 70/30 -> 30/70 -> 50/50
+- (void)toggleFullscreenForSlot:(SCPSlot)slot;   // fullscreen tam mot ngan, bam lai de ve split
 - (NSArray<SCPAppPane *> *)panes;
 
 // Bang chon app (luoi icon moi app trong may). slot = Left -> chon xong tu hoi tiep cho Right.

@@ -151,6 +151,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     if (!(self = [super init])) return nil;
     self.onMainScreen = mainScreen;
     self.ratio = [SCPPrefs splitRatio];
+    self.fullscreenSlot = SCPSlotAuto;
 
     if (mainScreen) {
         // CHE DO THU: cua so tren man iPhone, xoay ngang de giong man xe
@@ -243,6 +244,8 @@ static UIImage *SCPAppIcon(NSString *bid)
     self.appsButton.frame = CGRectMake(x, 32, sz, sz);
     self.swapButton = [self dockButton:@"arrow.left.arrow.right" tint:[UIColor whiteColor] action:@selector(swapPanes)];
     self.swapButton.frame = CGRectMake(x, 32 + sz + 10, sz, sz);
+    UIButton *layoutBtn = [self dockButton:@"rectangle.split.2x1" tint:[UIColor whiteColor] action:@selector(cycleLayoutPreset)];
+    layoutBtn.frame = CGRectMake(x, 32 + (sz + 10) * 2, sz, sz);
     // Home kieu CarPlay = dong split, ve lai dashboard CarPlay
     self.homeButton = [self dockButton:@"circle.grid.3x3.fill" tint:[UIColor whiteColor] action:@selector(dismiss)];
     self.homeButton.frame = CGRectMake(x, f.size.height - sz - 8, sz, sz);
@@ -270,6 +273,11 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (CGRect)frameForSlot:(SCPSlot)slot
 {
     CGRect f = self.rootWindow.bounds;
+    if (self.fullscreenSlot != SCPSlotAuto) {
+        // Fullscreen tam: ngan duoc chon chiem het, ngan kia an
+        if (slot == self.fullscreenSlot) return CGRectMake([self paneAreaX], 0, f.size.width - SCP_DOCK_WIDTH, f.size.height);
+        return CGRectMake([self paneAreaX], 0, 0, f.size.height);
+    }
     CGFloat avail = f.size.width - SCP_DOCK_WIDTH - SCP_DIVIDER_WIDTH;
     CGFloat leftW = floor(avail * self.ratio);
     CGFloat rightW = avail - leftW;
@@ -313,10 +321,72 @@ static UIImage *SCPAppIcon(NSString *bid)
 
 - (void)relayoutPanes
 {
+    BOOL fs = (self.fullscreenSlot != SCPSlotAuto);
+    self.dividerView.hidden = fs;
     self.dividerView.frame = [self dividerFrame];
-    if (self.leftPane)  { self.leftPane.containerView.frame  = [self frameForSlot:SCPSlotLeft];  [self layoutPane:self.leftPane]; }
-    if (self.rightPane) { self.rightPane.containerView.frame = [self frameForSlot:SCPSlotRight]; [self layoutPane:self.rightPane]; }
+    for (SCPAppPane *p in self.panes) {
+        SCPSlot slot = (p == self.leftPane) ? SCPSlotLeft : SCPSlotRight;
+        BOOL hidden = fs && slot != self.fullscreenSlot;
+        p.containerView.hidden = hidden;
+        if (!hidden) { p.containerView.frame = [self frameForSlot:slot]; [self layoutPane:p]; }
+        [self layoutExpandButtonForPane:p];
+    }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
+}
+
+// ---------------------------------------------------------------------
+//  Bo cuc dat san + fullscreen tam
+// ---------------------------------------------------------------------
+- (void)applyPresetRatio:(CGFloat)ratio
+{
+    self.fullscreenSlot = SCPSlotAuto;
+    self.ratio = MIN(0.75, MAX(0.25, ratio));
+    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    [SCPPrefs setSplitRatio:self.ratio];
+    SCPLog("bo cuc dat san: trai %.0f%%", self.ratio * 100);
+}
+
+- (void)cycleLayoutPreset
+{
+    CGFloat r = self.ratio;
+    CGFloat next = (self.fullscreenSlot != SCPSlotAuto) ? 0.5 : (fabs(r - 0.5) < 0.05 ? 0.7 : (r > 0.6 ? 0.3 : 0.5));
+    [self applyPresetRatio:next];
+}
+
+- (void)toggleFullscreenForSlot:(SCPSlot)slot
+{
+    self.fullscreenSlot = (self.fullscreenSlot == slot) ? SCPSlotAuto : slot;
+    SCPLog("fullscreen slot = %d", (int)self.fullscreenSlot);
+    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+}
+
+- (void)expandButtonTapped:(UIButton *)b
+{
+    [self toggleFullscreenForSlot:(SCPSlot)b.tag];
+}
+
+// Nut nho o goc tren-phai moi ngan: phong to / thu nho
+- (void)layoutExpandButtonForPane:(SCPAppPane *)pane
+{
+    if (!pane.containerView) return;
+    SCPSlot slot = (pane == self.leftPane) ? SCPSlotLeft : SCPSlotRight;
+    if (!pane.expandButton) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+        b.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
+        b.layer.cornerRadius = 13;
+        b.tintColor = [UIColor whiteColor];
+        [b addTarget:self action:@selector(expandButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+        pane.expandButton = b;
+    }
+    pane.expandButton.tag = slot;
+    BOOL isFull = (self.fullscreenSlot == slot);
+    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIImageSymbolWeightBold];
+    [pane.expandButton setImage:[UIImage systemImageNamed:(isFull ? @"arrow.down.right.and.arrow.up.left" : @"arrow.up.left.and.arrow.down.right")
+                                           withConfiguration:cfg] forState:UIControlStateNormal];
+    CGSize s = pane.containerView.bounds.size;
+    pane.expandButton.frame = CGRectMake(s.width - 26 - 4, 4, 26, 26);
+    [pane.containerView addSubview:pane.expandButton];
+    [pane.containerView bringSubviewToFront:pane.expandButton];
 }
 
 // ---------------------------------------------------------------------
@@ -501,7 +571,9 @@ static UIImage *SCPAppIcon(NSString *bid)
     }
 
     if (slot == SCPSlotLeft) self.leftPane = pane; else self.rightPane = pane;
+    if (self.fullscreenSlot != SCPSlotAuto && self.fullscreenSlot != slot) { pane.containerView.frame = [self frameForSlot:slot]; pane.containerView.hidden = YES; }
     [self layoutPane:pane];
+    [self layoutExpandButtonForPane:pane];
     if (self.debugLabel) [self.rootWindow bringSubviewToFront:self.debugLabel];
     if (self.pickerView) [self.rootWindow bringSubviewToFront:self.pickerView];
     SCPLog("da mo %@ vao ngan %d", bundleID, (int)slot);
@@ -590,6 +662,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     if (!hostingContentView) { SCPLog("chua co _sceneContentContainerView"); return; }
 
     CGSize paneSize = pane.containerView.bounds.size;
+    if (paneSize.width < 1) return;   // ngan dang an (fullscreen ngan kia)
     CGSize phoneSize = boundsForOrientation([UIScreen mainScreen], pane.orientation).size;
     [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
 
@@ -672,12 +745,15 @@ static UIImage *SCPAppIcon(NSString *bid)
     if (!pane) return;
     [self teardownPane:pane];
     if (slot == SCPSlotLeft) self.leftPane = nil; else self.rightPane = nil;
+    if (self.fullscreenSlot == slot) { self.fullscreenSlot = SCPSlotAuto; [self relayoutPanes]; }
 }
 
 - (void)swapPanes
 {
     SCPAppPane *l = self.leftPane, *r = self.rightPane;
     self.leftPane = r; self.rightPane = l;
+    if (self.fullscreenSlot == SCPSlotLeft) self.fullscreenSlot = SCPSlotRight;
+    else if (self.fullscreenSlot == SCPSlotRight) self.fullscreenSlot = SCPSlotLeft;
     [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
 }
 
