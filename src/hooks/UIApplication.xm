@@ -254,6 +254,16 @@ static BOOL SCPIsCircle(UIView *v)
     return v.layer.cornerRadius >= MIN(s.width, s.height) / 2 - 2;
 }
 
+// Gui toc do/gioi han sang SpringBoard (Darwin notify + state)
+static void SCPSendSpeed(int speed, int limit)
+{
+    static int token = 0;
+    if (!token) notify_register_check(SCP_DARWIN_SPEED, &token);
+    uint64_t flags = (speed >= 0 ? 1 : 0) | (limit >= 0 ? 2 : 0);
+    uint64_t state = (flags << 16) | ((uint64_t)(speed < 0 ? 0 : speed) << 8) | (uint64_t)(limit < 0 ? 0 : limit);
+    notify_set_state(token, state); notify_post(SCP_DARWIN_SPEED);
+}
+
 static void SCPCollectLabels(UIView *v, NSMutableArray<UILabel *> *out, int depth)
 {
     if (depth > 40) return;
@@ -315,6 +325,134 @@ static BOOL SCPHasUnitLabel(UIView *circle)
     return NO;
 }
 
+// ---------------------------------------------------------------------
+//  App Flutter (Vietmap Live = process "Runner"): khong co UILabel, moi thu ve bang Skia.
+//  Flutter chi xuat cay ngu nghia (semantics) cho iOS khi thay co cong cu tro nang dang chay
+//  -> gia "Switch Control dang chay" trong RIENG tien trinh nay, roi doc cac phan tu accessibility
+//  (label/value + khung tren man hinh) cua FlutterView.
+// ---------------------------------------------------------------------
+static BOOL (*orig_UIAccessibilityIsSwitchControlRunning)(void);
+static BOOL hook_UIAccessibilityIsSwitchControlRunning(void) { return YES; }
+
+static void SCPEnableFlutterSemantics(void)
+{
+    void *fn = dlsym(RTLD_DEFAULT, "UIAccessibilityIsSwitchControlRunning");
+    if (!fn) { SCPLog("speed scan: khong tim thay UIAccessibilityIsSwitchControlRunning"); return; }
+    MSHookFunction(fn, (void *)hook_UIAccessibilityIsSwitchControlRunning, (void **)&orig_UIAccessibilityIsSwitchControlRunning);
+    // Flutter nghe thong bao nay de bat/tat semantics -> phat lai vai lan sau khi app len
+    for (NSNumber *d in @[@2.0, @6.0, @12.0]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(d.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:UIAccessibilitySwitchControlStatusDidChangeNotification object:nil];
+        });
+    }
+}
+
+// Thu thap phan tu accessibility co chu: @{ @"t": text, @"f": NSValue(CGRect man hinh) }
+static void SCPCollectAX(id node, NSMutableArray<NSDictionary *> *out, NSMutableSet *seen, int depth)
+{
+    if (!node || depth > 80 || out.count > 600) return;
+    NSValue *key = [NSValue valueWithNonretainedObject:node];
+    if ([seen containsObject:key]) return;
+    [seen addObject:key];
+
+    @try {
+        NSString *label = [node respondsToSelector:@selector(accessibilityLabel)] ? [node accessibilityLabel] : nil;
+        NSString *value = [node respondsToSelector:@selector(accessibilityValue)] ? [node accessibilityValue] : nil;
+        NSMutableString *text = [NSMutableString string];
+        if ([label isKindOfClass:[NSString class]] && label.length) [text appendString:label];
+        if ([value isKindOfClass:[NSString class]] && value.length) { if (text.length) [text appendString:@" "]; [text appendString:value]; }
+        if (text.length && ![node isKindOfClass:[UIView class]]) {   // UIView thuong la container; phan tu that la UIAccessibilityElement
+            CGRect f = [node respondsToSelector:@selector(accessibilityFrame)] ? [node accessibilityFrame] : CGRectZero;
+            [out addObject:@{@"t": [text copy], @"f": [NSValue valueWithCGRect:f]}];
+        }
+        NSArray *els = [node respondsToSelector:@selector(accessibilityElements)] ? [node accessibilityElements] : nil;
+        if ([els isKindOfClass:[NSArray class]] && els.count) {
+            for (id e in els) SCPCollectAX(e, out, seen, depth + 1);
+        } else if ([node respondsToSelector:@selector(accessibilityElementCount)]) {
+            NSInteger n = [node accessibilityElementCount];
+            if (n != NSNotFound && n > 0 && n < 400) {
+                for (NSInteger i = 0; i < n; i++) SCPCollectAX([node accessibilityElementAtIndex:i], out, seen, depth + 1);
+            }
+        }
+    } @catch (NSException *e) {}
+    if ([node isKindOfClass:[UIView class]]) for (UIView *c in ((UIView *)node).subviews) SCPCollectAX(c, out, seen, depth + 1);
+}
+
+// Lay so dau tien trong chuoi (1-3 chu so), -1 neu khong co
+static int SCPLeadingNumber(NSString *t)
+{
+    NSScanner *sc = [NSScanner scannerWithString:t];
+    [sc scanUpToCharactersFromSet:[NSCharacterSet decimalDigitCharacterSet] intoString:nil];
+    int v = -1; if ([sc scanInt:&v] && v >= 0 && v <= 999) return v;
+    return -1;
+}
+
+static BOOL SCPMentionsKmh(NSString *t)
+{
+    NSString *l = [[t lowercaseString] stringByReplacingOccurrencesOfString:@" " withString:@""];
+    return [l containsString:@"km/h"] || [l containsString:@"kmh"] || [l containsString:@"km/g"];
+}
+
+// Tu cay accessibility (Flutter): toc do = phan tu "NN km/h" (hoac so gan nhan "km/h"); gioi han = so 5..200
+// nam cung hang, ben trai toc do (bo cuc Vietmap: [vong do gioi han] [vong xanh toc do]).
+static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString **outDesc)
+{
+    NSMutableArray<NSDictionary *> *items = [NSMutableArray array];
+    SCPCollectAX(win, items, [NSMutableSet set], 0);
+    if (!items.count) return NO;
+
+    NSDictionary *speedItem = nil; int speed = -1;
+    for (NSDictionary *it in items) {
+        NSString *t = it[@"t"];
+        if (SCPMentionsKmh(t)) { int v = SCPLeadingNumber(t); if (v >= 0) { speedItem = it; speed = v; break; } }
+    }
+    if (!speedItem) {
+        // "km/h" dung rieng -> so gan no nhat
+        NSDictionary *unit = nil;
+        for (NSDictionary *it in items) if (SCPMentionsKmh(it[@"t"])) { unit = it; break; }
+        if (unit) {
+            CGRect uf = [unit[@"f"] CGRectValue]; CGFloat best = 1e9;
+            for (NSDictionary *it in items) {
+                NSString *t = [it[@"t"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                if (!SCPIsNumeric(t)) continue;
+                CGRect f = [it[@"f"] CGRectValue];
+                CGFloat d = hypot(CGRectGetMidX(f) - CGRectGetMidX(uf), CGRectGetMidY(f) - CGRectGetMidY(uf));
+                if (d < best) { best = d; speedItem = it; speed = t.intValue; }
+            }
+        }
+    }
+    int limit = -1;
+    if (speedItem) {
+        CGRect sf = [speedItem[@"f"] CGRectValue]; CGFloat best = 1e9;
+        for (NSDictionary *it in items) {
+            if (it == speedItem) continue;
+            NSString *t = [it[@"t"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (!SCPIsNumeric(t)) continue;
+            int v = t.intValue; if (v < 5 || v > 200) continue;
+            CGRect f = [it[@"f"] CGRectValue];
+            CGFloat dy = fabs(CGRectGetMidY(f) - CGRectGetMidY(sf));
+            if (dy > MAX(sf.size.height, f.size.height) * 1.2) continue;   // phai cung hang
+            CGFloat dx = fabs(CGRectGetMidX(f) - CGRectGetMidX(sf));
+            if (dx < best) { best = dx; limit = v; }
+        }
+    }
+    if (outDesc) {
+        NSMutableString *d = [NSMutableString stringWithFormat:@"AX %lu phan tu:", (unsigned long)items.count];
+        int shown = 0;
+        for (NSDictionary *it in items) {
+            NSString *t = it[@"t"];
+            if ([t rangeOfCharacterFromSet:[NSCharacterSet decimalDigitCharacterSet]].location == NSNotFound) continue;
+            CGRect f = [it[@"f"] CGRectValue];
+            [d appendFormat:@" \"%@\"@(%.0f,%.0f %.0fx%.0f)", [t length] > 24 ? [[t substringToIndex:24] stringByAppendingString:@"…"] : t,
+                 f.origin.x, f.origin.y, f.size.width, f.size.height];
+            if (++shown >= 25) { [d appendString:@" …"]; break; }
+        }
+        *outDesc = d;
+    }
+    *outSpeed = speed; *outLimit = limit;
+    return speed >= 0;
+}
+
 static void SCPScanSpeed(void)
 {
     UIWindow *win = nil;
@@ -325,6 +463,20 @@ static void SCPScanSpeed(void)
     if (!win) return;
     NSMutableArray<UILabel *> *labels = [NSMutableArray array];
     SCPCollectLabels(win, labels, 0);
+
+    static CFAbsoluteTime lastLog = 0;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    BOOL doLog = (now - lastLog > 20);
+    if (doLog) lastLog = now;
+
+    // App Flutter (khong co UILabel): doc cay accessibility
+    if (labels.count == 0) {
+        int axSpeed = -1, axLimit = -1; NSString *axDesc = nil;
+        BOOL ok = SCPScanSpeedAX(win, &axSpeed, &axLimit, doLog ? &axDesc : NULL);
+        if (doLog) SCPLog("speed scan (AX): toc do=%d gioi han=%d; %@", axSpeed, axLimit, axDesc ?: @"(khong co phan tu)");
+        if (ok) SCPSendSpeed(axSpeed, axLimit);
+        return;
+    }
 
     // Vietmap Live: 2 vong tron canh nhau - vien DO = gioi han, vien XANH (+ "km/h") = toc do hien tai
     UILabel *speedL = nil, *limitL = nil, *bigPlain = nil;
@@ -348,18 +500,8 @@ static void SCPScanSpeed(void)
     if (speed > 300) speed = -1;
     if (limit > 200 || limit < 5) limit = -1;
 
-    static int token = 0;
-    if (!token) notify_register_check(SCP_DARWIN_SPEED, &token);
-    uint64_t flags = (speed >= 0 ? 1 : 0) | (limit >= 0 ? 2 : 0);
-    uint64_t state = (flags << 16) | ((uint64_t)(speed < 0 ? 0 : speed) << 8) | (uint64_t)(limit < 0 ? 0 : limit);
-    if (speed >= 0) { notify_set_state(token, state); notify_post(SCP_DARWIN_SPEED); }
-
-    static CFAbsoluteTime lastLog = 0;
-    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-    if (now - lastLog > 20) {
-        lastLog = now;
-        SCPLog("speed scan: toc do=%d gioi han=%d; ung vien:%@", speed, limit, desc);
-    }
+    if (speed >= 0) SCPSendSpeed(speed, limit);
+    if (doLog) SCPLog("speed scan: toc do=%d gioi han=%d; ung vien:%@", speed, limit, desc);
 }
 
 static void SCPStartSpeedScanner(void)
@@ -376,6 +518,6 @@ static void SCPStartSpeedScanner(void)
     NSString *bid  = [[NSBundle mainBundle] bundleIdentifier];
     if ([path containsString:@".app"] && bid && ![bid hasPrefix:@"com.apple."]) {
         %init(APPS);
-        if ([bid isEqualToString:SCP_SPEED_APP]) SCPStartSpeedScanner();
+        if ([bid isEqualToString:SCP_SPEED_APP]) { SCPEnableFlutterSemantics(); SCPStartSpeedScanner(); }
     }
 }
