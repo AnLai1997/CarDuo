@@ -11,6 +11,7 @@ static long long appWantsOrientation = 0;
 // Huong "thiet bi" gia, theo hinh dang ngan (SpringBoard gui): 3 = ngan rong -> app coi nhu may nam ngang
 // (YouTube bam fullscreen se xoay ngang that), 1 = ngan cao. 0 = chua biet, dung huong that.
 static int fakeDeviceOrientation = 0;
+static NSUInteger SCPAppEffectiveMask(void);
 
 %hook UIApplication
 - (id)init
@@ -25,14 +26,21 @@ static int fakeDeviceOrientation = 0;
 %new
 - (void)scp_handleRotationRequest:(NSNotification *)note
 {
-    orientationOverride = [note.userInfo[@"orientation"] intValue];
+    int newOverride = [note.userInfo[@"orientation"] intValue];
+    BOOL changed = (newOverride != orientationOverride);
+    orientationOverride = newOverride;
     appWantsOrientation = 0;
     fakeDeviceOrientation = (orientationOverride > 0) ? [note.userInfo[@"device"] intValue] : 0;
-    SCPLog("thiet bi gia -> %d", fakeDeviceOrientation);
+    SCPLog("thiet bi gia -> %d (huong ngan %d, doi=%d)", fakeDeviceOrientation, orientationOverride, (int)changed);
     // Bao UIKit/app rang "thiet bi" vua xoay de app (YouTube) doc lai huong
     [[NSNotificationCenter defaultCenter] postNotificationName:UIDeviceOrientationDidChangeNotification object:[UIDevice currentDevice]];
+    if (!changed) return;   // chi doi "thiet bi gia" (hinh dang ngan) -> KHONG ep xoay lai, keo pha fullscreen cua app
+
     int o = orientationOverride;
     if (o == -1) o = MAX(1, (int)[[UIDevice currentDevice] orientation]);
+    // Khong ep sang huong ma app dang khong cho phep (vd dang fullscreen video chi ngang)
+    NSUInteger mask = SCPAppEffectiveMask();
+    if (o > 0 && !(mask & (1u << o))) { SCPLog("bo qua ep xoay %d: app chi cho mask %lu", o, (unsigned long)mask); return; }
     SCPLog("app xoay -> %d", o);
     UIWindow *key = objcInvoke([UIApplication sharedApplication], @"keyWindow");
     // iOS 16.5: -_setRotatableViewOrientation:(long long)duration:(double)force:(BOOL)
