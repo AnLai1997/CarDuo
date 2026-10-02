@@ -12,8 +12,9 @@ const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
 #define SCP_DIVIDER_WIDTH 8.0      // khe toi giua 2 ngan de phan biet ro UI 2 app; num keo nam trong khe
 #define SCP_DIVIDER_HIT   28.0     // vung cham moi ben cua duong ranh giua 2 ngan (tong 56pt, de dat ngon tay)
-#define SCP_KNOB_W        8.0      // num keo kieu Xiaomi: thanh trang mong 6 x 40 nam giua duong ranh, cham de mo menu, keo de doi ti le
+#define SCP_KNOB_W        18.0     // num keo: vien thuoc trang 18 x 56 co 3 cham den (⋮) nam giua duong ranh; cham de mo menu, keo de doi ti le
 #define SCP_KNOB_H        56.0
+#define SCP_KNOB_DOT      4.0
 #define SCP_PIP_SCALE     0.36
 
 // Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
@@ -644,6 +645,13 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     knob.layer.shadowRadius = 3;
     knob.layer.shadowOffset = CGSizeZero;
     knob.userInteractionEnabled = NO;
+    for (NSInteger i = 0; i < 3; i++) {   // 3 cham den
+        UIView *dot = [[UIView alloc] initWithFrame:CGRectMake(0, 0, SCP_KNOB_DOT, SCP_KNOB_DOT)];
+        dot.backgroundColor = SCPInk();
+        dot.layer.cornerRadius = SCP_KNOB_DOT / 2;
+        dot.tag = 300 + i;
+        [knob addSubview:dot];
+    }
     self.dividerPill = knob;
     [self.dividerView addSubview:knob];
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dividerPanned:)];
@@ -663,6 +671,12 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     self.dividerPill.bounds = CGRectMake(0, 0, kw, kh);
     self.dividerPill.center = CGPointMake(s.width / 2, s.height / 2);
     self.dividerPill.layer.cornerRadius = SCP_KNOB_W / 2;
+    // 3 cham xep doc theo chieu dai num (⋮ khi chia trai/phai, ⋯ khi chia tren/duoi)
+    for (NSInteger i = 0; i < 3; i++) {
+        UIView *dot = [self.dividerPill viewWithTag:300 + i];
+        CGFloat off = (i - 1) * 9;
+        dot.center = v ? CGPointMake(kw / 2 + off, kh / 2) : CGPointMake(kw / 2, kh / 2 + off);
+    }
 }
 
 // ---- menu cua num keo: viec cua CA CAP (doi cho | ti le | cap yeu thich | ve CarPlay) ----
@@ -789,7 +803,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     if (g.state == UIGestureRecognizerStateBegan) {
         startRatio = self.ratio;
         [self hideDividerMenu];
-        [UIView animateWithDuration:0.15 animations:^{ self.dividerPill.transform = CGAffineTransformMakeScale(1.6, 1.15); }];
+        [UIView animateWithDuration:0.15 animations:^{ self.dividerPill.transform = CGAffineTransformMakeScale(1.15, 1.15); }];
     }
     CGPoint t = [g translationInView:self.rootWindow];
     CGFloat r = startRatio + (v ? t.y : t.x) / len;
