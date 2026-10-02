@@ -63,7 +63,7 @@ kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn đ
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
 - Việc của TỪNG NGĂN: tab "..." ở giữa mép trên ngăn, chạm hoặc kéo xuống để hiện thanh nút
-  Đổi app / Toàn màn / Cửa sổ nổi (PiP) / Đóng, ngay dưới tab (tự ẩn sau 8 giây).
+  Đổi app / Toàn màn / Cửa sổ nổi (PiP) / Đóng, ngay dưới tab (tự ẩn sau 3 giây nếu không thao tác).
 - Việc của CẢ CẶP: núm kéo kiểu Xiaomi (thanh trắng mỏng) giữa 2 ngăn, kéo để đổi tỉ lệ, chạm để mở menu
   Đổi chỗ / Tỉ lệ (icon là bố cục sẽ áp tiếp) / Cặp yêu thích 1-3 / CarPlay.
 - Khi chỉ còn 1 app chiếm hết màn, hàng nút của tab "..." có thêm nút "chia đôi": app hiện tại về nửa trái,

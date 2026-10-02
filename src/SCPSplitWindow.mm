@@ -469,7 +469,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     if (!pane.actionsVisible) return;
     __weak SCPSplitWindow *weakSelf = self;
     __weak SCPAppPane *weakPane = pane;
-    pane.actionsHideTimer = [NSTimer scheduledTimerWithTimeInterval:8 repeats:NO block:^(NSTimer *t) {
+    pane.actionsHideTimer = [NSTimer scheduledTimerWithTimeInterval:3 repeats:NO block:^(NSTimer *t) {
         if (weakPane) [weakSelf setActionsVisible:NO forPane:weakPane animated:YES];
     }];
 }
@@ -728,7 +728,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 {
     [self.dividerMenuTimer invalidate];
     __weak SCPSplitWindow *weakSelf = self;
-    self.dividerMenuTimer = [NSTimer scheduledTimerWithTimeInterval:8 repeats:NO block:^(NSTimer *t) { [weakSelf hideDividerMenu]; }];
+    self.dividerMenuTimer = [NSTimer scheduledTimerWithTimeInterval:3 repeats:NO block:^(NSTimer *t) { [weakSelf hideDividerMenu]; }];
 }
 
 // Menu nam ngay canh num keo, can giua duong ranh: phia tren num (chia trai/phai) hoac duoi num (chia tren/duoi)
