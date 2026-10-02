@@ -46,21 +46,57 @@ static long long SCPEffectiveOrientation(void)
     return appWantsOrientation > 0 ? appWantsOrientation : orientationOverride;
 }
 
+// Mask huong ma app DANG cho phep: lay tu view controller tren cung cua chuoi present
+// (YouTube fullscreen present mot VC chi cho ngang; root VC van tra loi "moi huong").
+static NSUInteger SCPEffectiveMask(UIWindow *w)
+{
+    UIViewController *vc = w.rootViewController;
+    if (!vc) return UIInterfaceOrientationMaskAll;
+    while (vc.presentedViewController && !vc.presentedViewController.isBeingDismissed) vc = vc.presentedViewController;
+    NSUInteger mask = vc.supportedInterfaceOrientations;
+    return mask ? mask : UIInterfaceOrientationMaskAll;
+}
+
 // Bao cho SpringBoard: app nay vua doi yeu cau xoay (o = huong muon, 0 = ve huong ngan, 0xFF = chi "lay" lai).
 // SpringBoard se gui lai scene settings -> UIKit trong app tinh lai huong dung theo app (giong luc keo num chia).
 // Dung Darwin notify + state vi distributed notification co the bi sandbox cua app chan.
+// Mask hieu luc cua ca app: cua so key (hoac cua so dau tien co root VC)
+static NSUInteger SCPAppEffectiveMask(void)
+{
+    UIWindow *best = nil;
+    for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
+        if (![sc isKindOfClass:[UIWindowScene class]]) continue;
+        for (UIWindow *w in ((UIWindowScene *)sc).windows) {
+            if (!w.rootViewController || w.hidden) continue;
+            if (w.isKeyWindow) return SCPEffectiveMask(w);
+            if (!best) best = w;
+        }
+    }
+    return best ? SCPEffectiveMask(best) : UIInterfaceOrientationMaskAll;
+}
+
+static void SCPTellSpringBoardNow(long long o);
 static void SCPTellSpringBoard(long long o)
 {
+    static dispatch_block_t pending = nil;
+    // Gom cac lan goi lien tiep (app doi mask nhieu buoc): cho 0.15s roi gui mask CUOI CUNG
+    if (pending) { dispatch_block_cancel(pending); pending = nil; }
+    pending = dispatch_block_create((dispatch_block_flags_t)0, ^{
+        pending = nil;
+        SCPTellSpringBoardNow(o);
+    });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), pending);
+}
+
+static void SCPTellSpringBoardNow(long long o)
+{
     static int token = 0;
-    static CFAbsoluteTime last = 0;
-    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-    if (o == 0xFF && now - last < 0.7) return;   // chan vong lap: app doi khung -> goi lai -> lay lai...
-    last = now;
     if (!token) notify_register_check(SCP_DARWIN_APP_ORIENT, &token);
-    uint64_t state = (SCPBundleHash([[NSBundle mainBundle] bundleIdentifier]) << 8) | ((uint64_t)o & 0xFF);
+    NSUInteger mask = SCPAppEffectiveMask();
+    uint64_t state = (SCPBundleHash([[NSBundle mainBundle] bundleIdentifier]) << 24) | (((uint64_t)mask & 0xFFFF) << 8) | ((uint64_t)o & 0xFF);
     notify_set_state(token, state);
     notify_post(SCP_DARWIN_APP_ORIENT);
-    SCPLog("bao SpringBoard: huong %lld", o);
+    SCPLog("bao SpringBoard: ma %lld, mask %lu", o, (unsigned long)mask);
 }
 
 // Tu mask huong app xin -> 1 huong cu the. Co dọc thi coi nhu "tra ve binh thuong" (0).
@@ -71,17 +107,6 @@ static long long SCPOrientationFromMask(NSUInteger mask)
     if (mask & UIInterfaceOrientationMaskLandscapeRight) return UIInterfaceOrientationLandscapeRight;
     if (mask & UIInterfaceOrientationMaskPortraitUpsideDown) return UIInterfaceOrientationPortraitUpsideDown;
     return 0;
-}
-
-// Mask huong ma app DANG cho phep: lay tu view controller tren cung cua chuoi present
-// (YouTube fullscreen present mot VC chi cho ngang; root VC van tra loi "moi huong").
-static NSUInteger SCPEffectiveMask(UIWindow *w)
-{
-    UIViewController *vc = w.rootViewController;
-    if (!vc) return UIInterfaceOrientationMaskAll;
-    while (vc.presentedViewController && !vc.presentedViewController.isBeingDismissed) vc = vc.presentedViewController;
-    NSUInteger mask = vc.supportedInterfaceOrientations;
-    return mask ? mask : UIInterfaceOrientationMaskAll;
 }
 
 %hook UIWindow

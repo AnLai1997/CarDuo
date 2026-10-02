@@ -52,7 +52,7 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)toggleFullscreenForSlot:(SCPSlot)slot;   // fullscreen tam mot ngan, bam lai de ve split
 - (void)togglePiPForSlot:(SCPSlot)slot;          // thu ngan thanh o noi nho, bam lai de ve split
 - (void)beginSplitFromSinglePane;
-- (void)appOrientationChangedWithHash:(uint64_t)bundleHash orientation:(int)orientation;   // app xin xoay -> lay lai scene settings                // 1 ngan dang het man -> dua ve nua trai, nua phai hien bang chon app
+- (void)appOrientationChangedWithHash:(uint64_t)bundleHash orientation:(int)orientation supportedMask:(NSUInteger)mask;   // app doi yeu cau xoay                // 1 ngan dang het man -> dua ve nua trai, nua phai hien bang chon app
 - (NSArray<SCPAppPane *> *)panes;
 
 // Bang chon app (luoi icon moi app trong may). slot = Left -> chon xong tu hoi tiep cho Right.

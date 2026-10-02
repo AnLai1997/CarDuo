@@ -87,8 +87,9 @@ static void SCPHandlePendingRequest(void)
     // App dang host vua doi yeu cau xoay (YouTube fullscreen) -> lay lai scene settings cua ngan do
     notify_register_dispatch(SCP_DARWIN_APP_ORIENT, &tokOrient, dispatch_get_main_queue(), ^(int t) {
         uint64_t state = 0; notify_get_state(t, &state);
-        SCPLog("darwin apporient: hash=%llu huong=%d (co cua so: %d)", (unsigned long long)(state >> 8), (int)(state & 0xFF), [SCPSplitWindow current] != nil);
-        [[SCPSplitWindow current] appOrientationChangedWithHash:(state >> 8) orientation:(int)(state & 0xFF)];
+        uint64_t hash = state >> 24; NSUInteger mask = (state >> 8) & 0xFFFF; int code = (int)(state & 0xFF);
+        SCPLog("darwin apporient: hash=%llu ma=%d mask=%lu (co cua so: %d)", (unsigned long long)hash, code, (unsigned long)mask, [SCPSplitWindow current] != nil);
+        [[SCPSplitWindow current] appOrientationChangedWithHash:hash orientation:code supportedMask:mask];
     });
     notify_register_dispatch(SCP_DARWIN_TEST,  &tok,      dispatch_get_main_queue(), ^(int t) { SCPOpenConfiguredPair(YES); });
     notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) { [[SCPSplitWindow current] dismiss]; });

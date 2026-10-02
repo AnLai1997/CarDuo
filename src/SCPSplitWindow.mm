@@ -1408,7 +1408,9 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     if (scene) {
         CGRect target = CGRectMake(0, 0, paneSize.width, paneSize.height);
         // App xin huong cu the (fullscreen video) thi dat luon vao scene settings.
-        long long orient = pane.requestedOrientation;   // 0 = de UIKit tu tinh theo app (hanh vi cu, da dung khi keo num)
+        // Huong giao dien dat thang vao scene settings: app xin/chi cho phep huong khac thi theo app, khong thi theo ngan.
+        // Day la duong UIKit thuc su nghe theo (hook trong app khong du).
+        long long orient = pane.requestedOrientation > 0 ? pane.requestedOrientation : pane.orientation;
         objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
             ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), target);
             if (orient > 0 && [settings respondsToSelector:NSSelectorFromString(@"setInterfaceOrientation:")])
@@ -1420,12 +1422,20 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 // App bao vua doi yeu cau xoay (o: huong muon, 0 = ve huong ngan, 0xFF = chi lay lai). Tim ngan theo hash bundle id,
 // roi "lay" scene: gui settings voi khung lech 1pt, ngay sau do gui lai khung dung -> UIKit trong app tinh lai huong
 // theo app (dung nhu luc keo num chia). Chi dat interfaceOrientation khi app xin huong cu the.
-- (void)appOrientationChangedWithHash:(uint64_t)bundleHash orientation:(int)orientation
+- (void)appOrientationChangedWithHash:(uint64_t)bundleHash orientation:(int)orientation supportedMask:(NSUInteger)mask
 {
     for (SCPAppPane *p in self.panes) {
         if (SCPBundleHash(p.bundleIdentifier) != bundleHash) continue;
-        if (orientation != 0xFF) p.requestedOrientation = orientation;
-        SCPLog("%@ doi yeu cau xoay (%d) -> lay lai scene", p.bundleIdentifier, orientation);
+        int want = 0;
+        if (orientation != 0xFF) want = orientation;
+        else if (mask && !(mask & UIInterfaceOrientationMaskPortrait)) {
+            // App khong con cho phep doc (fullscreen video) -> xoay scene sang huong no cho phep
+            if (mask & UIInterfaceOrientationMaskLandscapeLeft)       want = UIInterfaceOrientationLandscapeLeft;
+            else if (mask & UIInterfaceOrientationMaskLandscapeRight) want = UIInterfaceOrientationLandscapeRight;
+            else if (mask & UIInterfaceOrientationMaskPortraitUpsideDown) want = UIInterfaceOrientationPortraitUpsideDown;
+        }
+        p.requestedOrientation = want;
+        SCPLog("%@ doi yeu cau xoay (ma %d, mask %lu) -> scene huong %d", p.bundleIdentifier, orientation, (unsigned long)mask, want);
         [self nudgePane:p];
         return;
     }

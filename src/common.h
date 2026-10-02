@@ -14,7 +14,8 @@
 // SpringBoard -> app process: ep huong xoay
 #define SCP_NOTIF_ORIENTATION   @"com.anpham.splitcarplay.orientation"
 // App process -> SpringBoard (Darwin notify, qua duoc sandbox cua app): app vua doi yeu cau xoay (YouTube fullscreen).
-// Payload trong notify state: (hash bundle id << 8) | huong (0 = ve huong ngan, 0xFF = chi can "lay" lai scene).
+// Payload trong notify state: (hash bundle id << 24) | (mask huong app dang cho phep << 8) | ma
+// (ma: huong app xin, 0 = ve huong ngan, 0xFF = app vua doi mask -> SpringBoard tu suy ra huong tu mask).
 #define SCP_DARWIN_APP_ORIENT "com.anpham.splitcarplay.apporient"
 static inline uint64_t SCPBundleHash(NSString *bid)
 {
