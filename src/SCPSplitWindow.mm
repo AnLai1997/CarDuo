@@ -958,8 +958,11 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     title.adjustsFontSizeToFitWidth = YES;
     [pv addSubview:title];
 
-    UIButton *cancel = [self roundButton:@"xmark" action:@selector(hideAppPicker)];
+    // Nut X: huy chon. Khong con app nao: che do thu -> an X (huy thi chi con cua so trong, nhin nhu man den);
+    // tren xe -> X dong han split ve dashboard CarPlay.
+    UIButton *cancel = [self roundButton:@"xmark" action:@selector(pickerCancelTapped)];
     cancel.center = CGPointMake(pv.bounds.size.width - 8 - SCP_BTN / 2, 6 + SCP_BTN / 2);
+    cancel.hidden = (self.panes.count == 0 && self.onMainScreen);
     [pv addSubview:cancel];
 
     UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 66, pv.bounds.size.width, pv.bounds.size.height - 66)];
@@ -1099,6 +1102,16 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     BOOL first = [self vertical] ? (p.y < s.height / 2) : (p.x < s.width / 2);
     [self.pickerView viewWithTag:91].backgroundColor = [UIColor colorWithRed:0.2 green:0.4 blue:0.9 alpha:(first ? 0.45 : 0.15)];
     [self.pickerView viewWithTag:92].backgroundColor = [UIColor colorWithRed:0.2 green:0.4 blue:0.9 alpha:(first ? 0.15 : 0.45)];
+}
+
+- (void)pickerCancelTapped
+{
+    if (self.panes.count == 0) {
+        if (self.onMainScreen) return;   // che do thu: khong co gi de quay ve, giu bang chon
+        [self dismiss];                  // tren xe: khong con app -> dong split
+        return;
+    }
+    [self hideAppPicker];
 }
 
 - (void)hideAppPicker
@@ -1328,6 +1341,9 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
             [self closeSlot:(p == self.leftPane ? SCPSlotLeft : SCPSlotRight)];
         }
     }
+    // Khong con app nao: khong de cua so trong (nhin nhu man den) -> xe: dong split; thu: hien bang chon
+    if (self.panes.count == 0 && !self.pickerView) [self exitOrStayInDemo];
+    else [self relayoutPanes];
 }
 
 // ---------------------------------------------------------------------
