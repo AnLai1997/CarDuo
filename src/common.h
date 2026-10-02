@@ -22,6 +22,8 @@ static inline uint64_t SCPBundleHash(NSString *bid)
     for (const char *c = bid.UTF8String; c && *c; c++) { h ^= (uint8_t)*c; h *= 16777619u; }
     return h;
 }
+// App process -> SpringBoard: chuyen tiep 1 dong log (app bi sandbox, khong ghi duoc file log chung)
+#define SCP_NOTIF_LOG           @"com.anpham.splitcarplay.log"
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 
@@ -57,6 +59,7 @@ extern "C" {
 extern int (*orig_BKSDisplayServicesSetScreenBlanked)(int);
 void SCPLogWrite(NSString *msg);
 void SCPLogClear(void);
+void SCPLogAppendRelayed(NSString *line);   // SpringBoard ghi ho dong log tu app
 NSArray<NSString *> *SCPRecentLogLines(void);
 extern NSString *const SCPLogLineNotification;
 extern const void *kSCPKey_splitWindow;

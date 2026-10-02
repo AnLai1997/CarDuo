@@ -70,6 +70,8 @@ static long long SCPOrientationFromMask(NSUInteger mask)
 - (void)_setRotatableViewOrientation:(long long)orientation duration:(double)duration force:(BOOL)force
 {
     long long target = SCPEffectiveOrientation();
+    SCPLog("rotate: UIKit xin %lld, override=%d appWants=%lld -> ap %lld (force=%d, root=%@)", orientation, orientationOverride,
+           appWantsOrientation, (target > 0 ? target : orientation), (int)force, NSStringFromClass([self.rootViewController class]));
     if (target > 0 && orientation != target) return %orig(target, duration, force);
     %orig;
 }
@@ -94,7 +96,10 @@ static long long SCPOrientationFromMask(NSUInteger mask)
 - (void)setNeedsUpdateOfSupportedInterfaceOrientations
 {
     %orig;
-    if (orientationOverride > 0) SCPTellSpringBoard(0xFF);
+    if (orientationOverride > 0) {
+        SCPLog("%@ doi huong ho tro -> mask=%lu", NSStringFromClass([self class]), (unsigned long)self.supportedInterfaceOrientations);
+        SCPTellSpringBoard(0xFF);
+    }
 }
 %end
 

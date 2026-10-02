@@ -1403,6 +1403,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         [self nudgePane:p];
         return;
     }
+    SCPLog("apporient: khong tim thay ngan cho hash %llu (panes: %@)", (unsigned long long)bundleHash,
+           [[self.panes valueForKey:@"bundleIdentifier"] componentsJoinedByString:@","]);
 }
 
 - (void)nudgePane:(SCPAppPane *)pane

@@ -22,6 +22,26 @@ void SCPLogClear(void)
     [[NSFileManager defaultManager] removeItemAtPath:kLogPath error:nil];
 }
 
+// Ghi 1 dong vao file; tra ve NO neu khong duoc (sandbox)
+static BOOL SCPAppendLine(NSString *path, NSString *line)
+{
+    @try {
+        NSFileManager *fm = [NSFileManager defaultManager];
+        if (![fm fileExistsAtPath:path] && ![fm createFileAtPath:path contents:nil attributes:nil]) return NO;
+        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
+        if (!fh) return NO;
+        [fh seekToEndOfFile];
+        [fh writeData:[[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+        [fh closeFile];
+        return YES;
+    } @catch (NSException *e) { return NO; }
+}
+
+void SCPLogAppendRelayed(NSString *line)
+{
+    SCPAppendLine(kLogPath, line);
+}
+
 void SCPLogWrite(NSString *msg)
 {
     NSString *proc = [[NSProcessInfo processInfo] processName];
@@ -36,17 +56,18 @@ void SCPLogWrite(NSString *msg)
         while (ringBuffer().count > 40) [ringBuffer() removeObjectAtIndex:0];
     }
 
-    // Ghi file (CarPlay process co the bi sandbox -> bo qua loi)
-    @try {
-        NSFileManager *fm = [NSFileManager defaultManager];
-        if (![fm fileExistsAtPath:kLogPath]) [fm createFileAtPath:kLogPath contents:nil attributes:nil];
-        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:kLogPath];
-        if (fh) {
-            [fh seekToEndOfFile];
-            [fh writeData:[[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
-            [fh closeFile];
+    // Ghi file chung. App nguoi dung bi sandbox -> khong ghi duoc: ghi vao Documents cua app do
+    // va gui dong log sang SpringBoard de no ghi ho vao file chung (xem SpringBoard.xm).
+    BOOL wrote = SCPAppendLine(kLogPath, line);
+    if (!wrote) {
+        SCPAppendLine([NSHomeDirectory() stringByAppendingPathComponent:@"Documents/SplitCarPlay.log"], line);
+        static BOOL isSpringBoard; static dispatch_once_t sbOnce;
+        dispatch_once(&sbOnce, ^{ isSpringBoard = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.springboard"]; });
+        if (!isSpringBoard) {
+            [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+                postNotificationName:SCP_NOTIF_LOG object:nil userInfo:@{@"line": line}];
         }
-    } @catch (NSException *e) {}
+    }
 
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:SCPLogLineNotification object:nil userInfo:@{@"line": line}];

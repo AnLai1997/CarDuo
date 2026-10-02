@@ -75,11 +75,19 @@ static void SCPHandlePendingRequest(void)
         }
     }];
 
+    // Dong log tu app nguoi dung (sandbox) -> ghi vao file chung
+    [dnc addObserverForName:SCP_NOTIF_LOG object:nil queue:[NSOperationQueue mainQueue]
+                 usingBlock:^(NSNotification *note) {
+        NSString *line = note.userInfo[@"line"];
+        if ([line isKindOfClass:[NSString class]]) SCPLogAppendRelayed(line);
+    }];
+
     // Settings / app URL -> Darwin notification
     int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0, tokOrient = 0;
     // App dang host vua doi yeu cau xoay (YouTube fullscreen) -> lay lai scene settings cua ngan do
     notify_register_dispatch(SCP_DARWIN_APP_ORIENT, &tokOrient, dispatch_get_main_queue(), ^(int t) {
         uint64_t state = 0; notify_get_state(t, &state);
+        SCPLog("darwin apporient: hash=%llu huong=%d (co cua so: %d)", (unsigned long long)(state >> 8), (int)(state & 0xFF), [SCPSplitWindow current] != nil);
         [[SCPSplitWindow current] appOrientationChangedWithHash:(state >> 8) orientation:(int)(state & 0xFF)];
     });
     notify_register_dispatch(SCP_DARWIN_TEST,  &tok,      dispatch_get_main_queue(), ^(int t) { SCPOpenConfiguredPair(YES); });
