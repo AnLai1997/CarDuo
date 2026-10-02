@@ -156,11 +156,13 @@ static void SCPHandlePendingRequest(void)
 
 %end // SPRINGBOARD
 
-// Man hinh iPhone tat khi dang host app -> tat roi bat lai "blank" de app van render
+// Man hinh iPhone tat khi dang host app tren XE -> tat roi bat lai "blank" de app van render.
+// Che do thu tren man iPhone (onMainScreen) thi KHONG can thiep: de iOS tat/bat man binh thuong,
+// neu khong man se den va khong phan hoi.
 static int hook_BKSDisplayServicesSetScreenBlanked(int blanked)
 {
     SCPSplitWindow *w = [SCPSplitWindow current];
-    if (blanked == 1 && w && w.panes.count > 0) {
+    if (blanked == 1 && w && !w.onMainScreen && w.panes.count > 0) {
         orig_BKSDisplayServicesSetScreenBlanked(1);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             orig_BKSDisplayServicesSetScreenBlanked(0);

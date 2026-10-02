@@ -1484,7 +1484,9 @@ static void SCPTerminateApp(NSString *bid)
     [self closeSlot:SCPSlotRight];
 
     id app = [UIApplication sharedApplication];
-    if (objcInvokeT(app, @"isLocked", BOOL)) {
+    // Tren xe: neu iPhone dang khoa va den nen da tat thi tra man ve trang thai tat (carplay-cast).
+    // Che do thu tren iPhone: tuyet doi khong dong vao den nen, neu khong man den va ket.
+    if (!self.onMainScreen && objcInvokeT(app, @"isLocked", BOOL)) {
         void *fn = dlsym(RTLD_DEFAULT, "BKSHIDServicesGetBacklightFactor");
         if (fn && orig_BKSDisplayServicesSetScreenBlanked) {
             float backlight = ((float (*)(void))fn)();
@@ -1494,11 +1496,22 @@ static void SCPTerminateApp(NSString *bid)
 
     objc_setAssociatedObject(app, kSCPKey_splitWindow, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     UIWindow *w = self.rootWindow;
-    [UIView animateWithDuration:0.3 animations:^{ w.alpha = 0; } completion:^(BOOL done) {
-        w.hidden = YES;
-        [w removeFromSuperview];
-    }];
+    w.userInteractionEnabled = NO;   // khong nuot cham trong luc mo dan
+    void (^finish)(void) = ^{ if (w.hidden) return; w.hidden = YES; [w removeFromSuperview]; };
+    [UIView animateWithDuration:0.3 animations:^{ w.alpha = 0; } completion:^(BOOL done) { finish(); }];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), finish);   // phong khi completion khong chay
     self.rootWindow = nil;
+
+    // Che do thu: ep SpringBoard ve man hinh chinh, phong khi no coi app vua host la app dang mo (man den)
+    if (self.onMainScreen) {
+        SEL homeSel = NSSelectorFromString(@"_simulateHomeButtonPressWithCompletion:");
+        if ([app respondsToSelector:homeSel]) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                SCPLog("demo: ve home");
+                ((void (*)(id, SEL, id))objc_msgSend)(app, homeSel, nil);
+            });
+        }
+    }
 
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
         postNotificationName:SCP_NOTIF_SPLIT_CLOSED object:nil userInfo:nil];
