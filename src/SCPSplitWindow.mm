@@ -133,6 +133,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) NSTimer *dividerMenuTimer;
 @property (nonatomic) SCPSlot pendingSlot;                   // ngan dang cho chon app (bang chon chiem dung nua do)
 @property (nonatomic, strong) UIView *pickerView;
+@property (nonatomic, strong) UIButton *demoExitButton;    // che do thu: nut "Thoat thu" luon hien de khong bao gio bi ket
 @property (nonatomic, strong) UIImageView *dragImage;
 @property (nonatomic, strong) NSString *dragBundleID;
 @property (nonatomic) SCPSlot pickerSlot;
@@ -220,6 +221,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 
     self.rootWindow.backgroundColor = [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
     [self setupDivider];
+    if (mainScreen) [self setupDemoExitButton];
 
     self.rootWindow.alpha = 0;
     self.rootWindow.hidden = NO;
@@ -241,6 +243,32 @@ static UIImage *SCPAppIcon(NSString *bid)
 }
 
 - (BOOL)vertical { return [SCPPrefs splitDirection] == 1; }
+
+// Che do thu tren iPhone: cua so phu kin man nen PHAI luon co loi thoat ngay trong cua so.
+// Vien thuoc do "Thoat thu" o goc tren trai, luon nam tren cung (ke ca tren bang chon). Bam Home cung thoat.
+- (void)setupDemoExitButton
+{
+    UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightBold];
+    [b setImage:[UIImage systemImageNamed:@"xmark" withConfiguration:cfg] forState:UIControlStateNormal];
+    [b setTitle:@" Thoát thử" forState:UIControlStateNormal];
+    b.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+    [b setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    b.tintColor = [UIColor whiteColor];
+    b.backgroundColor = [[UIColor systemRedColor] colorWithAlphaComponent:0.9];
+    b.layer.cornerRadius = 16;
+    b.frame = CGRectMake(10, 8, 112, 32);
+    b.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
+    [b addTarget:self action:@selector(demoExitTapped) forControlEvents:UIControlEventTouchUpInside];
+    self.demoExitButton = b;
+    [self.rootWindow addSubview:b];
+}
+
+- (void)demoExitTapped
+{
+    SCPLog("demo: thoat bang nut Thoat thu");
+    [self dismiss];
+}
 
 // ---------------------------------------------------------------------
 //  Option rieng cua tung ngan: dau "..." o giua mep tren ngan, keo xuong / cham de hien
@@ -840,6 +868,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         if (!live) { [self layoutActionsForPane:p]; [self layoutPipHandleForPane:p]; }
     }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
+    if (self.demoExitButton) [self.rootWindow bringSubviewToFront:self.demoExitButton];
     [self updatePaneActionStates];
 }
 
@@ -948,6 +977,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pv.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.97];
     self.pickerView = pv;
     [self.rootWindow addSubview:pv];
+    if (self.demoExitButton) [self.rootWindow bringSubviewToFront:self.demoExitButton];
     [self hideAllPaneActions];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 17, pv.bounds.size.width - 90, 30)];

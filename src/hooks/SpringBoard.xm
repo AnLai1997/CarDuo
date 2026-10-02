@@ -115,6 +115,22 @@ static void SCPHandlePendingRequest(void)
 
 %end
 
+// Che do thu tren iPhone: bam nut Home -> thoat cua so thu (loi thoat khi bi ket)
+%hook SBUIController
+- (BOOL)handleHomeButtonSinglePressUpForWindowScene:(id)scene withSourceType:(unsigned long long)type
+{
+    SCPSplitWindow *w = [SCPSplitWindow current];
+    if (w && w.onMainScreen) { SCPLog("demo: Home -> thoat"); [w dismiss]; return YES; }
+    return %orig;
+}
+- (BOOL)handleHomeButtonSinglePressUpForWindowScene:(id)scene
+{
+    SCPSplitWindow *w = [SCPSplitWindow current];
+    if (w && w.onMainScreen) { SCPLog("demo: Home -> thoat"); [w dismiss]; return YES; }
+    return %orig;
+}
+%end
+
 // Khong cho app bi background khi khoa may
 %hook SBSuspendedUnderLockManager
 - (BOOL)_shouldBeBackgroundUnderLockForScene:(id)scene withSettings:(id)settings
