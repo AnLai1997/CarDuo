@@ -22,6 +22,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) NSTimer *actionsHideTimer;
 @property (nonatomic, strong) UIButton *fullscreenButton, *pipButton;   // doi icon theo trang thai
 @property (nonatomic, strong) NSArray<UIButton *> *favButtons;
+@property (nonatomic, strong) UIButton *splitButton;   // nut "chia doi" noi, chi hien khi ngan nay dang mot minh het man
 @end
 
 // Cua so SpringBoard nam tren man hinh xe, chia 2 ngan
@@ -49,6 +50,7 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)cycleLayoutPreset;                   // 50/50 -> 70/30 -> 30/70 -> 50/50
 - (void)toggleFullscreenForSlot:(SCPSlot)slot;   // fullscreen tam mot ngan, bam lai de ve split
 - (void)togglePiPForSlot:(SCPSlot)slot;          // thu ngan thanh o noi nho, bam lai de ve split
+- (void)beginSplitFromSinglePane;                // 1 ngan dang het man -> dua ve nua trai, nua phai hien bang chon app
 - (NSArray<SCPAppPane *> *)panes;
 
 // Bang chon app (luoi icon moi app trong may). slot = Left -> chon xong tu hoi tiep cho Right.

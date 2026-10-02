@@ -12,8 +12,9 @@ const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
 #define SCP_DIVIDER_WIDTH 0.0      // khong co khe: 2 vien sat nhau; van keo duoc nho vung cham mo rong
 #define SCP_DIVIDER_HIT   28.0     // vung cham moi ben cua duong ranh giua 2 ngan (tong 56pt, de dat ngon tay)
-#define SCP_KNOB_W        30.0     // num keo o giua duong ranh: 30 x 84, nen toi, vach trang
-#define SCP_KNOB_H        84.0
+#define SCP_KNOB_W        6.0      // num keo kieu Xiaomi: thanh trang mong 6 x 40 nam giua duong ranh, cham de mo menu, keo de doi ti le
+#define SCP_KNOB_H        40.0
+#define SCP_MENU_BTN      36.0     // nut tron trong menu cua num keo
 #define SCP_PIP_SCALE     0.36
 
 // Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
@@ -129,6 +130,9 @@ static UIImage *SCPAppIcon(NSString *bid)
 // =====================================================================
 @interface SCPSplitWindow ()
 @property (nonatomic, strong) UIView *dividerView, *dividerPill;
+@property (nonatomic, strong) UIView *dividerMenu;           // menu kieu Xiaomi hien khi cham num keo
+@property (nonatomic, strong) NSTimer *dividerMenuTimer;
+@property (nonatomic) SCPSlot pendingSlot;                   // ngan dang cho chon app (bang chon chiem dung nua do)
 @property (nonatomic, strong) UIView *pickerView;
 @property (nonatomic, strong) UIImageView *dragImage;
 @property (nonatomic, strong) NSString *dragBundleID;
@@ -149,6 +153,10 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (SCPSlot)slotForPane:(SCPAppPane *)pane;
 - (void)bringChromeToFront;
 - (void)setupDivider;
+- (void)showDividerMenu;
+- (void)hideDividerMenu;
+- (void)layoutDividerMenu;
+- (BOOL)singlePane;
 - (void)setupDebugOverlay;
 - (void)refreshDebugOverlay;
 - (void)logDiagnostics;
@@ -197,6 +205,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     self.ratio = [SCPPrefs splitRatio];
     self.fullscreenSlot = SCPSlotAuto;
     self.pipSlot = SCPSlotAuto;
+    self.pendingSlot = SCPSlotAuto;
     self.pipOrigin = CGPointMake(1, 1);   // goc duoi-phai
     self.rightHistory = [NSMutableArray array];
 
@@ -365,6 +374,22 @@ static id SCPActionSymbolConfig(void)
     content.frame = CGRectMake(0, 0, x, SCP_PANE_BAR_HEIGHT);
     bar.contentSize = CGSizeMake(x, SCP_PANE_BAR_HEIGHT);
 
+    // Nut "chia doi" noi o mep phai (giua chieu cao) - chi hien khi ngan nay dang mot minh het man.
+    // Bam: app nay ve nua trai, nua phai hien bang chon app (giong Xiaomi).
+    UIButton *sp = [UIButton buttonWithType:UIButtonTypeCustom];
+    id spCfg = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightSemibold];
+    [sp setImage:[UIImage systemImageNamed:@"rectangle.split.2x1" withConfiguration:spCfg] forState:UIControlStateNormal];
+    sp.tintColor = [UIColor whiteColor];
+    sp.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
+    sp.layer.cornerRadius = 22;
+    sp.layer.borderWidth = 1;
+    sp.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.45].CGColor;
+    sp.layer.shadowColor = [UIColor blackColor].CGColor;
+    sp.layer.shadowOpacity = 0.5; sp.layer.shadowRadius = 4; sp.layer.shadowOffset = CGSizeZero;
+    [sp addTarget:self action:@selector(paneSplitTapped:) forControlEvents:UIControlEventTouchUpInside];
+    pane.splitButton = sp;
+    [pane.containerView addSubview:sp];
+
     [self layoutActionsForPane:pane];
 }
 
@@ -391,6 +416,14 @@ static id SCPActionSymbolConfig(void)
     pane.actionBar.contentSize = CGSizeMake(MAX(natural, s.width), SCP_PANE_BAR_HEIGHT);
     [pane.containerView bringSubviewToFront:pane.actionHandle];
     [pane.containerView bringSubviewToFront:pane.actionBar];
+
+    // Nut chia doi: chi khi ngan nay mot minh het man (khong dang cho chon app, khong fullscreen/PiP) va bang chon chua mo
+    BOOL showSplit = [self singlePane] && !self.pickerView;
+    pane.splitButton.hidden = !showSplit;
+    if (showSplit) {
+        pane.splitButton.frame = CGRectMake(s.width - 44 - 14, (s.height - 44) / 2, 44, 44);
+        [pane.containerView bringSubviewToFront:pane.splitButton];
+    }
 }
 
 - (void)paneActionsPanned:(UIPanGestureRecognizer *)g
@@ -526,6 +559,29 @@ static id SCPActionSymbolConfig(void)
     [self applyFavorite:b.tag];
 }
 
+- (void)paneSplitTapped:(UIButton *)b
+{
+    [self beginSplitFromSinglePane];
+}
+
+// 1 ngan dang het man -> app do ve nua TRAI (tren), nua PHAI (duoi) hien bang chon app ngay trong nua do
+- (void)beginSplitFromSinglePane
+{
+    if (self.panes.count != 1) { SCPLog("beginSplit: can dung 1 ngan, dang co %lu", (unsigned long)self.panes.count); return; }
+    self.fullscreenSlot = SCPSlotAuto; self.pipSlot = SCPSlotAuto;
+    [self hideAllPaneActions];
+    if (self.rightPane && !self.leftPane) {   // app dang o ngan phai -> chuyen sang trai
+        self.leftPane = self.rightPane; self.rightPane = nil;
+        [SCPPrefs setLeftApp:self.leftPane.bundleIdentifier];
+    }
+    self.pendingSlot = SCPSlotRight;
+    self.ratio = 0.5;
+    SCPLog("split tu 1 ngan: %@ -> trai, cho chon app ngan phai", self.leftPane.bundleIdentifier);
+    [UIView animateWithDuration:0.25 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ [self relayoutPanes]; } completion:^(BOOL done) {
+        if (self.pendingSlot == SCPSlotRight) [self showAppPickerForSlot:SCPSlotRight];
+    }];
+}
+
 // Log overlay luon nam tren cung
 - (void)bringChromeToFront
 {
@@ -544,7 +600,7 @@ static id SCPActionSymbolConfig(void)
 // Chi con 1 ngan dang chay (chua co special) -> ngan do chiem het man
 - (BOOL)singlePane
 {
-    return self.panes.count == 1 && self.fullscreenSlot == SCPSlotAuto && self.pipSlot == SCPSlotAuto;
+    return self.panes.count == 1 && self.pendingSlot == SCPSlotAuto && self.fullscreenSlot == SCPSlotAuto && self.pipSlot == SCPSlotAuto;
 }
 
 - (CGRect)frameForSlot:(SCPSlot)slot
@@ -586,30 +642,23 @@ static id SCPActionSymbolConfig(void)
 - (void)setupDivider
 {
     // View rong 0 nam dung duong ranh giua 2 ngan, nhan pan doi ti le.
-    // Num keo (dividerPill) la vien thuoc 30x84 nen toi, co 3 vach trang, nam de len duong ranh.
+    // Num keo (dividerPill) kieu Xiaomi: thanh trang mong bo tron 6x40 nam de len duong ranh,
+    // cham de mo menu (doi cho / bo cuc / dong), keo de doi ti le.
     self.dividerView = [[SCPDividerView alloc] initWithFrame:[self dividerFrame]];
     self.dividerView.backgroundColor = [UIColor clearColor];
     UIView *knob = [[UIView alloc] init];
-    knob.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.9];
-    knob.layer.borderWidth = 1.5;
-    knob.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.55].CGColor;
+    knob.backgroundColor = [UIColor colorWithWhite:1 alpha:0.92];
     knob.layer.shadowColor = [UIColor blackColor].CGColor;
-    knob.layer.shadowOpacity = 0.7;
-    knob.layer.shadowRadius = 4;
+    knob.layer.shadowOpacity = 0.55;
+    knob.layer.shadowRadius = 3;
     knob.layer.shadowOffset = CGSizeZero;
     knob.userInteractionEnabled = NO;
-    for (NSInteger i = 0; i < 3; i++) {
-        UIView *line = [[UIView alloc] init];
-        line.backgroundColor = [UIColor colorWithWhite:1 alpha:0.9];
-        line.layer.cornerRadius = 1.5;
-        line.tag = 200 + i;
-        [knob addSubview:line];
-    }
     self.dividerPill = knob;
     [self.dividerView addSubview:knob];
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dividerPanned:)];
     pan.maximumNumberOfTouches = 1;
     [self.dividerView addGestureRecognizer:pan];
+    [self.dividerView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dividerTapped:)]];
     [self.rootWindow addSubview:self.dividerView];
     [self layoutDividerPill];
 }
@@ -623,14 +672,89 @@ static id SCPActionSymbolConfig(void)
     self.dividerPill.bounds = CGRectMake(0, 0, kw, kh);
     self.dividerPill.center = CGPointMake(s.width / 2, s.height / 2);
     self.dividerPill.layer.cornerRadius = SCP_KNOB_W / 2;
-    // 3 vach: nam doc theo chieu keo (ngang khi chia trai/phai)
-    for (NSInteger i = 0; i < 3; i++) {
-        UIView *line = [self.dividerPill viewWithTag:200 + i];
-        CGFloat off = (i - 1) * 7;
-        if (v) line.frame = CGRectMake(kw / 2 - 1.5 + off, kh / 2 - 9, 3, 18);
-        else   line.frame = CGRectMake(kw / 2 - 9, kh / 2 - 1.5 + off, 18, 3);
-    }
 }
+
+// ---- menu cua num keo (kieu Xiaomi): doi cho | bo cuc | dong split ----
+- (void)dividerTapped:(UITapGestureRecognizer *)g
+{
+    // Chi nhan cham ngay tren num (noi rong 14pt moi phia); cham cho khac tren duong ranh thi bo qua
+    CGPoint p = [g locationInView:self.dividerView];
+    if (!CGRectContainsPoint(CGRectInset(self.dividerPill.frame, -14, -14), p)) return;
+    if (self.dividerMenu) [self hideDividerMenu]; else [self showDividerMenu];
+}
+
+- (UIButton *)menuButton:(NSString *)symbol action:(SEL)sel
+{
+    UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+    [b setImage:[UIImage systemImageNamed:symbol withConfiguration:SCPActionSymbolConfig()] forState:UIControlStateNormal];
+    b.tintColor = [UIColor whiteColor];
+    b.backgroundColor = [UIColor colorWithWhite:1 alpha:0.16];
+    b.layer.cornerRadius = SCP_MENU_BTN / 2;
+    [b addTarget:self action:sel forControlEvents:UIControlEventTouchUpInside];
+    return b;
+}
+
+- (void)showDividerMenu
+{
+    [self hideDividerMenu];
+    [self hideAllPaneActions];
+    NSArray *items = @[@[@"arrow.left.arrow.right", NSStringFromSelector(@selector(menuSwap))],
+                       @[@"rectangle.lefthalf.inset.filled", NSStringFromSelector(@selector(menuCycleLayout))],
+                       @[@"xmark", NSStringFromSelector(@selector(menuCloseSplit))]];
+    CGFloat pad = 6, gap = 8;
+    CGFloat w = pad * 2 + items.count * SCP_MENU_BTN + (items.count - 1) * gap, h = pad * 2 + SCP_MENU_BTN;
+    UIView *m = [[UIView alloc] initWithFrame:CGRectMake(0, 0, w, h)];
+    m.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.92];
+    m.layer.cornerRadius = h / 2;
+    m.layer.borderWidth = 1;
+    m.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
+    m.layer.shadowColor = [UIColor blackColor].CGColor;
+    m.layer.shadowOpacity = 0.6; m.layer.shadowRadius = 8; m.layer.shadowOffset = CGSizeMake(0, 2);
+    CGFloat x = pad;
+    for (NSArray *it in items) {
+        UIButton *b = [self menuButton:it[0] action:NSSelectorFromString(it[1])];
+        b.frame = CGRectMake(x, pad, SCP_MENU_BTN, SCP_MENU_BTN);
+        [m addSubview:b];
+        x += SCP_MENU_BTN + gap;
+    }
+    self.dividerMenu = m;
+    [self.rootWindow addSubview:m];
+    [self layoutDividerMenu];
+    [self bringChromeToFront];
+    m.alpha = 0; m.transform = CGAffineTransformMakeScale(0.8, 0.8);
+    [UIView animateWithDuration:0.18 animations:^{ m.alpha = 1; m.transform = CGAffineTransformIdentity; }];
+    __weak SCPSplitWindow *weakSelf = self;
+    self.dividerMenuTimer = [NSTimer scheduledTimerWithTimeInterval:5 repeats:NO block:^(NSTimer *t) { [weakSelf hideDividerMenu]; }];
+}
+
+// Menu nam ngay canh num keo, can giua duong ranh; chia tren/duoi thi lech xuong duoi num mot chut
+- (void)layoutDividerMenu
+{
+    if (!self.dividerMenu) return;
+    CGRect d = self.dividerView.frame, b = self.rootWindow.bounds;
+    CGSize ms = self.dividerMenu.bounds.size;
+    CGPoint c = CGPointMake(CGRectGetMidX(d), CGRectGetMidY(d));
+    // Menu nam ngay phia tren num (chia trai/phai) hoac ngay duoi num (chia tren/duoi), khong de len num
+    if ([self vertical]) c.y += SCP_KNOB_W / 2 + 10 + ms.height / 2;
+    else                 c.y -= SCP_KNOB_H / 2 + 10 + ms.height / 2;
+    c.x = MIN(CGRectGetMaxX(b) - ms.width / 2 - 8, MAX(ms.width / 2 + 8, c.x));
+    c.y = MIN(CGRectGetMaxY(b) - ms.height / 2 - 8, MAX(ms.height / 2 + 8, c.y));
+    self.dividerMenu.center = c;
+}
+
+- (void)hideDividerMenu
+{
+    [self.dividerMenuTimer invalidate]; self.dividerMenuTimer = nil;
+    UIView *m = self.dividerMenu;
+    if (!m) return;
+    self.dividerMenu = nil;
+    [UIView animateWithDuration:0.15 animations:^{ m.alpha = 0; m.transform = CGAffineTransformMakeScale(0.85, 0.85); }
+                     completion:^(BOOL done) { [m removeFromSuperview]; }];
+}
+
+- (void)menuSwap        { [self hideDividerMenu]; [self swapPanes]; }
+- (void)menuCycleLayout { [self hideDividerMenu]; [self cycleLayoutPreset]; }
+- (void)menuCloseSplit  { [self hideDividerMenu]; [self dismiss]; }
 
 - (void)dividerPanned:(UIPanGestureRecognizer *)g
 {
@@ -641,7 +765,8 @@ static id SCPActionSymbolConfig(void)
     CGFloat len = (v ? a.size.height : a.size.width) - SCP_DIVIDER_WIDTH;
     if (g.state == UIGestureRecognizerStateBegan) {
         startRatio = self.ratio;
-        [UIView animateWithDuration:0.15 animations:^{ self.dividerPill.transform = CGAffineTransformMakeScale(1.15, 1.15); }];
+        [self hideDividerMenu];
+        [UIView animateWithDuration:0.15 animations:^{ self.dividerPill.transform = CGAffineTransformMakeScale(1.6, 1.15); }];
     }
     CGPoint t = [g translationInView:self.rootWindow];
     CGFloat r = startRatio + (v ? t.y : t.x) / len;
@@ -697,6 +822,7 @@ static id SCPActionSymbolConfig(void)
     self.dividerView.hidden = special || self.panes.count < 2;   // 1 ngan thi khong co gi de keo
     self.dividerView.frame = [self dividerFrame];
     [self layoutDividerPill];
+    if (self.dividerView.hidden) [self hideDividerMenu]; else [self layoutDividerMenu];
     for (SCPAppPane *p in self.panes) {
         SCPSlot slot = (p == self.leftPane) ? SCPSlotLeft : SCPSlotRight;
         BOOL hidden = (self.fullscreenSlot != SCPSlotAuto && slot != self.fullscreenSlot);
@@ -799,13 +925,17 @@ static id SCPActionSymbolConfig(void)
 // ---------------------------------------------------------------------
 - (CGRect)pickerFrame
 {
+    // Dang cho chon app cho 1 ngan (split tu 1 ngan): bang chon chiem dung nua cua ngan do
+    if (self.pendingSlot != SCPSlotAuto) return [self frameForSlot:self.pendingSlot];
     return [self paneArea];
 }
 
 - (void)showAppPickerForSlot:(SCPSlot)slot
 {
     [self hideAppPicker];
+    [self hideDividerMenu];
     self.pickerSlot = (slot == SCPSlotRight) ? SCPSlotRight : SCPSlotLeft;
+    BOOL half = (self.pendingSlot != SCPSlotAuto);   // bang chon nam trong nua ngan, chi cham chon (khong keo tha)
 
     UIView *pv = [[UIView alloc] initWithFrame:[self pickerFrame]];
     pv.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.97];
@@ -814,7 +944,8 @@ static id SCPActionSymbolConfig(void)
     [self hideAllPaneActions];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 14, pv.bounds.size.width - 120, 30)];
-    title.text = (self.pickerSlot == SCPSlotLeft) ? @"Chọn app cho ngăn TRÁI  (giữ icon và kéo để thả vào ngăn)" : @"Chọn app cho ngăn PHẢI";
+    if (half) title.text = @"Chọn app để chia đôi";
+    else title.text = (self.pickerSlot == SCPSlotLeft) ? @"Chọn app cho ngăn TRÁI  (giữ icon và kéo để thả vào ngăn)" : @"Chọn app cho ngăn PHẢI";
     title.textColor = [UIColor whiteColor];
     title.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     title.adjustsFontSizeToFitWidth = YES;
@@ -845,9 +976,11 @@ static id SCPActionSymbolConfig(void)
         b.frame = CGRectMake(x, y, cellW, cellH);
         b.accessibilityIdentifier = app[@"id"];
         [b addTarget:self action:@selector(pickerAppTapped:) forControlEvents:UIControlEventTouchUpInside];
-        UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(pickerDrag:)];
-        lp.minimumPressDuration = 0.35;
-        [b addGestureRecognizer:lp];
+        if (!half) {
+            UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(pickerDrag:)];
+            lp.minimumPressDuration = 0.35;
+            [b addGestureRecognizer:lp];
+        }
 
         UIImageView *iv = [[UIImageView alloc] initWithFrame:CGRectMake((cellW - iconSize) / 2, 6, iconSize, iconSize)];
         iv.image = SCPAppIcon(app[@"id"]);
@@ -872,13 +1005,21 @@ static id SCPActionSymbolConfig(void)
     }
     NSInteger rows = (i + cols - 1) / cols;
     scroll.contentSize = CGSizeMake(scroll.bounds.size.width, 16 + rows * cellH);
-    SCPLog("picker: %ld app, slot=%d", (long)i, (int)self.pickerSlot);
+    for (SCPAppPane *p in self.panes) [self layoutActionsForPane:p];   // an nut chia doi khi bang chon dang mo
+    SCPLog("picker: %ld app, slot=%d, half=%d", (long)i, (int)self.pickerSlot, (int)half);
 }
 
 - (void)pickerAppTapped:(UIButton *)b
 {
     NSString *bid = b.accessibilityIdentifier;
     SCPSlot slot = self.pickerSlot;
+    if (self.pendingSlot != SCPSlotAuto && bid) {
+        // split tu 1 ngan: mo app vao nua dang trong roi moi go bang chon (tranh nhay layout ve het man)
+        [self launchApp:bid inSlot:slot];
+        [self hideAppPicker];
+        if (slot == SCPSlotLeft) [SCPPrefs setLeftApp:bid]; else [SCPPrefs setRightApp:bid];
+        return;
+    }
     [self hideAppPicker];
     if (!bid) return;
     [self launchApp:bid inSlot:slot];
@@ -959,8 +1100,14 @@ static id SCPActionSymbolConfig(void)
 - (void)hideAppPicker
 {
     [self.dragImage removeFromSuperview]; self.dragImage = nil;
+    BOOL hadPicker = (self.pickerView != nil);
     [self.pickerView removeFromSuperview];
     self.pickerView = nil;
+    BOOL wasPending = (self.pendingSlot != SCPSlotAuto);
+    self.pendingSlot = SCPSlotAuto;
+    // Huy khi dang cho chon app -> ngan con lai tro ve het man (hoac giu split neu da mo du 2); hoac chi hien lai nut chia doi
+    if (wasPending) [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    else if (hadPicker) for (SCPAppPane *p in self.panes) [self layoutActionsForPane:p];
 }
 
 // ---------------------------------------------------------------------
@@ -1353,6 +1500,8 @@ static void SCPTerminateApp(NSString *bid)
 - (void)dismiss
 {
     SCPLog("dismiss split window");
+    [self.dividerMenuTimer invalidate]; self.dividerMenuTimer = nil;
+    [self.dividerMenu removeFromSuperview]; self.dividerMenu = nil;
     [self hideAppPicker];
     [self teardownMirror];
     [self closeSlot:SCPSlotLeft];
