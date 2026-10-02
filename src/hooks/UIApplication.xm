@@ -19,6 +19,7 @@ static int orientationOverride = -1;
 - (void)scp_handleRotationRequest:(NSNotification *)note
 {
     orientationOverride = [note.userInfo[@"orientation"] intValue];
+    appWantsOrientation = 0;
     int o = orientationOverride;
     if (o == -1) o = MAX(1, (int)[[UIDevice currentDevice] orientation]);
     SCPLog("app xoay -> %d", o);
@@ -29,32 +30,64 @@ static int orientationOverride = -1;
 }
 %end
 
-// Chi ep ve huong cua ngan khi app CHO PHEP huong do. Neu app dang chi ho tro huong khac
-// (vd YouTube fullscreen video chi cho ngang) thi de UIKit xoay theo y app -> video khong bi bop doc.
-static BOOL SCPRootSupports(UIWindow *w, long long orientation)
+// Huong app TU XIN (vd YouTube bam fullscreen video -> xin ngang). 0 = khong xin gi, dung huong cua ngan.
+// Khi app xin huong khac, uu tien huong app xin; khi app xin lai dọc / cho phep moi huong -> ve huong cua ngan.
+static long long appWantsOrientation = 0;
+
+static long long SCPEffectiveOrientation(void)
 {
-    UIViewController *vc = w.rootViewController;
-    if (!vc) return YES;
-    UIInterfaceOrientationMask mask = vc.supportedInterfaceOrientations;
-    return (mask & (1 << orientation)) != 0;
+    return appWantsOrientation > 0 ? appWantsOrientation : orientationOverride;
+}
+
+// Tu mask huong app xin -> 1 huong cu the. Co dọc thi coi nhu "tra ve binh thuong" (0).
+static long long SCPOrientationFromMask(NSUInteger mask)
+{
+    if (mask & UIInterfaceOrientationMaskPortrait) return 0;
+    if (mask & UIInterfaceOrientationMaskLandscapeLeft)  return UIInterfaceOrientationLandscapeLeft;
+    if (mask & UIInterfaceOrientationMaskLandscapeRight) return UIInterfaceOrientationLandscapeRight;
+    if (mask & UIInterfaceOrientationMaskPortraitUpsideDown) return UIInterfaceOrientationPortraitUpsideDown;
+    return 0;
 }
 
 %hook UIWindow
 - (void)_setRotatableViewOrientation:(long long)orientation duration:(double)duration force:(BOOL)force
 {
-    if (orientationOverride > 0 && orientation != orientationOverride && SCPRootSupports(self, orientationOverride)) {
-        return %orig(orientationOverride, duration, force);
+    long long target = SCPEffectiveOrientation();
+    if (target > 0 && orientation != target) return %orig(target, duration, force);
+    %orig;
+}
+%end
+
+// iOS 16: app xin xoay bang requestGeometryUpdateWithPreferences: (YouTube fullscreen dung cai nay)
+%hook UIWindowScene
+- (void)requestGeometryUpdateWithPreferences:(id)prefs errorHandler:(id)handler
+{
+    if (orientationOverride > 0 && [prefs respondsToSelector:@selector(interfaceOrientations)]) {
+        NSUInteger mask = ((NSUInteger (*)(id, SEL))objc_msgSend)(prefs, @selector(interfaceOrientations));
+        appWantsOrientation = SCPOrientationFromMask(mask);
+        SCPLog("app xin huong mask=%lu -> %lld", (unsigned long)mask, appWantsOrientation);
     }
     %orig;
 }
 %end
 
-// App hoi "thiet bi dang xoay huong nao" (YouTube dung de tu vao/ra fullscreen) -> tra loi theo huong cua ngan,
-// khong theo huong that cua iPhone dang gan tren xe.
+// App cu: ep xoay bang [UIDevice setOrientation:] (KVC "orientation")
 %hook UIDevice
+- (void)setOrientation:(long long)orientation animated:(BOOL)animated
+{
+    if (orientationOverride > 0) {
+        appWantsOrientation = (orientation == UIInterfaceOrientationLandscapeLeft || orientation == UIInterfaceOrientationLandscapeRight) ? orientation : 0;
+        SCPLog("app setOrientation %lld -> %lld", orientation, appWantsOrientation);
+    }
+    %orig;
+}
+
+// App hoi "thiet bi dang xoay huong nao" -> tra loi theo huong dang ap (ngan hoac app xin),
+// khong theo huong that cua iPhone dang gan tren xe.
 - (long long)orientation
 {
-    if (orientationOverride > 0) return orientationOverride;   // gia tri so trung nhau giua UIInterface/UIDeviceOrientation
+    long long o = SCPEffectiveOrientation();
+    if (o > 0) return o;   // gia tri so trung nhau giua UIInterface/UIDeviceOrientation
     return %orig;
 }
 %end
