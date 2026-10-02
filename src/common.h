@@ -16,10 +16,11 @@
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 
-// Moi ngan co dau "..." o giua mep tren; keo xuong de hien thanh option rieng cua ngan do
-#define SCP_PANE_BAR_HEIGHT    40.0
-#define SCP_PANE_HANDLE_WIDTH  64.0
-#define SCP_PANE_HANDLE_HEIGHT 16.0
+// Moi ngan co tab "..." o giua mep tren; cham hoac keo xuong de hien thanh nut rieng cua ngan do.
+// Kich thuoc to cho man xe: nut 64x60 co nhan chu, tab 96x22.
+#define SCP_PANE_BAR_HEIGHT    76.0
+#define SCP_PANE_HANDLE_WIDTH  96.0
+#define SCP_PANE_HANDLE_HEIGHT 22.0
 #define SCP_PANE_BORDER        2.0
 
 #define getIvar(object, ivar)        [object valueForKey:ivar]

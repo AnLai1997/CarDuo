@@ -20,8 +20,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) UIScrollView *actionBar;
 @property (nonatomic) BOOL actionsVisible;
 @property (nonatomic, strong) NSTimer *actionsHideTimer;
-@property (nonatomic, strong) UIButton *fullscreenButton, *pipButton;   // doi icon theo trang thai
-@property (nonatomic, strong) NSArray<UIButton *> *favButtons;
+@property (nonatomic, strong) UIButton *fullscreenButton, *pipButton;   // doi icon + nhan theo trang thai
 @property (nonatomic, strong) UIButton *splitButton;   // nut "chia doi" noi, chi hien khi ngan nay dang mot minh het man
 @end
 

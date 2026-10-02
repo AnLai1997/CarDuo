@@ -60,11 +60,13 @@ Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái,
 ## Cài đặt trong app Settings
 Vào Cài đặt > SplitCarPlay: bật/tắt, chọn app ngăn trái/phải (AltList), tự mở khi cắm xe,
 kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
-Mỗi ngăn có dấu "..." ở giữa mép trên: kéo xuống (hoặc chạm) để hiện thanh option riêng của ngăn đó
-(chọn app, đóng, fullscreen, PiP, đổi chỗ, bố cục, cặp yêu thích 1-3, Home), tự ẩn sau 6 giây.
-Đường ranh giữa 2 ngăn có núm kéo kiểu Xiaomi (thanh trắng mỏng): kéo để đổi tỉ lệ, chạm để mở menu
-(đổi chỗ, bố cục, đóng split). Khi chỉ còn 1 app chiếm hết màn, mép phải ngăn có nút "chia đôi":
-bấm thì app hiện tại về nửa trái, nửa phải hiện bảng chọn app để ghép cặp (Huỷ thì về lại toàn màn).
+Nút bấm được thiết kế cho màn xe: to 64x60, có icon và nhãn chữ, cùng một kiểu ở mọi nơi.
+- Việc của TỪNG NGĂN: tab "..." ở giữa mép trên ngăn, chạm hoặc kéo xuống để hiện thanh nút
+  "Đổi app / Toàn màn / Thu nhỏ (PiP) / Đóng" (tự ẩn sau 8 giây, nút đang bật tô vàng).
+- Việc của CẢ CẶP: núm kéo kiểu Xiaomi (thanh trắng mỏng) giữa 2 ngăn, kéo để đổi tỉ lệ, chạm để mở menu
+  "Đổi chỗ / Tỉ lệ (hiện tỉ lệ sẽ áp tiếp) / Cặp yêu thích 1-3 / CarPlay".
+- Khi chỉ còn 1 app chiếm hết màn, mép phải ngăn có nút "Chia đôi": app hiện tại về nửa trái,
+  nửa phải hiện bảng chọn app để ghép cặp (Huỷ thì về lại toàn màn).
 Mục "Gỡ lỗi" có nút mở/đóng split ngay trên màn iPhone.
 Cần package `PreferenceLoader` và `AltList` (Sileo tự cài theo Depends).
 
