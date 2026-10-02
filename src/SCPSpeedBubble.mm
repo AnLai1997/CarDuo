@@ -17,6 +17,9 @@
 @property (nonatomic) CFAbsoluteTime lastUpdate;
 @property (nonatomic) CGPoint savedCenter;          // vi tri nguoi dung keo toi (giu giua cac lan hien)
 @property (nonatomic) BOOL onPhone;
+@property (nonatomic) CGFloat scale;                 // phong to/thu nho bang 2 ngon (0.6 .. 2.2)
+@property (nonatomic, strong) UIButton *closeButton; // X do: giu bong bong de hien, bam de tat han Vietmap
+@property (nonatomic, strong) NSTimer *closeTimer;
 @end
 
 @implementation SCPSpeedBubble
@@ -24,9 +27,13 @@
 + (instancetype)shared
 {
     static SCPSpeedBubble *s; static dispatch_once_t once;
-    dispatch_once(&once, ^{ s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; });
+    dispatch_once(&once, ^{ s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; s.scale = 1; });
     return s;
 }
+
+// Transform goc cua the = ti le nguoi dung chon (moi animation deu nhan them vao day)
+- (CGAffineTransform)baseTransform { return CGAffineTransformMakeScale(self.scale, self.scale); }
+- (CGAffineTransform)baseScaled:(CGFloat)k { return CGAffineTransformMakeScale(self.scale * k, self.scale * k); }
 
 - (void)updateSpeed:(int)speed limit:(int)limit
 {
@@ -72,9 +79,9 @@
 
     if (self.window.hidden) {
         self.window.hidden = NO;
-        self.card.alpha = 0; self.card.transform = CGAffineTransformMakeScale(0.7, 0.7);
+        self.card.alpha = 0; self.card.transform = [self baseScaled:0.7];
         [UIView animateWithDuration:0.45 delay:0 usingSpringWithDamping:0.7 initialSpringVelocity:0.5 options:0
-                         animations:^{ self.card.alpha = 1; self.card.transform = CGAffineTransformIdentity; } completion:nil];
+                         animations:^{ self.card.alpha = 1; self.card.transform = [self baseTransform]; } completion:nil];
     }
     if (!self.timer) {
         __weak SCPSpeedBubble *weakSelf = self;
@@ -86,7 +93,8 @@
 {
     if (self.window && !self.window.hidden) {
         UIView *card = self.card; UIWindow *win = self.window;
-        [UIView animateWithDuration:0.18 animations:^{ card.alpha = 0; card.transform = CGAffineTransformMakeScale(0.8, 0.8); }
+        [self hideCloseButton];
+        [UIView animateWithDuration:0.18 animations:^{ card.alpha = 0; card.transform = [self baseScaled:0.8]; }
                          completion:^(BOOL f) { if (card.alpha < 0.01) win.hidden = YES; }];
     }
     [self.timer invalidate]; self.timer = nil;
@@ -105,6 +113,66 @@
     self.speedRing.frame = CGRectMake(x, SCP_PAD, SCP_RING, SCP_RING);
     self.card.center = c;
     [self clampCard];
+}
+
+- (void)positionCloseButton
+{
+    CGRect f = self.card.frame;   // da tinh ti le
+    self.closeButton.center = CGPointMake(CGRectGetMaxX(f) - 4, CGRectGetMinY(f) + 4);
+}
+
+- (void)hideCloseButton
+{
+    [self.closeTimer invalidate]; self.closeTimer = nil;
+    UIButton *x = self.closeButton;
+    if (!x || x.hidden) return;
+    [UIView animateWithDuration:0.15 animations:^{ x.alpha = 0; x.transform = CGAffineTransformMakeScale(0.5, 0.5); }
+                     completion:^(BOOL f) { x.hidden = YES; x.transform = CGAffineTransformIdentity; }];
+}
+
+// Giu bong bong -> hien X 4 giay
+- (void)longPressed:(UILongPressGestureRecognizer *)g
+{
+    if (g.state != UIGestureRecognizerStateBegan) return;
+    [self positionCloseButton];
+    UIButton *x = self.closeButton;
+    x.hidden = NO; x.alpha = 0; x.transform = CGAffineTransformMakeScale(0.3, 0.3);
+    [UIView animateWithDuration:0.4 delay:0 usingSpringWithDamping:0.6 initialSpringVelocity:0.6 options:0
+                     animations:^{ x.alpha = 1; x.transform = CGAffineTransformIdentity; } completion:nil];
+    [self.closeTimer invalidate];
+    __weak SCPSpeedBubble *weakSelf = self;
+    self.closeTimer = [NSTimer scheduledTimerWithTimeInterval:4 repeats:NO block:^(NSTimer *t) { [weakSelf hideCloseButton]; }];
+}
+
+// Bam X: tat han Vietmap (dong ngan neu dang co) -> bong bong tu an vi het du lieu
+- (void)closeTapped
+{
+    [self hideCloseButton];
+    SCPLog("speed bubble: X -> tat han %@", SCP_SPEED_APP);
+    SCPSplitWindow *w = [SCPSplitWindow current];
+    SCPAppPane *p = [self appPane];
+    if (w && p) {
+        SCPSlot slot = (p == w.leftPane) ? SCPSlotLeft : SCPSlotRight;
+        [w closeSlot:slot terminate:YES];
+        if (w.panes.count == 0) { if (w.onMainScreen) [w showAppPickerForSlot:SCPSlotLeft]; else [w dismiss]; }
+    } else {
+        SCPTerminateApp(SCP_SPEED_APP);
+    }
+    self.speed = -1; self.limit = -1;
+    [self hide];
+}
+
+// 2 ngon: phong to / thu nho the (0.6x .. 2.2x)
+- (void)pinched:(UIPinchGestureRecognizer *)g
+{
+    static CGFloat startScale = 1;
+    if (g.state == UIGestureRecognizerStateBegan) { startScale = self.scale; [self hideCloseButton]; }
+    if (g.state == UIGestureRecognizerStateBegan || g.state == UIGestureRecognizerStateChanged) {
+        self.scale = MIN(2.2, MAX(0.6, startScale * g.scale));
+        self.card.transform = [self baseTransform];
+        [self clampCard];
+    }
+    if (g.state == UIGestureRecognizerStateEnded) self.savedCenter = self.card.center;
 }
 
 - (UIView *)ringWithColor:(UIColor *)color
@@ -164,6 +232,25 @@
     [card addSubview:speedRing];
     [card addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(panned:)]];
     [card addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)]];
+    UIPinchGestureRecognizer *pinch = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(pinched:)];
+    [card addGestureRecognizer:pinch];
+    UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressed:)];
+    lp.minimumPressDuration = 0.5;
+    [card addGestureRecognizer:lp];
+    card.transform = [self baseTransform];
+
+    // Nut X do (an san), nam goc tren phai cua the, tren cung cua so de khong bi the che
+    UIButton *x = [UIButton buttonWithType:UIButtonTypeCustom];
+    x.bounds = CGRectMake(0, 0, 30, 30);
+    x.backgroundColor = [UIColor systemRedColor];
+    x.layer.cornerRadius = 15;
+    x.layer.borderWidth = 2; x.layer.borderColor = [UIColor whiteColor].CGColor;
+    x.tintColor = [UIColor whiteColor];
+    [x setImage:[UIImage systemImageNamed:@"xmark" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightBold]] forState:UIControlStateNormal];
+    [x addTarget:self action:@selector(closeTapped) forControlEvents:UIControlEventTouchUpInside];
+    x.hidden = YES;
+    [w addSubview:x];
+    self.closeButton = x;
     [w addSubview:card];
 
     self.window = w; self.card = card; self.limitRing = limitRing; self.speedRing = speedRing;
@@ -177,7 +264,7 @@
 
 - (void)clampCard
 {
-    CGRect b = self.window.bounds; CGSize s = self.card.bounds.size; CGPoint c = self.card.center;
+    CGRect b = self.window.bounds; CGSize s = self.card.frame.size; CGPoint c = self.card.center;   // frame da tinh ti le
     c.x = MIN(CGRectGetMaxX(b) - s.width / 2, MAX(s.width / 2, c.x));
     c.y = MIN(CGRectGetMaxY(b) - s.height / 2, MAX(s.height / 2, c.y));
     self.card.center = c;
@@ -185,6 +272,7 @@
 
 - (void)panned:(UIPanGestureRecognizer *)g
 {
+    if (g.state == UIGestureRecognizerStateBegan) [self hideCloseButton];
     CGPoint t = [g translationInView:self.window];
     self.card.center = CGPointMake(self.card.center.x + t.x, self.card.center.y + t.y);
     [self clampCard];
@@ -195,8 +283,9 @@
 // Cham bong bong -> mo lai Vietmap: dang bi che boi toan man ngan khac thi bo toan man; chua co ngan thi mo vao ngan trong
 - (void)tapped:(UITapGestureRecognizer *)g
 {
-    [UIView animateWithDuration:0.1 animations:^{ self.card.transform = CGAffineTransformMakeScale(0.92, 0.92); }
-                     completion:^(BOOL f) { [UIView animateWithDuration:0.15 animations:^{ self.card.transform = CGAffineTransformIdentity; }]; }];
+    if (self.closeButton && !self.closeButton.hidden) { [self hideCloseButton]; return; }   // dang hien X: cham ngoai X -> chi an X
+    [UIView animateWithDuration:0.1 animations:^{ self.card.transform = [self baseScaled:0.92]; }
+                     completion:^(BOOL f) { [UIView animateWithDuration:0.15 animations:^{ self.card.transform = [self baseTransform]; }]; }];
     BOOL car = SCPGetCarPlayCADisplay() != nil;
     SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:!car];
     if (!w) return;

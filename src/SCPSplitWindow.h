@@ -67,6 +67,7 @@ extern "C" {
 #endif
 UIWindow *SCPMakeCarWindow(void);
 UIWindow *SCPMakePhoneWindow(BOOL landscape);
+void SCPTerminateApp(NSString *bid);   // tat han process app (bo qua neu app dang mo tren man iPhone)
 #ifdef __cplusplus
 }
 #endif

@@ -1546,7 +1546,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 }
 
 // Tat han process cua app (khi nguoi dung bam X). Bo qua neu app do dang mo tren man iPhone.
-static void SCPTerminateApp(NSString *bid)
+void SCPTerminateApp(NSString *bid)
 {
     if (!bid) return;
     id frontmost = objcInvoke([UIApplication sharedApplication], @"_accessibilityFrontMostApplication");
