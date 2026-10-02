@@ -4,6 +4,9 @@
 %group APPS
 
 static int orientationOverride = -1;
+// Huong app TU XIN (vd YouTube bam fullscreen video -> xin ngang). 0 = khong xin gi, dung huong cua ngan.
+// Khi app xin huong khac, uu tien huong app xin; khi app xin lai doc / cho phep moi huong -> ve huong cua ngan.
+static long long appWantsOrientation = 0;
 
 %hook UIApplication
 - (id)init
@@ -29,10 +32,6 @@ static int orientationOverride = -1;
         NSSelectorFromString(@"_setRotatableViewOrientation:duration:force:"), (long long)o, 0.0, YES);
 }
 %end
-
-// Huong app TU XIN (vd YouTube bam fullscreen video -> xin ngang). 0 = khong xin gi, dung huong cua ngan.
-// Khi app xin huong khac, uu tien huong app xin; khi app xin lai dọc / cho phep moi huong -> ve huong cua ngan.
-static long long appWantsOrientation = 0;
 
 static long long SCPEffectiveOrientation(void)
 {
