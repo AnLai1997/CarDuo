@@ -10,7 +10,7 @@ int (*orig_BKSDisplayServicesSetScreenBlanked)(int) = NULL;
 const void *kSCPKey_splitWindow   = &kSCPKey_splitWindow;
 const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
-#define SCP_DIVIDER_WIDTH 0.0      // khong co khe: 2 vien sat nhau; van keo duoc nho vung cham mo rong
+#define SCP_DIVIDER_WIDTH 8.0      // khe toi giua 2 ngan de phan biet ro UI 2 app; num keo nam trong khe
 #define SCP_DIVIDER_HIT   28.0     // vung cham moi ben cua duong ranh giua 2 ngan (tong 56pt, de dat ngon tay)
 #define SCP_KNOB_W        8.0      // num keo kieu Xiaomi: thanh trang mong 6 x 40 nam giua duong ranh, cham de mo menu, keo de doi ti le
 #define SCP_KNOB_H        56.0
@@ -358,8 +358,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 {
     // Vien quanh app
     pane.containerView.layer.borderWidth = SCP_PANE_BORDER;
-    pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.35].CGColor;
-    pane.containerView.layer.cornerRadius = 10;
+    pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.7].CGColor;
+    pane.containerView.layer.cornerRadius = 14;
 
     // Tab "..." o giua mep tren: vien thuoc trang mo, 3 cham den (kieu HyperOS), bo goc duoi
     UIView *h = [[UIView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
@@ -600,9 +600,10 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 //  Bo cuc: trai/phai hoac tren/duoi, fullscreen, PiP
 // ---------------------------------------------------------------------
 // Ngan dung het cua so (option cua ngan nam trong chinh ngan do)
+// Vung dat ngan: lui vao SCP_PANE_INSET moi phia de khung moi app noi ro tren nen toi
 - (CGRect)paneArea
 {
-    return self.rootWindow.bounds;
+    return CGRectInset(self.rootWindow.bounds, SCP_PANE_INSET, SCP_PANE_INSET);
 }
 
 // Chi con 1 ngan dang chay (chua co special) -> ngan do chiem het man
@@ -614,8 +615,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 - (CGRect)frameForSlot:(SCPSlot)slot
 {
     CGRect a = [self paneArea];
-    if (self.fullscreenSlot != SCPSlotAuto) {
-        return (slot == self.fullscreenSlot) ? a : CGRectMake(a.origin.x, a.origin.y, 0, 0);
+    if (self.fullscreenSlot != SCPSlotAuto) {   // toan man tam: dung het cua so, khong lui mep
+        return (slot == self.fullscreenSlot) ? self.rootWindow.bounds : CGRectMake(a.origin.x, a.origin.y, 0, 0);
     }
     if ([self singlePane]) {
         SCPAppPane *only = self.panes.firstObject;

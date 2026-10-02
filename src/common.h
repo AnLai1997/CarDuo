@@ -21,7 +21,8 @@
 #define SCP_PANE_BAR_HEIGHT    64.0
 #define SCP_PANE_HANDLE_WIDTH  96.0
 #define SCP_PANE_HANDLE_HEIGHT 22.0
-#define SCP_PANE_BORDER        2.0
+#define SCP_PANE_BORDER        2.5
+#define SCP_PANE_INSET         6.0    // ngan lui vao so voi mep man -> thay ro bo goc tren nen toi
 
 #define getIvar(object, ivar)        [object valueForKey:ivar]
 #define setIvar(object, ivar, value) [object setValue:value forKey:ivar]
