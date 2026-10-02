@@ -1333,12 +1333,14 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         id launchTx = getIvar(transaction, @"_processLaunchTransaction");
         id process  = objcInvoke(launchTx, @"process");
         if (!process) { SCPLog("khong co FBProcess sau launch (result=%d)", result); return; }
-        objcInvoke_1(process, @"_executeBlockAfterLaunchCompletes:", ^{
+        // Block tao san (khong dat dict literal co dau phay trong tham so macro)
+        void (^afterLaunch)(void) = ^{
+            NSDictionary *info = @{@"orientation": @(orientation), @"device": @([weakSelf deviceOrientationForPane:pane])};
             [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-                postNotificationName:SCP_NOTIF_ORIENTATION object:appID
-                            userInfo:@{@"orientation": @(orientation), @"device": @([weakSelf deviceOrientationForPane:pane])}];
+                postNotificationName:SCP_NOTIF_ORIENTATION object:appID userInfo:info];
             dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf layoutPane:pane]; });
-        });
+        };
+        objcInvoke_1(process, @"_executeBlockAfterLaunchCompletes:", afterLaunch);
     });
     [transitions addObject:transaction];
     objcInvoke(transaction, @"begin");
