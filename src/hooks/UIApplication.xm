@@ -408,9 +408,7 @@ static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString
     SCPCollectAX(win, items, [NSMutableSet set], 0);
     if (!items.count) return NO;
 
-    // Flutter gop ca cum thanh 1 phan tu, vd Vietmap: "60
-0
-km/h" = [gioi han] [toc do] km/h.
+    // Flutter gop ca cum thanh 1 phan tu, vd Vietmap: "60 | 0 | km/h" (3 dong) = [gioi han] [toc do] km/h.
     // -> toc do = so dung NGAY TRUOC "km/h"; so con lai (neu co) = gioi han.
     NSDictionary *speedItem = nil; int speed = -1, limitFromSame = -1;
     for (NSDictionary *it in items) {
