@@ -1,7 +1,7 @@
-# CarPlay Duo (Dopamine rootless, iOS 16.5)
+# CarDuo (Dopamine rootless, iOS 16.5)
 
 Tweak cá nhân: chia màn hình CarPlay thành 2 app chạy song song.
-Tên hiển thị là **CarPlay Duo**; tên kỹ thuật (package `com.anpham.splitcarplay`, URL scheme `splitcarplay://`,
+Tên hiển thị là **CarDuo**; tên kỹ thuật (package `com.anpham.splitcarplay`, URL scheme `splitcarplay://`,
 file dylib/log) vẫn giữ SplitCarPlay để không hỏng Shortcuts và workflow build.
 
 ## Kiến trúc (đã xác minh qua mã nguồn carplay-cast, iOS 14+)
@@ -24,7 +24,7 @@ Cách CarBridge/carplay-cast đưa app thường lên CarPlay:
    `BKSDisplayServicesSetScreenBlanked`.
 3. **App process** (UIKit): nhận notification xoay màn hình, ép `UIWindow _setRotatableViewOrientation:...`.
 
-### Thiết kế CarPlay Duo
+### Thiết kế CarDuo
 Cửa sổ SpringBoard trên màn xe chia làm 2 ngăn (trái/phải), mỗi ngăn host một
 `SBAppViewController` riêng, scale theo kích thước ngăn. App chạy ở hướng dọc (portrait)
 vì ngăn nửa màn 800x480 ~ 380x480 gần với tỉ lệ dọc của iPhone.
@@ -60,7 +60,7 @@ Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái,
 - Hoặc cài WSL Ubuntu + Theos: `make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless`.
 
 ## Cài đặt trong app Settings
-Vào Cài đặt > CarPlay Duo: bật/tắt, chọn app ngăn trái/phải (AltList), tự mở khi cắm xe,
+Vào Cài đặt > CarDuo: bật/tắt, chọn app ngăn trái/phải (AltList), tự mở khi cắm xe,
 kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
