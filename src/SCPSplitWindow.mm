@@ -381,7 +381,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 
     // Hang nut cua ngan (nen trong suot, chi thay cac nut tron): CHI viec cua ngan nay.
     // Viec cua ca cap (doi cho, ti le, cap yeu thich, ve CarPlay) nam o menu num keo -> khong lap.
-    UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 6, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
+    UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 18, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
     bar.backgroundColor = [UIColor clearColor];
     bar.showsHorizontalScrollIndicator = NO;
     bar.alwaysBounceHorizontal = NO;
@@ -402,9 +402,13 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pane.pipButton = [self roundButton:@"pip" action:@selector(paneTogglePiP:)]; [content addSubview:pane.pipButton];
     b = [self roundButton:@"xmark.square" action:@selector(paneCloseApp:)]; [content addSubview:b];
 
-    // Nut "chia doi" (tron, icon 2 nua) o mep phai giua ngan - chi khi ngan nay mot minh het man.
-    // Bam: app nay ve nua trai, nua phai hien bang chon app.
+    // Nut "chia doi" (tron 36pt, icon 2 nua) o mep tren, ngay ben phai tab "..." - chi khi ngan nay mot minh het man.
+    // Luon hien (khong can mo tab). Bam: app nay ve nua TRAI, nua phai hien bang chon app.
     UIButton *sp = [self roundButton:@"rectangle.split.2x1" action:@selector(paneSplitTapped:)];
+    sp.bounds = CGRectMake(0, 0, 36, 36);
+    sp.layer.cornerRadius = 18;
+    [sp setImage:[UIImage systemImageNamed:@"rectangle.split.2x1"
+               withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightMedium]] forState:UIControlStateNormal];
     sp.hidden = YES;
     pane.splitButton = sp;
     [pane.containerView addSubview:sp];
@@ -424,7 +428,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pane.actionBar.hidden = isPip || !pane.actionsVisible;
 
     pane.actionHandle.frame = CGRectMake((s.width - SCP_PANE_HANDLE_WIDTH) / 2, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT);
-    pane.actionBar.frame = CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 6, s.width, SCP_PANE_BAR_HEIGHT);
+    pane.actionBar.frame = CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 18, s.width, SCP_PANE_BAR_HEIGHT);
     [self layoutBarContentForPane:pane];
     [pane.containerView bringSubviewToFront:pane.actionHandle];
     [pane.containerView bringSubviewToFront:pane.actionBar];
@@ -434,7 +438,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     BOOL wasHidden = pane.splitButton.hidden;
     pane.splitButton.hidden = !showSplit;
     if (showSplit) {
-        pane.splitButton.center = CGPointMake(s.width - SCP_BTN / 2 - 16, s.height / 2);
+        pane.splitButton.center = CGPointMake(s.width / 2 + SCP_PANE_HANDLE_WIDTH / 2 + 10 + 18, 2 + 18);
         [pane.containerView bringSubviewToFront:pane.splitButton];
         if (wasHidden) SCPPopIn(@[pane.splitButton], 0);
     }
