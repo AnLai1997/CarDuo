@@ -319,7 +319,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     b.layer.cornerRadius = SCP_BTN / 2;
     b.layer.shadowColor = [UIColor blackColor].CGColor;
     b.layer.shadowOpacity = 0.35; b.layer.shadowRadius = 6; b.layer.shadowOffset = CGSizeMake(0, 2);
-    b.adjustsImageWhenHighlighted = YES;
     SCPSetOn(b, NO);
     SCPSetIcon(b, symbol);
     [b addTarget:self action:sel forControlEvents:UIControlEventTouchUpInside];
