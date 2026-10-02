@@ -378,13 +378,20 @@ static void SCPCollectAX(id node, NSMutableArray<NSDictionary *> *out, NSMutable
     if ([node isKindOfClass:[UIView class]]) for (UIView *c in ((UIView *)node).subviews) SCPCollectAX(c, out, seen, depth + 1);
 }
 
-// Lay so dau tien trong chuoi (1-3 chu so), -1 neu khong co
-static int SCPLeadingNumber(NSString *t)
+// Cac so (toi da 3 chu so) xuat hien TRUOC chu "km/h" trong chuoi, theo thu tu
+static NSArray<NSNumber *> *SCPNumbersBeforeKmh(NSString *t)
 {
-    NSScanner *sc = [NSScanner scannerWithString:t];
-    [sc scanUpToCharactersFromSet:[NSCharacterSet decimalDigitCharacterSet] intoString:nil];
-    int v = -1; if ([sc scanInt:&v] && v >= 0 && v <= 999) return v;
-    return -1;
+    NSString *l = [t lowercaseString];
+    NSRange kr = [l rangeOfString:@"km"];
+    NSString *head = (kr.location == NSNotFound) ? t : [t substringToIndex:kr.location];
+    NSMutableArray<NSNumber *> *out = [NSMutableArray array];
+    NSScanner *sc = [NSScanner scannerWithString:head];
+    while (!sc.isAtEnd) {
+        [sc scanUpToCharactersFromSet:[NSCharacterSet decimalDigitCharacterSet] intoString:nil];
+        int v = 0;
+        if ([sc scanInt:&v]) { if (v >= 0 && v <= 999) [out addObject:@(v)]; } else break;
+    }
+    return out;
 }
 
 static BOOL SCPMentionsKmh(NSString *t)
@@ -401,10 +408,19 @@ static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString
     SCPCollectAX(win, items, [NSMutableSet set], 0);
     if (!items.count) return NO;
 
-    NSDictionary *speedItem = nil; int speed = -1;
+    // Flutter gop ca cum thanh 1 phan tu, vd Vietmap: "60
+0
+km/h" = [gioi han] [toc do] km/h.
+    // -> toc do = so dung NGAY TRUOC "km/h"; so con lai (neu co) = gioi han.
+    NSDictionary *speedItem = nil; int speed = -1, limitFromSame = -1;
     for (NSDictionary *it in items) {
         NSString *t = it[@"t"];
-        if (SCPMentionsKmh(t)) { int v = SCPLeadingNumber(t); if (v >= 0) { speedItem = it; speed = v; break; } }
+        if (!SCPMentionsKmh(t)) continue;
+        NSArray<NSNumber *> *nums = SCPNumbersBeforeKmh(t);
+        if (!nums.count) continue;
+        speedItem = it; speed = nums.lastObject.intValue;
+        if (nums.count >= 2) { int cand = nums[nums.count - 2].intValue; if (cand >= 5 && cand <= 200) limitFromSame = cand; }
+        break;
     }
     if (!speedItem) {
         // "km/h" dung rieng -> so gan no nhat
@@ -421,8 +437,8 @@ static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString
             }
         }
     }
-    int limit = -1;
-    if (speedItem) {
+    int limit = limitFromSame;
+    if (speedItem && limit < 0) {
         CGRect sf = [speedItem[@"f"] CGRectValue]; CGFloat best = 1e9;
         for (NSDictionary *it in items) {
             if (it == speedItem) continue;
@@ -508,7 +524,7 @@ static void SCPStartSpeedScanner(void)
 {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         SCPLog("speed scan: bat dau");
-        [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *t) { SCPScanSpeed(); }];
+        [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) { SCPScanSpeed(); }];   // cap nhat lien tuc
     });
 }
 
