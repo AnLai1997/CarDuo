@@ -1328,7 +1328,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 
     NSMutableSet *transitions = getIvar(appVC, @"_activeTransitions");
     __weak SCPSplitWindow *weakSelf = self;
-    int orientation = pane.orientation;
     objcInvoke_1(transaction, @"setCompletionBlock:", ^(int result) {
         [transitions removeObject:transaction];
         id launchTx = getIvar(transaction, @"_processLaunchTransaction");
