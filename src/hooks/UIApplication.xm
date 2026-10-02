@@ -1,4 +1,5 @@
 #import "../common.h"
+#import <notify.h>
 
 // Inject vao app nguoi dung: nhan yeu cau xoay tu SpringBoard
 %group APPS
@@ -38,33 +39,21 @@ static long long SCPEffectiveOrientation(void)
     return appWantsOrientation > 0 ? appWantsOrientation : orientationOverride;
 }
 
-// Bao cho SpringBoard: app nay muon huong `o` (0 = ve huong cua ngan). SpringBoard dat vao scene settings
-// -> UIKit xoay chac chan (giong luc keo num chia: chi khi settings moi toi thi app moi xoay).
+// Bao cho SpringBoard: app nay vua doi yeu cau xoay (o = huong muon, 0 = ve huong ngan, 0xFF = chi "lay" lai).
+// SpringBoard se gui lai scene settings -> UIKit trong app tinh lai huong dung theo app (giong luc keo num chia).
+// Dung Darwin notify + state vi distributed notification co the bi sandbox cua app chan.
 static void SCPTellSpringBoard(long long o)
 {
-    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-        postNotificationName:SCP_NOTIF_APP_ORIENTATION object:[[NSBundle mainBundle] bundleIdentifier]
-                    userInfo:@{@"orientation": @(o)}];
-}
-
-// Ep moi cua so cua app xoay ve huong dang ap. Goi sau `delay` giay de chay SAU khi UIKit xu ly xong
-// yeu cau cua app (neu goi ngay thi UIKit co the xoay de len). Khong xoay that cho den khi SpringBoard
-// doi khung scene -> phai tu kich.
-static void SCPApplyOrientation(double delay)
-{
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        long long o = SCPEffectiveOrientation();
-        if (o <= 0) return;
-        NSMutableArray<UIWindow *> *wins = [NSMutableArray array];
-        for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
-            if ([sc isKindOfClass:[UIWindowScene class]]) [wins addObjectsFromArray:((UIWindowScene *)sc).windows];
-        }
-        for (UIWindow *w in wins) {
-            if (w.hidden || !w.rootViewController) continue;
-            ((void (*)(id, SEL, long long, double, BOOL))objc_msgSend)(w,
-                NSSelectorFromString(@"_setRotatableViewOrientation:duration:force:"), o, 0.25, YES);
-        }
-    });
+    static int token = 0;
+    static CFAbsoluteTime last = 0;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    if (o == 0xFF && now - last < 0.7) return;   // chan vong lap: app doi khung -> goi lai -> lay lai...
+    last = now;
+    if (!token) notify_register_check(SCP_DARWIN_APP_ORIENT, &token);
+    uint64_t state = (SCPBundleHash([[NSBundle mainBundle] bundleIdentifier]) << 8) | ((uint64_t)o & 0xFF);
+    notify_set_state(token, state);
+    notify_post(SCP_DARWIN_APP_ORIENT);
+    SCPLog("bao SpringBoard: huong %lld", o);
 }
 
 // Tu mask huong app xin -> 1 huong cu the. Co dọc thi coi nhu "tra ve binh thuong" (0).
@@ -97,7 +86,15 @@ static long long SCPOrientationFromMask(NSUInteger mask)
         SCPTellSpringBoard(appWantsOrientation);
     }
     %orig;
-    if (orientationOverride > 0) { SCPApplyOrientation(0.05); SCPApplyOrientation(0.4); }   // ep ngay, va ep lai sau khi UIKit xong
+}
+%end
+
+// App doi danh sach huong ho tro (iOS 16) -> cung can lay lai scene
+%hook UIViewController
+- (void)setNeedsUpdateOfSupportedInterfaceOrientations
+{
+    %orig;
+    if (orientationOverride > 0) SCPTellSpringBoard(0xFF);
 }
 %end
 
@@ -111,7 +108,6 @@ static long long SCPOrientationFromMask(NSUInteger mask)
         SCPTellSpringBoard(appWantsOrientation);
     }
     %orig;
-    if (orientationOverride > 0) { SCPApplyOrientation(0.05); SCPApplyOrientation(0.4); }
 }
 
 // App hoi "thiet bi dang xoay huong nao" -> tra loi theo huong dang ap (ngan hoac app xin),

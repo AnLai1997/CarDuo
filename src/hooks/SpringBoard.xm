@@ -75,17 +75,13 @@ static void SCPHandlePendingRequest(void)
         }
     }];
 
-    // App dang host xin xoay (YouTube fullscreen) -> dat huong vao scene settings cua ngan do
-    [dnc addObserverForName:SCP_NOTIF_APP_ORIENTATION object:nil queue:[NSOperationQueue mainQueue]
-                 usingBlock:^(NSNotification *note) {
-        NSString *bid = note.object;
-        int o = [note.userInfo[@"orientation"] intValue];
-        SCPSplitWindow *w = [SCPSplitWindow current];
-        if (w && bid) [w setRequestedOrientation:o forApp:bid];
-    }];
-
     // Settings / app URL -> Darwin notification
-    int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0;
+    int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0, tokOrient = 0;
+    // App dang host vua doi yeu cau xoay (YouTube fullscreen) -> lay lai scene settings cua ngan do
+    notify_register_dispatch(SCP_DARWIN_APP_ORIENT, &tokOrient, dispatch_get_main_queue(), ^(int t) {
+        uint64_t state = 0; notify_get_state(t, &state);
+        [[SCPSplitWindow current] appOrientationChangedWithHash:(state >> 8) orientation:(int)(state & 0xFF)];
+    });
     notify_register_dispatch(SCP_DARWIN_TEST,  &tok,      dispatch_get_main_queue(), ^(int t) { SCPOpenConfiguredPair(YES); });
     notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) { [[SCPSplitWindow current] dismiss]; });
     notify_register_dispatch(SCP_DARWIN_CLEARLOG, &tokClear, dispatch_get_main_queue(), ^(int t) { SCPLogClear(); SCPLog("log cleared"); });

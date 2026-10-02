@@ -18,6 +18,13 @@ const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 #define SCP_PIP_SCALE     0.36
 
 // Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
+// Tab "..." nho nhung vung cham no rong 16pt moi phia (de bam tren xe)
+@interface SCPTabView : UIView
+@end
+@implementation SCPTabView
+- (BOOL)pointInside:(CGPoint)p withEvent:(UIEvent *)e { return CGRectContainsPoint(CGRectInset(self.bounds, -16, -16), p); }
+@end
+
 @interface SCPDividerView : UIView
 @end
 @implementation SCPDividerView
@@ -173,6 +180,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)applyPairRatioIfAny;
 - (void)updatePaneActionStates;
 - (void)layoutBarContentForPane:(SCPAppPane *)pane;
+- (void)nudgePane:(SCPAppPane *)pane;
 - (void)mirrorRightPaneIfEnabled;
 - (void)teardownMirror;
 @end
@@ -363,11 +371,11 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pane.containerView.layer.cornerRadius = 14;
 
     // Tab "..." o giua mep tren: vien thuoc trang mo, 3 cham den (kieu HyperOS), bo goc duoi
-    UIView *h = [[UIView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
-    h.backgroundColor = [UIColor colorWithWhite:1 alpha:0.88];
+    UIView *h = [[SCPTabView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
+    h.backgroundColor = [UIColor colorWithWhite:1 alpha:0.8];
     h.layer.cornerRadius = SCP_PANE_HANDLE_HEIGHT / 2;
     h.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
-    id dotsCfg = [UIImageSymbolConfiguration configurationWithPointSize:15 weight:UIImageSymbolWeightBold];
+    id dotsCfg = [UIImageSymbolConfiguration configurationWithPointSize:10 weight:UIImageSymbolWeightBold];
     UIImageView *dots = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis" withConfiguration:dotsCfg]];
     dots.tintColor = SCPInk();
     dots.contentMode = UIViewContentModeCenter;
@@ -1358,9 +1366,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
     if (scene) {
         CGRect target = CGRectMake(0, 0, paneSize.width, paneSize.height);
-        // Huong giao dien dat ngay trong scene settings: app xin (fullscreen video) thi uu tien, khong thi theo ngan.
-        // UIKit trong app xoay theo cai nay khi nhan settings moi -> khong can ep tu ben trong app.
-        long long orient = pane.requestedOrientation > 0 ? pane.requestedOrientation : pane.orientation;
+        // App xin huong cu the (fullscreen video) thi dat luon vao scene settings.
+        long long orient = pane.requestedOrientation;   // 0 = de UIKit tu tinh theo app (hanh vi cu, da dung khi keo num)
         objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
             ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), target);
             if (orient > 0 && [settings respondsToSelector:NSSelectorFromString(@"setInterfaceOrientation:")])
@@ -1369,30 +1376,34 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     }
 }
 
-// App bao "toi muon xoay sang huong X" (0 = thoi, ve huong cua ngan) -> ghi vao ngan va day settings moi xuong app
-- (void)setRequestedOrientation:(int)orientation forApp:(NSString *)bundleID
+// App bao vua doi yeu cau xoay (o: huong muon, 0 = ve huong ngan, 0xFF = chi lay lai). Tim ngan theo hash bundle id,
+// roi "lay" scene: gui settings voi khung lech 1pt, ngay sau do gui lai khung dung -> UIKit trong app tinh lai huong
+// theo app (dung nhu luc keo num chia). Chi dat interfaceOrientation khi app xin huong cu the.
+- (void)appOrientationChangedWithHash:(uint64_t)bundleHash orientation:(int)orientation
 {
     for (SCPAppPane *p in self.panes) {
-        if (![p.bundleIdentifier isEqualToString:bundleID]) continue;
-        if (p.requestedOrientation == orientation) return;
-        p.requestedOrientation = orientation;
-        SCPLog("%@ xin huong %d -> cap nhat scene", bundleID, orientation);
-        [self layoutPane:p];
+        if (SCPBundleHash(p.bundleIdentifier) != bundleHash) continue;
+        if (orientation != 0xFF) p.requestedOrientation = orientation;
+        SCPLog("%@ doi yeu cau xoay (%d) -> lay lai scene", p.bundleIdentifier, orientation);
+        [self nudgePane:p];
         return;
     }
 }
 
-- (void)sceneMonitor:(id)monitor sceneWasDestroyed:(id)scene
+- (void)nudgePane:(SCPAppPane *)pane
 {
-    for (SCPAppPane *p in self.panes) {
-        if (p.sceneMonitor == monitor) {
-            SCPLog("%@ da bi huy -> dong ngan", p.bundleIdentifier);
-            [self closeSlot:(p == self.leftPane ? SCPSlotLeft : SCPSlotRight)];
-        }
-    }
-    // Khong con app nao: khong de cua so trong (nhin nhu man den) -> xe: dong split; thu: hien bang chon
-    if (self.panes.count == 0 && !self.pickerView) [self exitOrStayInDemo];
-    else [self relayoutPanes];
+    id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
+    if (!scene) return;
+    CGSize sz = pane.containerView.bounds.size;
+    CGRect off = CGRectMake(0, 0, sz.width, MAX(1, sz.height - 1));
+    objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
+        ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), off);
+    });
+    __weak SCPSplitWindow *weakSelf = self;
+    __weak SCPAppPane *weakPane = pane;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (weakPane) [weakSelf layoutPane:weakPane];
+    });
 }
 
 // ---------------------------------------------------------------------

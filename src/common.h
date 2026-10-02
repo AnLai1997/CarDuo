@@ -13,16 +13,23 @@
 #define SCP_NOTIF_LAUNCH        @"com.anpham.splitcarplay.launch"
 // SpringBoard -> app process: ep huong xoay
 #define SCP_NOTIF_ORIENTATION   @"com.anpham.splitcarplay.orientation"
-// App process -> SpringBoard: app tu xin xoay (vd YouTube fullscreen); SpringBoard dat huong vao scene settings
-#define SCP_NOTIF_APP_ORIENTATION @"com.anpham.splitcarplay.apporientation"
+// App process -> SpringBoard (Darwin notify, qua duoc sandbox cua app): app vua doi yeu cau xoay (YouTube fullscreen).
+// Payload trong notify state: (hash bundle id << 8) | huong (0 = ve huong ngan, 0xFF = chi can "lay" lai scene).
+#define SCP_DARWIN_APP_ORIENT "com.anpham.splitcarplay.apporient"
+static inline uint64_t SCPBundleHash(NSString *bid)
+{
+    uint32_t h = 2166136261u;
+    for (const char *c = bid.UTF8String; c && *c; c++) { h ^= (uint8_t)*c; h *= 16777619u; }
+    return h;
+}
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 
-// Moi ngan co tab "..." o giua mep tren; cham hoac keo xuong de hien hang nut tron trang (kieu HyperOS)
-// bat ra lan luot ngay duoi tab. Nut tron 52pt, icon den don sac; tab 96x22.
+// Moi ngan co tab "..." nho o giua mep tren (56x14, vung cham no rong 16pt moi phia); cham hoac keo xuong
+// de hien hang nut tron trang (kieu HyperOS) bat ra lan luot ngay duoi tab. Nut tron 52pt, icon den don sac.
 #define SCP_PANE_BAR_HEIGHT    64.0
-#define SCP_PANE_HANDLE_WIDTH  96.0
-#define SCP_PANE_HANDLE_HEIGHT 22.0
+#define SCP_PANE_HANDLE_WIDTH  56.0
+#define SCP_PANE_HANDLE_HEIGHT 14.0
 #define SCP_PANE_BORDER        2.5
 #define SCP_PANE_INSET         6.0    // ngan lui vao so voi mep man -> thay ro bo goc tren nen toi
 
