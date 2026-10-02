@@ -1406,11 +1406,13 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 
     id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
     if (scene) {
-        CGRect target = CGRectMake(0, 0, paneSize.width, paneSize.height);
-        // App xin huong cu the (fullscreen video) thi dat luon vao scene settings.
         // Huong giao dien dat thang vao scene settings: app xin/chi cho phep huong khac thi theo app, khong thi theo ngan.
         // Day la duong UIKit thuc su nghe theo (hook trong app khong du).
         long long orient = pane.requestedOrientation > 0 ? pane.requestedOrientation : pane.orientation;
+        // Khung scene tinh theo toa do DOC cua man hinh: giao dien ngang thi UIKit tu hoan doi rong/cao,
+        // nen phai gui (cao x rong) de cua so app ra dung (rong x cao) cua ngan -> khong bi scale sai.
+        BOOL landscape = (orient == UIInterfaceOrientationLandscapeLeft || orient == UIInterfaceOrientationLandscapeRight);
+        CGRect target = landscape ? CGRectMake(0, 0, paneSize.height, paneSize.width) : CGRectMake(0, 0, paneSize.width, paneSize.height);
         objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
             ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), target);
             if (orient > 0 && [settings respondsToSelector:NSSelectorFromString(@"setInterfaceOrientation:")])
@@ -1448,7 +1450,9 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
     if (!scene) return;
     CGSize sz = pane.containerView.bounds.size;
-    CGRect off = CGRectMake(0, 0, sz.width, MAX(1, sz.height - 1));
+    long long o = pane.requestedOrientation > 0 ? pane.requestedOrientation : pane.orientation;
+    BOOL landscape = (o == UIInterfaceOrientationLandscapeLeft || o == UIInterfaceOrientationLandscapeRight);
+    CGRect off = landscape ? CGRectMake(0, 0, sz.height, MAX(1, sz.width - 1)) : CGRectMake(0, 0, sz.width, MAX(1, sz.height - 1));
     objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
         ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), off);
     });
