@@ -14,6 +14,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) id appViewController;  // SBAppViewController
 @property (nonatomic, strong) id sceneMonitor;       // FBSceneMonitor
 @property (nonatomic) int orientation;               // UIInterfaceOrientation, mac dinh portrait
+@property (nonatomic) int requestedOrientation;      // huong app tu xin (YouTube fullscreen -> ngang), 0 = theo `orientation`
 @property (nonatomic, strong) UIView *pipHandle;      // thanh keo khi dang PiP
 // Option rieng cua ngan: dau "..." o giua mep tren, keo xuong de hien thanh nut (tu an sau vai giay)
 @property (nonatomic, strong) UIView *actionHandle;
@@ -49,7 +50,8 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)cycleLayoutPreset;                   // 50/50 -> 70/30 -> 30/70 -> 50/50
 - (void)toggleFullscreenForSlot:(SCPSlot)slot;   // fullscreen tam mot ngan, bam lai de ve split
 - (void)togglePiPForSlot:(SCPSlot)slot;          // thu ngan thanh o noi nho, bam lai de ve split
-- (void)beginSplitFromSinglePane;                // 1 ngan dang het man -> dua ve nua trai, nua phai hien bang chon app
+- (void)beginSplitFromSinglePane;
+- (void)setRequestedOrientation:(int)orientation forApp:(NSString *)bundleID;   // app xin xoay -> cap nhat scene settings                // 1 ngan dang het man -> dua ve nua trai, nua phai hien bang chon app
 - (NSArray<SCPAppPane *> *)panes;
 
 // Bang chon app (luoi icon moi app trong may). slot = Left -> chon xong tu hoi tiep cho Right.

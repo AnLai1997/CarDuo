@@ -13,6 +13,8 @@
 #define SCP_NOTIF_LAUNCH        @"com.anpham.splitcarplay.launch"
 // SpringBoard -> app process: ep huong xoay
 #define SCP_NOTIF_ORIENTATION   @"com.anpham.splitcarplay.orientation"
+// App process -> SpringBoard: app tu xin xoay (vd YouTube fullscreen); SpringBoard dat huong vao scene settings
+#define SCP_NOTIF_APP_ORIENTATION @"com.anpham.splitcarplay.apporientation"
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 

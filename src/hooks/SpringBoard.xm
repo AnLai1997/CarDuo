@@ -75,6 +75,15 @@ static void SCPHandlePendingRequest(void)
         }
     }];
 
+    // App dang host xin xoay (YouTube fullscreen) -> dat huong vao scene settings cua ngan do
+    [dnc addObserverForName:SCP_NOTIF_APP_ORIENTATION object:nil queue:[NSOperationQueue mainQueue]
+                 usingBlock:^(NSNotification *note) {
+        NSString *bid = note.object;
+        int o = [note.userInfo[@"orientation"] intValue];
+        SCPSplitWindow *w = [SCPSplitWindow current];
+        if (w && bid) [w setRequestedOrientation:o forApp:bid];
+    }];
+
     // Settings / app URL -> Darwin notification
     int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0;
     notify_register_dispatch(SCP_DARWIN_TEST,  &tok,      dispatch_get_main_queue(), ^(int t) { SCPOpenConfiguredPair(YES); });

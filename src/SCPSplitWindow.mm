@@ -1358,9 +1358,27 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
     if (scene) {
         CGRect target = CGRectMake(0, 0, paneSize.width, paneSize.height);
+        // Huong giao dien dat ngay trong scene settings: app xin (fullscreen video) thi uu tien, khong thi theo ngan.
+        // UIKit trong app xoay theo cai nay khi nhan settings moi -> khong can ep tu ben trong app.
+        long long orient = pane.requestedOrientation > 0 ? pane.requestedOrientation : pane.orientation;
         objcInvoke_1(scene, @"updateSettingsWithBlock:", ^(id settings) {
             ((void (*)(id, SEL, CGRect))objc_msgSend)(settings, NSSelectorFromString(@"setFrame:"), target);
+            if (orient > 0 && [settings respondsToSelector:NSSelectorFromString(@"setInterfaceOrientation:")])
+                ((void (*)(id, SEL, long long))objc_msgSend)(settings, NSSelectorFromString(@"setInterfaceOrientation:"), orient);
         });
+    }
+}
+
+// App bao "toi muon xoay sang huong X" (0 = thoi, ve huong cua ngan) -> ghi vao ngan va day settings moi xuong app
+- (void)setRequestedOrientation:(int)orientation forApp:(NSString *)bundleID
+{
+    for (SCPAppPane *p in self.panes) {
+        if (![p.bundleIdentifier isEqualToString:bundleID]) continue;
+        if (p.requestedOrientation == orientation) return;
+        p.requestedOrientation = orientation;
+        SCPLog("%@ xin huong %d -> cap nhat scene", bundleID, orientation);
+        [self layoutPane:p];
+        return;
     }
 }
 

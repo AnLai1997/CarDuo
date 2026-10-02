@@ -38,6 +38,15 @@ static long long SCPEffectiveOrientation(void)
     return appWantsOrientation > 0 ? appWantsOrientation : orientationOverride;
 }
 
+// Bao cho SpringBoard: app nay muon huong `o` (0 = ve huong cua ngan). SpringBoard dat vao scene settings
+// -> UIKit xoay chac chan (giong luc keo num chia: chi khi settings moi toi thi app moi xoay).
+static void SCPTellSpringBoard(long long o)
+{
+    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+        postNotificationName:SCP_NOTIF_APP_ORIENTATION object:[[NSBundle mainBundle] bundleIdentifier]
+                    userInfo:@{@"orientation": @(o)}];
+}
+
 // Ep moi cua so cua app xoay ve huong dang ap. Goi sau `delay` giay de chay SAU khi UIKit xu ly xong
 // yeu cau cua app (neu goi ngay thi UIKit co the xoay de len). Khong xoay that cho den khi SpringBoard
 // doi khung scene -> phai tu kich.
@@ -85,6 +94,7 @@ static long long SCPOrientationFromMask(NSUInteger mask)
         NSUInteger mask = ((NSUInteger (*)(id, SEL))objc_msgSend)(prefs, @selector(interfaceOrientations));
         appWantsOrientation = SCPOrientationFromMask(mask);
         SCPLog("app xin huong mask=%lu -> %lld", (unsigned long)mask, appWantsOrientation);
+        SCPTellSpringBoard(appWantsOrientation);
     }
     %orig;
     if (orientationOverride > 0) { SCPApplyOrientation(0.05); SCPApplyOrientation(0.4); }   // ep ngay, va ep lai sau khi UIKit xong
@@ -98,6 +108,7 @@ static long long SCPOrientationFromMask(NSUInteger mask)
     if (orientationOverride > 0) {
         appWantsOrientation = (orientation == UIInterfaceOrientationLandscapeLeft || orientation == UIInterfaceOrientationLandscapeRight) ? orientation : 0;
         SCPLog("app setOrientation %lld -> %lld", orientation, appWantsOrientation);
+        SCPTellSpringBoard(appWantsOrientation);
     }
     %orig;
     if (orientationOverride > 0) { SCPApplyOrientation(0.05); SCPApplyOrientation(0.4); }
