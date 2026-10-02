@@ -32,9 +32,7 @@ static NSUInteger SCPAppEffectiveMask(void);
     appWantsOrientation = 0;
     fakeDeviceOrientation = (orientationOverride > 0) ? [note.userInfo[@"device"] intValue] : 0;
     SCPLog("thiet bi gia -> %d (huong ngan %d, doi=%d)", fakeDeviceOrientation, orientationOverride, (int)changed);
-    // Bao UIKit/app rang "thiet bi" vua xoay de app (YouTube) doc lai huong
-    [[NSNotificationCenter defaultCenter] postNotificationName:UIDeviceOrientationDidChangeNotification object:[UIDevice currentDevice]];
-    if (!changed) return;   // chi doi "thiet bi gia" (hinh dang ngan) -> KHONG ep xoay lai, keo pha fullscreen cua app
+    if (!changed) return;   // khong co gi doi -> khong ep xoay, khong phat su kien xoay (tranh YouTube tu vao/ra fullscreen)
 
     int o = orientationOverride;
     if (o == -1) o = MAX(1, (int)[[UIDevice currentDevice] orientation]);
