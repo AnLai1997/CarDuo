@@ -1,6 +1,7 @@
 #import "../common.h"
 #import "../SCPSplitWindow.h"
 #import "../SCPPrefs.h"
+#import "../SCPSpeedBubble.h"
 #import <notify.h>
 
 #define SCP_DARWIN_TEST     "com.anpham.splitcarplay.test"      // nut "Mo split thu" trong Settings
@@ -83,7 +84,13 @@ static void SCPHandlePendingRequest(void)
     }];
 
     // Settings / app URL -> Darwin notification
-    int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0, tokOrient = 0;
+    int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0, tokOrient = 0, tokSpeed = 0;
+    // Vietmap Live gui toc do + gioi han -> bong bong
+    notify_register_dispatch(SCP_DARWIN_SPEED, &tokSpeed, dispatch_get_main_queue(), ^(int t) {
+        uint64_t state = 0; notify_get_state(t, &state);
+        int flags = (int)((state >> 16) & 0xFF), speed = (int)((state >> 8) & 0xFF), limit = (int)(state & 0xFF);
+        [[SCPSpeedBubble shared] updateSpeed:((flags & 1) ? speed : -1) limit:((flags & 2) ? limit : -1)];
+    });
     // App dang host vua doi yeu cau xoay (YouTube fullscreen) -> lay lai scene settings cua ngan do
     notify_register_dispatch(SCP_DARWIN_APP_ORIENT, &tokOrient, dispatch_get_main_queue(), ^(int t) {
         uint64_t state = 0; notify_get_state(t, &state);
@@ -92,7 +99,7 @@ static void SCPHandlePendingRequest(void)
         [[SCPSplitWindow current] appOrientationChangedWithHash:hash orientation:code supportedMask:mask];
     });
     notify_register_dispatch(SCP_DARWIN_TEST,  &tok,      dispatch_get_main_queue(), ^(int t) { SCPOpenConfiguredPair(YES); });
-    notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) { [[SCPSplitWindow current] dismiss]; });
+    notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) { [[SCPSplitWindow current] dismiss]; [[SCPSpeedBubble shared] refresh]; });
     notify_register_dispatch(SCP_DARWIN_CLEARLOG, &tokClear, dispatch_get_main_queue(), ^(int t) { SCPLogClear(); SCPLog("log cleared"); });
     notify_register_dispatch(SCP_DARWIN_OPEN,  &tokOpen,  dispatch_get_main_queue(), ^(int t) { SCPHandlePendingRequest(); });
     if ([SCPPrefs testOnMainScreen]) {

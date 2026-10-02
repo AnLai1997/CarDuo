@@ -71,6 +71,9 @@ theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
 - Khi chỉ còn 1 app chiếm hết màn, hàng nút của tab "..." có thêm nút "chia đôi": app hiện tại về nửa trái,
   nửa phải hiện bảng chọn app để ghép cặp (Huỷ thì về lại toàn màn).
 Mục "Gỡ lỗi" có nút mở/đóng split ngay trên màn iPhone.
+Bong bóng tốc độ: khi Vietmap Live đang chạy nhưng không hiện trong ngăn nào, một thẻ nhỏ trên màn xe hiện
+tốc độ hiện tại và biển giới hạn (hook trong Vietmap quét các nhãn số đang hiển thị: số cỡ chữ lớn nhất là tốc độ,
+số nằm trong khung tròn là giới hạn; gửi về SpringBoard mỗi giây). Kéo được, tắt được trong Cài đặt.
 Cần package `PreferenceLoader` và `AltList` (Sileo tự cài theo Depends).
 
 ## Test ngay trên màn iPhone (chưa có xe, cách cũ qua SSH)

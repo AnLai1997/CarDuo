@@ -15,6 +15,7 @@
 + (BOOL)testOnMainScreen;
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
++ (BOOL)speedBubble;           // bong bong toc do tu Vietmap Live khi app khong hien
 
 // Cap app yeu thich 1..3: @{ @"name", @"left", @"right" } (nil neu chua dat)
 + (NSDictionary *)favorite:(NSInteger)index;

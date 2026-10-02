@@ -1,4 +1,5 @@
 #import "SCPSplitWindow.h"
+#import "SCPSpeedBubble.h"
 #import "SCPPrefs.h"
 
 // =====================================================================
@@ -56,7 +57,7 @@ id SCPGetCarPlayCADisplay(void)
 }
 
 // Tao UIRootSceneWindow tren man xe (nil neu xe chua ket noi)
-static UIWindow *SCPMakeCarWindow(void)
+UIWindow *SCPMakeCarWindow(void)
 {
     id carDisplay = SCPGetCarPlayCADisplay();
     if (!carDisplay) { SCPLog("khong tim thay CADisplay cua CarPlay"); return nil; }
@@ -69,7 +70,7 @@ static UIWindow *SCPMakeCarWindow(void)
 }
 
 // Cua so tren man iPhone (che do thu / mirror)
-static UIWindow *SCPMakePhoneWindow(BOOL landscape)
+UIWindow *SCPMakePhoneWindow(BOOL landscape)
 {
     CGRect sb = [UIScreen mainScreen].bounds;
     UIWindowScene *mainScene = nil;
@@ -883,6 +884,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
     if (self.demoExitButton) [self.rootWindow bringSubviewToFront:self.demoExitButton];
+    if (!live) [[SCPSpeedBubble shared] refresh];   // Vietmap vua hien/an trong ngan -> an/hien bong bong
     [self updatePaneActionStates];
 }
 

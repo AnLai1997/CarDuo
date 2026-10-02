@@ -81,6 +81,20 @@
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>BONG BÓNG TỐC ĐỘ</string>
+			<key>footerText</key><string>Khi Vietmap Live đang chạy nhưng không hiện trong ngăn nào (bị che hoặc đã đóng ngăn mà app vẫn chạy ngầm), hiện bong bóng nhỏ trên màn xe với tốc độ hiện tại và biển giới hạn. Kéo được. Tự ẩn khi Vietmap hiện lại hoặc không có dữ liệu.</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Bong bóng tốc độ (Vietmap Live)</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>SpeedBubble</string>
+			<key>default</key><true/>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CẶP APP YÊU THÍCH</string>
 			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trong dấu "..." của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
 		</dict>

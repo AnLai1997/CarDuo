@@ -61,6 +61,16 @@ typedef NS_ENUM(int, SCPSlot) {
 - (void)hideAppPicker;
 @end
 
+// Tao cua so tren man xe (nil neu chua ket noi) / tren man iPhone (che do thu)
+#ifdef __cplusplus
+extern "C" {
+#endif
+UIWindow *SCPMakeCarWindow(void);
+UIWindow *SCPMakePhoneWindow(BOOL landscape);
+#ifdef __cplusplus
+}
+#endif
+
 // Nut "chia man hinh" noi tren man CarPlay (cua so nho rieng, luon hien khi xe ket noi)
 @interface SCPLauncherButton : NSObject
 + (void)showOnCarDisplay;

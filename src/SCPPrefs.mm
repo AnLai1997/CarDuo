@@ -39,6 +39,7 @@ static NSString *str(NSString *key)
 + (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
++ (BOOL)speedBubble        { id v = value(@"SpeedBubble");      return v ? [v boolValue] : YES; }
 
 + (NSDictionary *)favorite:(NSInteger)index
 {

@@ -25,6 +25,9 @@ static inline uint64_t SCPBundleHash(NSString *bid)
 }
 // App process -> SpringBoard: chuyen tiep 1 dong log (app bi sandbox, khong ghi duoc file log chung)
 #define SCP_NOTIF_LOG           @"com.anpham.splitcarplay.log"
+// Vietmap Live -> SpringBoard: toc do hien tai + gioi han (Darwin notify; state = flags<<16 | speed<<8 | limit)
+#define SCP_DARWIN_SPEED        "com.anpham.splitcarplay.speed"
+#define SCP_SPEED_APP           @"vn.vietmap.live"
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 
