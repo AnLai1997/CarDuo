@@ -15,6 +15,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) id sceneMonitor;       // FBSceneMonitor
 @property (nonatomic) int orientation;               // UIInterfaceOrientation, mac dinh portrait
 @property (nonatomic) int requestedOrientation;      // huong app tu xin (YouTube fullscreen -> ngang), 0 = theo `orientation`
+@property (nonatomic) int reportedDeviceOrientation; // huong "thiet bi" da bao cho app theo hinh dang ngan (3 = ngan rong, 1 = ngan cao)
 @property (nonatomic, strong) UIView *pipHandle;      // thanh keo khi dang PiP
 // Option rieng cua ngan: dau "..." o giua mep tren, keo xuong de hien thanh nut (tu an sau vai giay)
 @property (nonatomic, strong) UIView *actionHandle;

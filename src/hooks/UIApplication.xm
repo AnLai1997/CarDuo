@@ -8,6 +8,9 @@ static int orientationOverride = -1;
 // Huong app TU XIN (vd YouTube bam fullscreen video -> xin ngang). 0 = khong xin gi, dung huong cua ngan.
 // Khi app xin huong khac, uu tien huong app xin; khi app xin lai doc / cho phep moi huong -> ve huong cua ngan.
 static long long appWantsOrientation = 0;
+// Huong "thiet bi" gia, theo hinh dang ngan (SpringBoard gui): 3 = ngan rong -> app coi nhu may nam ngang
+// (YouTube bam fullscreen se xoay ngang that), 1 = ngan cao. 0 = chua biet, dung huong that.
+static int fakeDeviceOrientation = 0;
 
 %hook UIApplication
 - (id)init
@@ -24,6 +27,10 @@ static long long appWantsOrientation = 0;
 {
     orientationOverride = [note.userInfo[@"orientation"] intValue];
     appWantsOrientation = 0;
+    fakeDeviceOrientation = (orientationOverride > 0) ? [note.userInfo[@"device"] intValue] : 0;
+    SCPLog("thiet bi gia -> %d", fakeDeviceOrientation);
+    // Bao UIKit/app rang "thiet bi" vua xoay de app (YouTube) doc lai huong
+    [[NSNotificationCenter defaultCenter] postNotificationName:UIDeviceOrientationDidChangeNotification object:[UIDevice currentDevice]];
     int o = orientationOverride;
     if (o == -1) o = MAX(1, (int)[[UIDevice currentDevice] orientation]);
     SCPLog("app xoay -> %d", o);
@@ -134,8 +141,8 @@ static NSUInteger SCPEffectiveMask(UIWindow *w)
 // khong theo huong that cua iPhone dang gan tren xe.
 - (long long)orientation
 {
-    long long o = SCPEffectiveOrientation();
-    if (o > 0) return o;   // gia tri so trung nhau giua UIInterface/UIDeviceOrientation
+    if (appWantsOrientation > 0) return appWantsOrientation;   // gia tri so trung nhau giua UIInterface/UIDeviceOrientation
+    if (fakeDeviceOrientation > 0) return fakeDeviceOrientation;
     return %orig;
 }
 %end

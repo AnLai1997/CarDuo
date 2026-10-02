@@ -170,6 +170,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)relayoutPanesLive:(BOOL)live;
 - (void)layoutPane:(SCPAppPane *)pane;
 - (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live;
+- (int)deviceOrientationForPane:(SCPAppPane *)pane;
 - (void)layoutPipHandleForPane:(SCPAppPane *)pane;
 - (CGRect)frameForSlot:(SCPSlot)slot;
 - (CGRect)dividerFrame;
@@ -1334,7 +1335,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         if (!process) { SCPLog("khong co FBProcess sau launch (result=%d)", result); return; }
         objcInvoke_1(process, @"_executeBlockAfterLaunchCompletes:", ^{
             [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-                postNotificationName:SCP_NOTIF_ORIENTATION object:appID userInfo:@{@"orientation": @(orientation)}];
+                postNotificationName:SCP_NOTIF_ORIENTATION object:appID
+                            userInfo:@{@"orientation": @(orientation), @"device": @([weakSelf deviceOrientationForPane:pane])}];
             dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf layoutPane:pane]; });
         });
     });
@@ -1364,6 +1366,15 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     [self layoutPane:pane live:NO];
 }
 
+// Huong "thiet bi" bao cho app: ngan rong hon cao -> ngang (3), nguoc lai -> doc (1)
+- (int)deviceOrientationForPane:(SCPAppPane *)pane
+{
+    CGSize sz = pane.containerView.bounds.size;
+    int o = (sz.width > sz.height) ? 3 : 1;
+    if (pane.reportedDeviceOrientation == 0) pane.reportedDeviceOrientation = o;
+    return o;
+}
+
 // live=YES: dang keo thanh phan cach -> chi doi khung container, resize scene khi tha tay
 - (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live
 {
@@ -1375,6 +1386,15 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 
     CGSize paneSize = pane.containerView.bounds.size;
     if (paneSize.width < 1) return;
+    // Hinh dang ngan doi (rong <-> cao) -> bao lai cho app "thiet bi" dang ngang/doc. YouTube dua vao day de chon
+    // fullscreen ngang (video lap day) hay fullscreen doc (video co dai den).
+    int devO = [self deviceOrientationForPane:pane];
+    if (devO != pane.reportedDeviceOrientation && pane.reportedDeviceOrientation != 0) {
+        pane.reportedDeviceOrientation = devO;
+        [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+            postNotificationName:SCP_NOTIF_ORIENTATION object:pane.bundleIdentifier
+                        userInfo:@{@"orientation": @(pane.orientation), @"device": @(devO)}];
+    }
     [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
     hostingContentView.transform = CGAffineTransformIdentity;
 
