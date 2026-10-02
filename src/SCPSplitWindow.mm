@@ -1374,12 +1374,12 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         postNotificationName:SCP_NOTIF_ORIENTATION object:pane.bundleIdentifier userInfo:info];
 }
 
-// Huong "thiet bi" bao cho app: CO DINH ngang (3). Khong doi theo hinh dang ngan nua, vi moi lan doi
-// YouTube coi nhu may vua xoay -> tu vao/ra fullscreen lien tuc khi keo. Ngang de khi nguoi dung tu bam
-// fullscreen thi YouTube chon fullscreen ngang (video lap day) thay vi fullscreen doc co dai den.
+// Huong "thiet bi" bao cho app: CO DINH = huong cua ngan (doc). Khong doi theo hinh dang ngan, vi moi lan doi
+// YouTube coi nhu may vua xoay -> tu vao/ra fullscreen lien tuc khi keo. Log cho thay YouTube xin ngang khi bam
+// fullscreen mien la no DA NHAN su kien xoay (gia tri nao cung duoc); phia app lo phat su kien do.
 - (int)deviceOrientationForPane:(SCPAppPane *)pane
 {
-    return 3;
+    return pane.orientation > 0 ? pane.orientation : 1;
 }
 
 // live=YES: dang keo thanh phan cach -> chi doi khung container, resize scene khi tha tay

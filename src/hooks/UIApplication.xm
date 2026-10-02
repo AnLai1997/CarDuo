@@ -12,6 +12,15 @@ static long long appWantsOrientation = 0;
 // (YouTube bam fullscreen se xoay ngang that), 1 = ngan cao. 0 = chua biet, dung huong that.
 static int fakeDeviceOrientation = 0;
 static NSUInteger SCPAppEffectiveMask(void);
+// Phat su kien "thiet bi vua xoay" (gia) sau `delay` giay
+static void SCPPostFakeDeviceRotation(double delay)
+{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (fakeDeviceOrientation <= 0) return;
+        SCPLog("phat su kien xoay gia (%d)", fakeDeviceOrientation);
+        [[NSNotificationCenter defaultCenter] postNotificationName:UIDeviceOrientationDidChangeNotification object:[UIDevice currentDevice]];
+    });
+}
 
 %hook UIApplication
 - (id)init
@@ -33,6 +42,9 @@ static NSUInteger SCPAppEffectiveMask(void);
     fakeDeviceOrientation = (orientationOverride > 0) ? [note.userInfo[@"device"] intValue] : 0;
     SCPLog("thiet bi gia -> %d (huong ngan %d, doi=%d)", fakeDeviceOrientation, orientationOverride, (int)changed);
     if (!changed) return;   // khong co gi doi -> khong ep xoay, khong phat su kien xoay (tranh YouTube tu vao/ra fullscreen)
+    // YouTube chi xin xoay ngang khi bam fullscreen neu truoc do no DA nhan 1 su kien xoay thiet bi (log 13:22 vs 13:51).
+    // Phat vai lan sau khi app len (observer cua app co the chua dang ky luc nhan thong bao nay).
+    if (fakeDeviceOrientation > 0) for (NSNumber *d in @[@0.3, @1.5, @4.0]) SCPPostFakeDeviceRotation(d.doubleValue);
 
     int o = orientationOverride;
     if (o == -1) o = MAX(1, (int)[[UIDevice currentDevice] orientation]);
@@ -158,6 +170,12 @@ static long long SCPOrientationFromMask(NSUInteger mask)
 
 // App cu: ep xoay bang [UIDevice setOrientation:] (KVC "orientation")
 %hook UIDevice
+// App bat dau lang nghe xoay -> phat ngay 1 su kien gia de app biet "huong hien tai"
+- (void)beginGeneratingDeviceOrientationNotifications
+{
+    %orig;
+    if (fakeDeviceOrientation > 0) SCPPostFakeDeviceRotation(0.2);
+}
 - (void)setOrientation:(long long)orientation animated:(BOOL)animated
 {
     if (orientationOverride > 0) {
