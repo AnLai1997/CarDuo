@@ -29,11 +29,33 @@ static int orientationOverride = -1;
 }
 %end
 
+// Chi ep ve huong cua ngan khi app CHO PHEP huong do. Neu app dang chi ho tro huong khac
+// (vd YouTube fullscreen video chi cho ngang) thi de UIKit xoay theo y app -> video khong bi bop doc.
+static BOOL SCPRootSupports(UIWindow *w, long long orientation)
+{
+    UIViewController *vc = w.rootViewController;
+    if (!vc) return YES;
+    UIInterfaceOrientationMask mask = vc.supportedInterfaceOrientations;
+    return (mask & (1 << orientation)) != 0;
+}
+
 %hook UIWindow
 - (void)_setRotatableViewOrientation:(long long)orientation duration:(double)duration force:(BOOL)force
 {
-    if (orientationOverride > 0) return %orig(orientationOverride, duration, force);
+    if (orientationOverride > 0 && orientation != orientationOverride && SCPRootSupports(self, orientationOverride)) {
+        return %orig(orientationOverride, duration, force);
+    }
     %orig;
+}
+%end
+
+// App hoi "thiet bi dang xoay huong nao" (YouTube dung de tu vao/ra fullscreen) -> tra loi theo huong cua ngan,
+// khong theo huong that cua iPhone dang gan tren xe.
+%hook UIDevice
+- (long long)orientation
+{
+    if (orientationOverride > 0) return orientationOverride;   // gia tri so trung nhau giua UIInterface/UIDeviceOrientation
+    return %orig;
 }
 %end
 
