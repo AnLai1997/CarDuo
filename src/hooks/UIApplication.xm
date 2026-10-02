@@ -66,13 +66,28 @@ static long long SCPOrientationFromMask(NSUInteger mask)
     return 0;
 }
 
+// Mask huong ma app DANG cho phep: lay tu view controller tren cung cua chuoi present
+// (YouTube fullscreen present mot VC chi cho ngang; root VC van tra loi "moi huong").
+static NSUInteger SCPEffectiveMask(UIWindow *w)
+{
+    UIViewController *vc = w.rootViewController;
+    if (!vc) return UIInterfaceOrientationMaskAll;
+    while (vc.presentedViewController && !vc.presentedViewController.isBeingDismissed) vc = vc.presentedViewController;
+    NSUInteger mask = vc.supportedInterfaceOrientations;
+    return mask ? mask : UIInterfaceOrientationMaskAll;
+}
+
 %hook UIWindow
 - (void)_setRotatableViewOrientation:(long long)orientation duration:(double)duration force:(BOOL)force
 {
     long long target = SCPEffectiveOrientation();
-    SCPLog("rotate: UIKit xin %lld, override=%d appWants=%lld -> ap %lld (force=%d, root=%@)", orientation, orientationOverride,
-           appWantsOrientation, (target > 0 ? target : orientation), (int)force, NSStringFromClass([self.rootViewController class]));
-    if (target > 0 && orientation != target) return %orig(target, duration, force);
+    NSUInteger mask = SCPEffectiveMask(self);
+    // Chi ep ve huong cua ngan khi app con cho phep huong do. App dang chi cho ngang (fullscreen video)
+    // -> de UIKit xoay theo y app.
+    BOOL canForce = target > 0 && (mask & (1u << target)) != 0;
+    SCPLog("rotate: UIKit xin %lld, override=%d appWants=%lld mask=%lu -> ap %lld (force=%d)", orientation, orientationOverride,
+           appWantsOrientation, (unsigned long)mask, (canForce ? target : orientation), (int)force);
+    if (canForce && orientation != target) return %orig(target, duration, force);
     %orig;
 }
 %end
