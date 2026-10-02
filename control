@@ -3,7 +3,7 @@ Name: CarDuo
 Version: 0.2.0
 Architecture: iphoneos-arm64
 Description: Split CarPlay screen - personal build (Dopamine rootless, iOS 16.5)
-Author: AnLai97 <embteam@vn.innova.com>
-Maintainer: AnLai97 <embteam@vn.innova.com>
+Author: AnLai97 <laihoangan123456@gmail.com>
+Maintainer: AnLai97 <laihoangan123456@gmail.com>
 Section: Tweaks
 Depends: mobilesubstrate, preferenceloader, com.opa334.altlist, firmware (>= 15.0)
