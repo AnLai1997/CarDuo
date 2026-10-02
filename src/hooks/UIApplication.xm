@@ -264,6 +264,57 @@ static void SCPCollectLabels(UIView *v, NSMutableArray<UILabel *> *out, int dept
     for (UIView *c in v.subviews) SCPCollectLabels(c, out, depth + 1);
 }
 
+// View tron bao quanh nhan (chinh no hoac view cha 2 cap)
+static UIView *SCPCircleAround(UIView *v)
+{
+    for (UIView *x = v.superview; x && x != v.window; x = x.superview) {
+        if (SCPIsCircle(x)) return x;
+        if (x.superview && x.superview.superview == nil) break;
+        if (x == v.superview.superview.superview) break;   // toi da 3 cap
+    }
+    return nil;
+}
+
+// Mau vien cua vong tron: layer.borderColor, hoac CAShapeLayer strokeColor, hoac view con tron co vien
+static UIColor *SCPRingColor(UIView *v, int depth)
+{
+    if (!v || depth > 2) return nil;
+    if (v.layer.borderWidth >= 1 && v.layer.borderColor) return [UIColor colorWithCGColor:v.layer.borderColor];
+    for (CALayer *l in v.layer.sublayers) {
+        if ([l isKindOfClass:[CAShapeLayer class]]) {
+            CAShapeLayer *sh = (CAShapeLayer *)l;
+            if (sh.lineWidth >= 1 && sh.strokeColor) return [UIColor colorWithCGColor:sh.strokeColor];
+        }
+    }
+    for (UIView *c in v.subviews) {
+        if ([c isKindOfClass:[UILabel class]]) continue;
+        UIColor *col = SCPRingColor(c, depth + 1);
+        if (col) return col;
+    }
+    return nil;
+}
+
+// 1 = do (gioi han), 2 = xanh duong (toc do), 0 = khong ro
+static int SCPClassifyRing(UIColor *c)
+{
+    if (!c) return 0;
+    CGFloat r = 0, g = 0, b = 0, a = 0;
+    if (![c getRed:&r green:&g blue:&b alpha:&a]) { CGFloat w = 0; if ([c getWhite:&w alpha:&a]) return 0; }
+    if (r > 0.55 && g < 0.45 && b < 0.45) return 1;
+    if (b > 0.5 && r < 0.45) return 2;
+    return 0;
+}
+
+// Trong vong tron co nhan "km/h" (Vietmap: vong xanh "0 km/h")
+static BOOL SCPHasUnitLabel(UIView *circle)
+{
+    for (UIView *c in circle.subviews) {
+        if ([c isKindOfClass:[UILabel class]] && [[((UILabel *)c).text lowercaseString] containsString:@"km"]) return YES;
+        for (UIView *cc in c.subviews) if ([cc isKindOfClass:[UILabel class]] && [[((UILabel *)cc).text lowercaseString] containsString:@"km"]) return YES;
+    }
+    return NO;
+}
+
 static void SCPScanSpeed(void)
 {
     UIWindow *win = nil;
@@ -275,12 +326,23 @@ static void SCPScanSpeed(void)
     NSMutableArray<UILabel *> *labels = [NSMutableArray array];
     SCPCollectLabels(win, labels, 0);
 
-    UILabel *speedL = nil, *limitL = nil;
+    // Vietmap Live: 2 vong tron canh nhau - vien DO = gioi han, vien XANH (+ "km/h") = toc do hien tai
+    UILabel *speedL = nil, *limitL = nil, *bigPlain = nil;
+    NSMutableString *desc = [NSMutableString string];
     for (UILabel *l in labels) {
-        BOOL circle = SCPIsCircle(l.superview) || SCPIsCircle(l.superview.superview);
-        if (circle) { if (!limitL || l.font.pointSize > limitL.font.pointSize) limitL = l; }
-        else        { if (!speedL || l.font.pointSize > speedL.font.pointSize) speedL = l; }
+        UIView *circle = SCPCircleAround(l);
+        int kind = 0;
+        if (circle) {
+            kind = SCPClassifyRing(SCPRingColor(circle, 0));
+            if (kind == 0 && SCPHasUnitLabel(circle)) kind = 2;
+        }
+        [desc appendFormat:@" %@(f%.0f %@%@)", l.text, l.font.pointSize, NSStringFromClass([l.superview class]),
+             circle ? (kind == 1 ? @" vong-do" : (kind == 2 ? @" vong-xanh" : @" vong")) : @""];
+        if (kind == 1)      { if (!limitL || l.font.pointSize > limitL.font.pointSize) limitL = l; }
+        else if (kind == 2) { if (!speedL || l.font.pointSize > speedL.font.pointSize) speedL = l; }
+        else if (!circle)   { if (!bigPlain || l.font.pointSize > bigPlain.font.pointSize) bigPlain = l; }
     }
+    if (!speedL) speedL = bigPlain;   // du phong: khong nhan ra vong xanh -> so to nhat ngoai vong tron
     int speed = speedL ? speedL.text.intValue : -1;
     int limit = limitL ? limitL.text.intValue : -1;
     if (speed > 300) speed = -1;
@@ -296,12 +358,6 @@ static void SCPScanSpeed(void)
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     if (now - lastLog > 20) {
         lastLog = now;
-        NSMutableString *desc = [NSMutableString string];
-        for (UILabel *l in labels) {
-            UIView *sup = l.superview;
-            [desc appendFormat:@" %@(f%.0f %@%@)", l.text, l.font.pointSize, NSStringFromClass([sup class]),
-                 (SCPIsCircle(sup) || SCPIsCircle(sup.superview)) ? @" tron" : @""];
-        }
         SCPLog("speed scan: toc do=%d gioi han=%d; ung vien:%@", speed, limit, desc);
     }
 }
