@@ -7,6 +7,30 @@
 #define SCP_RING_GAP    10.0
 #define SCP_PAD         8.0
 
+// Cua so bong bong phu kin man (de keo tha tu do) nhung PHAI cho cham xuyen qua o moi cho khong co the/nut X,
+// neu khong no nuot het cham cua cua so split ben duoi. Cua so xe la UIRootSceneWindow (class rieng cua SpringBoard)
+// nen khong subclass tinh duoc -> tao subclass luc chay va doi class cua instance (object_setClass).
+static UIView *SCPPassThroughHitTest(id self, SEL _cmd, CGPoint p, UIEvent *e)
+{
+    struct objc_super sup = { self, class_getSuperclass(object_getClass(self)) };
+    UIView *v = ((UIView *(*)(struct objc_super *, SEL, CGPoint, UIEvent *))objc_msgSendSuper)(&sup, _cmd, p, e);
+    return (v == self) ? nil : v;   // cham vao chinh cua so (khong trung subview) -> bo qua, xuong duoi
+}
+
+static void SCPMakeWindowPassThrough(UIWindow *w)
+{
+    Class base = object_getClass(w);
+    NSString *name = [NSString stringWithFormat:@"SCPPassThrough_%@", NSStringFromClass(base)];
+    Class cls = objc_getClass(name.UTF8String);
+    if (!cls) {
+        cls = objc_allocateClassPair(base, name.UTF8String, 0);
+        Method m = class_getInstanceMethod(base, @selector(hitTest:withEvent:));
+        class_addMethod(cls, @selector(hitTest:withEvent:), (IMP)SCPPassThroughHitTest, method_getTypeEncoding(m));
+        objc_registerClassPair(cls);
+    }
+    object_setClass(w, cls);
+}
+
 @interface SCPSpeedBubble ()
 @property (nonatomic, strong) UIWindow *window;
 @property (nonatomic, strong) UIView *card;
@@ -196,6 +220,7 @@
     UIWindow *w = car ? SCPMakeCarWindow() : SCPMakePhoneWindow(YES);
     if (!w) return;
     self.onPhone = !car;
+    SCPMakeWindowPassThrough(w);
     w.windowLevel = UIWindowLevelStatusBar + 70;   // tren cua so split (1050) va nut launcher (1060)
     w.backgroundColor = [UIColor clearColor];
 
