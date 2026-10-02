@@ -171,6 +171,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)layoutPane:(SCPAppPane *)pane;
 - (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live;
 - (int)deviceOrientationForPane:(SCPAppPane *)pane;
+- (void)postOrientationToPane:(SCPAppPane *)pane;
 - (void)layoutPipHandleForPane:(SCPAppPane *)pane;
 - (CGRect)frameForSlot:(SCPSlot)slot;
 - (CGRect)dividerFrame;
@@ -1333,11 +1334,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         id launchTx = getIvar(transaction, @"_processLaunchTransaction");
         id process  = objcInvoke(launchTx, @"process");
         if (!process) { SCPLog("khong co FBProcess sau launch (result=%d)", result); return; }
-        // Block tao san (khong dat dict literal co dau phay trong tham so macro)
         void (^afterLaunch)(void) = ^{
-            NSDictionary *info = @{@"orientation": @(orientation), @"device": @([weakSelf deviceOrientationForPane:pane])};
-            [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-                postNotificationName:SCP_NOTIF_ORIENTATION object:appID userInfo:info];
+            [weakSelf postOrientationToPane:pane];
             dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf layoutPane:pane]; });
         };
         objcInvoke_1(process, @"_executeBlockAfterLaunchCompletes:", afterLaunch);
@@ -1368,6 +1366,15 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     [self layoutPane:pane live:NO];
 }
 
+// Gui huong cua ngan + huong "thiet bi" (theo hinh dang ngan) sang app
+- (void)postOrientationToPane:(SCPAppPane *)pane
+{
+    if (!pane.bundleIdentifier) return;
+    NSDictionary *info = @{@"orientation": @(pane.orientation), @"device": @([self deviceOrientationForPane:pane])};
+    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+        postNotificationName:SCP_NOTIF_ORIENTATION object:pane.bundleIdentifier userInfo:info];
+}
+
 // Huong "thiet bi" bao cho app: ngan rong hon cao -> ngang (3), nguoc lai -> doc (1)
 - (int)deviceOrientationForPane:(SCPAppPane *)pane
 {
@@ -1393,9 +1400,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     int devO = [self deviceOrientationForPane:pane];
     if (devO != pane.reportedDeviceOrientation && pane.reportedDeviceOrientation != 0) {
         pane.reportedDeviceOrientation = devO;
-        [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-            postNotificationName:SCP_NOTIF_ORIENTATION object:pane.bundleIdentifier
-                        userInfo:@{@"orientation": @(pane.orientation), @"device": @(devO)}];
+        [self postOrientationToPane:pane];
     }
     [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
     hostingContentView.transform = CGAffineTransformIdentity;
