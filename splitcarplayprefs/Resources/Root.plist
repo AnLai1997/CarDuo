@@ -265,14 +265,6 @@ splitcarplay://close</string>
 			<key>action</key><string>closeSplit</string>
 		</dict>
 		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Hiện log trên cửa sổ split</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
-			<key>key</key><string>ShowDebug</string>
-			<key>default</key><true/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
-		</dict>
-		<dict>
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Xoá file log</string>
 			<key>action</key><string>clearLog</string>

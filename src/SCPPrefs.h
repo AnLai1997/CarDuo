@@ -13,7 +13,6 @@
 + (NSInteger)paneOrientation;   // 1 = portrait, 3 = landscape
 + (CGFloat)splitRatio;          // ti le be rong ngan trai (0.2 - 0.8)
 + (BOOL)testOnMainScreen;
-+ (BOOL)showDebug;             // hien log tren cua so split
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
 

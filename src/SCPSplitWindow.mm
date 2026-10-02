@@ -140,8 +140,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) NSMutableArray<NSString *> *rightHistory;   // chong app ngan phai (vuot 2 ngon)
 @property (nonatomic, strong) UIWindow *mirrorWindow;  // mirror ngan phai tren iPhone (thu nghiem)
 @property (nonatomic, strong) id mirrorVC;
-@property (nonatomic, strong) UILabel *debugLabel;
-@property (nonatomic, strong) id logObserver;
 - (instancetype)initOnMainScreen:(BOOL)mainScreen;
 - (void)setupActionsForPane:(SCPAppPane *)pane;
 - (void)layoutActionsForPane:(SCPAppPane *)pane;
@@ -150,7 +148,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)hideAllPaneActions;
 - (SCPAppPane *)paneForView:(UIView *)v;
 - (SCPSlot)slotForPane:(SCPAppPane *)pane;
-- (void)bringChromeToFront;
 - (void)setupDivider;
 - (void)showDividerMenu;
 - (void)hideDividerMenu;
@@ -159,8 +156,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (NSString *)ratioTitle;
 - (void)layoutDividerMenu;
 - (BOOL)singlePane;
-- (void)setupDebugOverlay;
-- (void)refreshDebugOverlay;
 - (void)logDiagnostics;
 - (void)relayoutPanes;
 - (void)relayoutPanesLive:(BOOL)live;
@@ -225,7 +220,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 
     self.rootWindow.backgroundColor = [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
     [self setupDivider];
-    [self setupDebugOverlay];
 
     self.rootWindow.alpha = 0;
     self.rootWindow.hidden = NO;
@@ -589,12 +583,6 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     }];
 }
 
-// Log overlay luon nam tren cung
-- (void)bringChromeToFront
-{
-    if (self.debugLabel) [self.rootWindow bringSubviewToFront:self.debugLabel];
-}
-
 // ---------------------------------------------------------------------
 //  Bo cuc: trai/phai hoac tren/duoi, fullscreen, PiP
 // ---------------------------------------------------------------------
@@ -728,7 +716,6 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     self.dividerMenu = m;
     [self.rootWindow addSubview:m];
     [self layoutDividerMenu];
-    [self bringChromeToFront];
     m.alpha = 0; m.transform = CGAffineTransformMakeScale(0.8, 0.8);
     [UIView animateWithDuration:0.18 animations:^{ m.alpha = 1; m.transform = CGAffineTransformIdentity; }];
     [self scheduleDividerMenuHide];
@@ -876,7 +863,6 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
         if (!live) { [self layoutActionsForPane:p]; [self layoutPipHandleForPane:p]; }
     }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
-    [self bringChromeToFront];
     [self updatePaneActionStates];
 }
 
@@ -1158,7 +1144,7 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
 }
 
 // ---------------------------------------------------------------------
-//  Chan doan / overlay log
+//  Chan doan
 // ---------------------------------------------------------------------
 - (void)logDiagnostics
 {
@@ -1176,34 +1162,6 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
         SCPLog("DIAG pane %@: container=%@ displayMode=%lld scene=%@ foreground=%d",
                p.bundleIdentifier, NSStringFromCGRect(p.containerView.frame), mode, scene ? @"yes" : @"nil", fg);
     }
-}
-
-- (void)setupDebugOverlay
-{
-    if (![SCPPrefs showDebug]) return;
-    CGRect a = [self paneArea];
-    CGFloat h = MIN(90, a.size.height * 0.3);
-    self.debugLabel = [[UILabel alloc] initWithFrame:CGRectMake(a.origin.x, CGRectGetMaxY(a) - h, a.size.width, h)];
-    self.debugLabel.numberOfLines = 0;
-    self.debugLabel.font = [UIFont monospacedSystemFontOfSize:8 weight:UIFontWeightRegular];
-    self.debugLabel.textColor = [UIColor greenColor];
-    self.debugLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.75];
-    self.debugLabel.userInteractionEnabled = NO;
-    self.debugLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
-    [self.rootWindow addSubview:self.debugLabel];
-    [self refreshDebugOverlay];
-    __weak SCPSplitWindow *weakSelf = self;
-    self.logObserver = [[NSNotificationCenter defaultCenter] addObserverForName:SCPLogLineNotification object:nil
-        queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *n) { [weakSelf refreshDebugOverlay]; }];
-}
-
-- (void)refreshDebugOverlay
-{
-    if (!self.debugLabel) return;
-    NSArray *lines = SCPRecentLogLines();
-    NSUInteger n = MIN((NSUInteger)10, lines.count);
-    self.debugLabel.text = [[lines subarrayWithRange:NSMakeRange(lines.count - n, n)] componentsJoinedByString:@"\n"];
-    [self bringChromeToFront];
 }
 
 // ---------------------------------------------------------------------
@@ -1267,7 +1225,7 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     }
     [self relayoutPanes];
     [self applyPairRatioIfAny];
-    if (self.pickerView) { [self.rootWindow bringSubviewToFront:self.pickerView]; [self bringChromeToFront]; }
+    if (self.pickerView) [self.rootWindow bringSubviewToFront:self.pickerView];
     SCPLog("da mo %@ vao ngan %d", bundleID, (int)slot);
     if (slot == SCPSlotRight) [self mirrorRightPaneIfEnabled];
 }
@@ -1564,7 +1522,6 @@ static void SCPTerminateApp(NSString *bid)
     }
 
     objc_setAssociatedObject(app, kSCPKey_splitWindow, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    if (self.logObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.logObserver];
     UIWindow *w = self.rootWindow;
     [UIView animateWithDuration:0.3 animations:^{ w.alpha = 0; } completion:^(BOOL done) {
         w.hidden = YES;
