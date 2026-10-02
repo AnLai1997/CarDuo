@@ -46,7 +46,11 @@ static void SCPApplyOrientation(double delay)
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         long long o = SCPEffectiveOrientation();
         if (o <= 0) return;
-        for (UIWindow *w in [UIApplication sharedApplication].windows) {
+        NSMutableArray<UIWindow *> *wins = [NSMutableArray array];
+        for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
+            if ([sc isKindOfClass:[UIWindowScene class]]) [wins addObjectsFromArray:((UIWindowScene *)sc).windows];
+        }
+        for (UIWindow *w in wins) {
             if (w.hidden || !w.rootViewController) continue;
             ((void (*)(id, SEL, long long, double, BOOL))objc_msgSend)(w,
                 NSSelectorFromString(@"_setRotatableViewOrientation:duration:force:"), o, 0.25, YES);
