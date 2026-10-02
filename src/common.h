@@ -25,13 +25,13 @@ static inline uint64_t SCPBundleHash(NSString *bid)
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 
-// Moi ngan co tab "..." nho o giua mep tren (56x14, vung cham no rong 16pt moi phia); cham hoac keo xuong
-// de hien hang nut tron trang (kieu HyperOS) bat ra lan luot ngay duoi tab. Nut tron 52pt, icon den don sac.
+// Moi ngan co the (grabber) trang tron 44x6 o giua mep tren (vung cham no rong 18pt moi phia); cham hoac keo xuong
+// de hien hang nut tron trang (kieu HyperOS) bat ra lan luot ngay duoi. Nut tron 52pt, icon den don sac.
 #define SCP_PANE_BAR_HEIGHT    64.0
-#define SCP_PANE_HANDLE_WIDTH  56.0
-#define SCP_PANE_HANDLE_HEIGHT 14.0
+#define SCP_PANE_HANDLE_WIDTH  44.0
+#define SCP_PANE_HANDLE_HEIGHT 6.0
 #define SCP_PANE_BORDER        2.5
-#define SCP_PANE_INSET         6.0    // ngan lui vao so voi mep man -> thay ro bo goc tren nen toi
+#define SCP_PANE_INSET         3.0    // ngan lui vao so voi mep man -> thay ro bo goc tren nen toi
 
 #define getIvar(object, ivar)        [object valueForKey:ivar]
 #define setIvar(object, ivar, value) [object setValue:value forKey:ivar]

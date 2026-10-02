@@ -10,7 +10,7 @@ int (*orig_BKSDisplayServicesSetScreenBlanked)(int) = NULL;
 const void *kSCPKey_splitWindow   = &kSCPKey_splitWindow;
 const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
-#define SCP_DIVIDER_WIDTH 8.0      // khe toi giua 2 ngan de phan biet ro UI 2 app; num keo nam trong khe
+#define SCP_DIVIDER_WIDTH 4.0      // khe toi mong giua 2 ngan; num keo nam de len khe
 #define SCP_DIVIDER_HIT   28.0     // vung cham moi ben cua duong ranh giua 2 ngan (tong 56pt, de dat ngon tay)
 #define SCP_KNOB_W        18.0     // num keo: vien thuoc trang 18 x 56 co 3 cham den (⋮) nam giua duong ranh; cham de mo menu, keo de doi ti le
 #define SCP_KNOB_H        56.0
@@ -22,7 +22,7 @@ const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 @interface SCPTabView : UIView
 @end
 @implementation SCPTabView
-- (BOOL)pointInside:(CGPoint)p withEvent:(UIEvent *)e { return CGRectContainsPoint(CGRectInset(self.bounds, -16, -16), p); }
+- (BOOL)pointInside:(CGPoint)p withEvent:(UIEvent *)e { return CGRectContainsPoint(CGRectInset(self.bounds, -18, -18), p); }
 @end
 
 @interface SCPDividerView : UIView
@@ -181,6 +181,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)updatePaneActionStates;
 - (void)layoutBarContentForPane:(SCPAppPane *)pane;
 - (void)nudgePane:(SCPAppPane *)pane;
+- (void)animateLayout:(void (^)(void))changes completion:(void (^)(void))done;
 - (void)mirrorRightPaneIfEnabled;
 - (void)teardownMirror;
 @end
@@ -363,6 +364,14 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     return b;
 }
 
+// Animation bo cuc chung: lo xo nhe (khong bounce qua) cho moi lan doi ti le / doi cho / toan man / PiP
+- (void)animateLayout:(void (^)(void))changes completion:(void (^)(void))done
+{
+    [UIView animateWithDuration:0.45 delay:0 usingSpringWithDamping:0.86 initialSpringVelocity:0.4
+                        options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+                     animations:changes completion:^(BOOL f) { if (done) done(); }];
+}
+
 - (void)setupActionsForPane:(SCPAppPane *)pane
 {
     // Vien quanh app
@@ -370,19 +379,12 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.7].CGColor;
     pane.containerView.layer.cornerRadius = 14;
 
-    // Tab "..." o giua mep tren: vien thuoc trang mo, 3 cham den (kieu HyperOS), bo goc duoi
+    // The (grabber) trang tron o giua mep tren, kieu iOS sheet: khong chu, khong cham
     UIView *h = [[SCPTabView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
-    h.backgroundColor = [UIColor colorWithWhite:1 alpha:0.8];
+    h.backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
     h.layer.cornerRadius = SCP_PANE_HANDLE_HEIGHT / 2;
-    h.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
-    id dotsCfg = [UIImageSymbolConfiguration configurationWithPointSize:10 weight:UIImageSymbolWeightBold];
-    UIImageView *dots = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis" withConfiguration:dotsCfg]];
-    dots.tintColor = SCPInk();
-    dots.contentMode = UIViewContentModeCenter;
-    dots.frame = h.bounds;
-    dots.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    dots.userInteractionEnabled = NO;
-    [h addSubview:dots];
+    h.layer.shadowColor = [UIColor blackColor].CGColor;
+    h.layer.shadowOpacity = 0.35; h.layer.shadowRadius = 2; h.layer.shadowOffset = CGSizeMake(0, 1);
     [h addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(paneActionsPanned:)]];
     [h addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(paneHandleTapped:)]];
     pane.actionHandle = h;
@@ -427,8 +429,9 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     if (isPip && pane.actionsVisible) { pane.actionsVisible = NO; [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil; }
     pane.actionBar.hidden = isPip || !pane.actionsVisible;
 
-    pane.actionHandle.frame = CGRectMake((s.width - SCP_PANE_HANDLE_WIDTH) / 2, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT);
-    pane.actionBar.frame = CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 6, s.width, SCP_PANE_BAR_HEIGHT);
+    pane.actionHandle.bounds = CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT);
+    pane.actionHandle.center = CGPointMake(s.width / 2, 6 + SCP_PANE_HANDLE_HEIGHT / 2);
+    pane.actionBar.frame = CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 12, s.width, SCP_PANE_BAR_HEIGHT);
     [self layoutBarContentForPane:pane];
     [pane.containerView bringSubviewToFront:pane.actionHandle];
     [pane.containerView bringSubviewToFront:pane.actionBar];
@@ -460,6 +463,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
     [self updatePaneActionStates];
     NSArray *btns = [pane.actionBar viewWithTag:1002].subviews;
+    // The gian ngang nhe khi hang nut dang mo (phan hoi cham)
+    [UIView animateWithDuration:0.25 animations:^{ pane.actionHandle.transform = visible ? CGAffineTransformMakeScale(1.3, 1) : CGAffineTransformIdentity; }];
     if (visible) {
         [self hideDividerMenu];
         pane.actionBar.hidden = NO;
@@ -549,7 +554,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     SCPSlot slot = [self slotForPane:pane];
     [self closeSlot:slot terminate:YES];
     if (self.panes.count == 0) { [self exitOrStayInDemo]; return; }
-    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    [self animateLayout:^{ [self relayoutPanes]; } completion:nil];
 }
 
 - (void)paneToggleFullscreen:(UIButton *)b
@@ -582,7 +587,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     self.pendingSlot = SCPSlotRight;
     self.ratio = 0.5;
     SCPLog("split tu 1 ngan: %@ -> trai, cho chon app ngan phai", self.leftPane.bundleIdentifier);
-    [UIView animateWithDuration:0.25 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ [self relayoutPanes]; } completion:^(BOOL done) {
+    [self animateLayout:^{ [self relayoutPanes]; } completion:^{
         if (self.pendingSlot == SCPSlotRight) [self showAppPickerForSlot:SCPSlotRight];
     }];
 }
@@ -823,9 +828,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
             if (fabs(r - snap.doubleValue) < 0.04) { r = snap.doubleValue; break; }
         }
         self.ratio = r;
-        [UIView animateWithDuration:0.2 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-            [self relayoutPanesLive:NO];
-        } completion:nil];
+        [self animateLayout:^{ [self relayoutPanesLive:NO]; } completion:nil];
         [self saveRatio];
         return;
     }
@@ -851,7 +854,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     CGFloat r = [SCPPrefs ratioForPairLeft:self.leftPane.bundleIdentifier right:self.rightPane.bundleIdentifier];
     if (r > 0 && fabs(r - self.ratio) > 0.01) {
         self.ratio = r;
-        [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanesLive:NO]; }];
+        [self animateLayout:^{ [self relayoutPanesLive:NO]; } completion:nil];
         SCPLog("ap ti le rieng cua cap: %.2f", r);
     }
 }
@@ -887,7 +890,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     self.fullscreenSlot = SCPSlotAuto;
     self.pipSlot = SCPSlotAuto;
     self.ratio = MIN(0.8, MAX(0.2, ratio));
-    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    [self animateLayout:^{ [self relayoutPanes]; } completion:nil];
     [self saveRatio];
 }
 
@@ -905,7 +908,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     self.pipSlot = SCPSlotAuto;
     self.fullscreenSlot = (self.fullscreenSlot == slot) ? SCPSlotAuto : slot;
     SCPLog("fullscreen slot = %d", (int)self.fullscreenSlot);
-    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    [self animateLayout:^{ [self relayoutPanes]; } completion:nil];
 }
 
 // ---- Picture in Picture ----
@@ -916,7 +919,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     self.fullscreenSlot = SCPSlotAuto;
     self.pipSlot = (self.pipSlot == slot) ? SCPSlotAuto : slot;
     SCPLog("pip slot = %d", (int)self.pipSlot);
-    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    [self animateLayout:^{ [self relayoutPanes]; } completion:nil];
 }
 
 - (void)layoutPipHandleForPane:(SCPAppPane *)pane
@@ -1052,6 +1055,12 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     NSInteger rows = (i + cols - 1) / cols;
     scroll.contentSize = CGSizeMake(scroll.bounds.size.width, 16 + rows * cellH);
     [self updatePaneActionStates];   // an nut chia doi khi bang chon dang mo
+    // Bang chon truot len + mo dan; vai hang icon dau bat ra lan luot
+    pv.alpha = 0; pv.transform = CGAffineTransformMakeTranslation(0, 24);
+    [UIView animateWithDuration:0.4 delay:0 usingSpringWithDamping:0.9 initialSpringVelocity:0.4 options:0
+                     animations:^{ pv.alpha = 1; pv.transform = CGAffineTransformIdentity; } completion:nil];
+    NSArray *firstCells = [scroll.subviews subarrayWithRange:NSMakeRange(0, MIN(scroll.subviews.count, (NSUInteger)(cols * 2)))];
+    SCPPopIn(firstCells, 0.02);
     SCPLog("picker: %ld app, slot=%d, half=%d", (long)i, (int)self.pickerSlot, (int)half);
 }
 
@@ -1157,12 +1166,14 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 {
     [self.dragImage removeFromSuperview]; self.dragImage = nil;
     BOOL hadPicker = (self.pickerView != nil);
-    [self.pickerView removeFromSuperview];
+    UIView *pv = self.pickerView;
     self.pickerView = nil;
+    if (pv) [UIView animateWithDuration:0.18 animations:^{ pv.alpha = 0; pv.transform = CGAffineTransformMakeTranslation(0, 16); }
+                            completion:^(BOOL f) { [pv removeFromSuperview]; }];
     BOOL wasPending = (self.pendingSlot != SCPSlotAuto);
     self.pendingSlot = SCPSlotAuto;
     // Huy khi dang cho chon app -> ngan con lai tro ve het man (hoac giu split neu da mo du 2); hoac chi hien lai nut chia doi
-    if (wasPending) [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    if (wasPending) [self animateLayout:^{ [self relayoutPanes]; } completion:nil];
     else if (hadPicker) [self updatePaneActionStates];
 }
 
@@ -1249,6 +1260,10 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     [self relayoutPanes];
     [self applyPairRatioIfAny];
     if (self.pickerView) [self.rootWindow bringSubviewToFront:self.pickerView];
+    // Ngan moi: hien len bang fade + phong nhe tu 94% (lo xo)
+    pane.containerView.alpha = 0; pane.containerView.transform = CGAffineTransformMakeScale(0.94, 0.94);
+    [UIView animateWithDuration:0.5 delay:0.05 usingSpringWithDamping:0.8 initialSpringVelocity:0.5 options:UIViewAnimationOptionAllowUserInteraction
+                     animations:^{ pane.containerView.alpha = 1; pane.containerView.transform = CGAffineTransformIdentity; } completion:nil];
     SCPLog("da mo %@ vao ngan %d", bundleID, (int)slot);
     if (slot == SCPSlotRight) [self mirrorRightPaneIfEnabled];
 }
@@ -1546,7 +1561,7 @@ static void SCPTerminateApp(NSString *bid)
     else if (self.fullscreenSlot == SCPSlotRight) self.fullscreenSlot = SCPSlotLeft;
     if (self.pipSlot == SCPSlotLeft) self.pipSlot = SCPSlotRight;
     else if (self.pipSlot == SCPSlotRight) self.pipSlot = SCPSlotLeft;
-    [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
+    [self animateLayout:^{ [self relayoutPanes]; } completion:nil];
 }
 
 - (void)dismiss
