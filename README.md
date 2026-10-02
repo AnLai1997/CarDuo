@@ -66,7 +66,7 @@ theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
   Đổi app / Toàn màn / Cửa sổ nổi (PiP) / Đóng, ngay dưới tab (tự ẩn sau 8 giây).
 - Việc của CẢ CẶP: núm kéo kiểu Xiaomi (thanh trắng mỏng) giữa 2 ngăn, kéo để đổi tỉ lệ, chạm để mở menu
   Đổi chỗ / Tỉ lệ (icon là bố cục sẽ áp tiếp) / Cặp yêu thích 1-3 / CarPlay.
-- Khi chỉ còn 1 app chiếm hết màn, ngay bên phải tab "..." có nút tròn "chia đôi": app hiện tại về nửa trái,
+- Khi chỉ còn 1 app chiếm hết màn, hàng nút của tab "..." có thêm nút "chia đôi": app hiện tại về nửa trái,
   nửa phải hiện bảng chọn app để ghép cặp (Huỷ thì về lại toàn màn).
 Mục "Gỡ lỗi" có nút mở/đóng split ngay trên màn iPhone.
 Cần package `PreferenceLoader` và `AltList` (Sileo tự cài theo Depends).

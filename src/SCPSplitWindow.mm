@@ -381,7 +381,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 
     // Hang nut cua ngan (nen trong suot, chi thay cac nut tron): CHI viec cua ngan nay.
     // Viec cua ca cap (doi cho, ti le, cap yeu thich, ve CarPlay) nam o menu num keo -> khong lap.
-    UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 18, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
+    UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 6, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
     bar.backgroundColor = [UIColor clearColor];
     bar.showsHorizontalScrollIndicator = NO;
     bar.alwaysBounceHorizontal = NO;
@@ -398,20 +398,11 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     // Icon theo HyperOS: luoi app = doi app, o vuong dac = toan man, cua so noi = PiP, X trong o vuong = dong
     UIButton *b;
     b = [self roundButton:@"square.grid.2x2" action:@selector(paneChooseApp:)]; [content addSubview:b];
+    // Chia doi: chi hien khi ngan nay mot minh het man. Bam: app nay ve nua TRAI, nua phai hien bang chon app.
+    pane.splitButton = [self roundButton:@"rectangle.split.2x1" action:@selector(paneSplitTapped:)]; [content addSubview:pane.splitButton];
     pane.fullscreenButton = [self roundButton:@"square.fill" action:@selector(paneToggleFullscreen:)]; [content addSubview:pane.fullscreenButton];
     pane.pipButton = [self roundButton:@"pip" action:@selector(paneTogglePiP:)]; [content addSubview:pane.pipButton];
     b = [self roundButton:@"xmark.square" action:@selector(paneCloseApp:)]; [content addSubview:b];
-
-    // Nut "chia doi" (tron 36pt, icon 2 nua) o mep tren, ngay ben phai tab "..." - chi khi ngan nay mot minh het man.
-    // Luon hien (khong can mo tab). Bam: app nay ve nua TRAI, nua phai hien bang chon app.
-    UIButton *sp = [self roundButton:@"rectangle.split.2x1" action:@selector(paneSplitTapped:)];
-    sp.bounds = CGRectMake(0, 0, 36, 36);
-    sp.layer.cornerRadius = 18;
-    [sp setImage:[UIImage systemImageNamed:@"rectangle.split.2x1"
-               withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightMedium]] forState:UIControlStateNormal];
-    sp.hidden = YES;
-    pane.splitButton = sp;
-    [pane.containerView addSubview:sp];
 
     [self layoutActionsForPane:pane];
 }
@@ -428,58 +419,10 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pane.actionBar.hidden = isPip || !pane.actionsVisible;
 
     pane.actionHandle.frame = CGRectMake((s.width - SCP_PANE_HANDLE_WIDTH) / 2, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT);
-    pane.actionBar.frame = CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 18, s.width, SCP_PANE_BAR_HEIGHT);
+    pane.actionBar.frame = CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 6, s.width, SCP_PANE_BAR_HEIGHT);
     [self layoutBarContentForPane:pane];
     [pane.containerView bringSubviewToFront:pane.actionHandle];
     [pane.containerView bringSubviewToFront:pane.actionBar];
-
-    // Nut chia doi: chi khi ngan nay mot minh het man (khong cho chon app, khong fullscreen/PiP) va bang chon chua mo
-    BOOL showSplit = [self singlePane] && !self.pickerView;
-    BOOL wasHidden = pane.splitButton.hidden;
-    pane.splitButton.hidden = !showSplit;
-    if (showSplit) {
-        pane.splitButton.center = CGPointMake(s.width / 2 + SCP_PANE_HANDLE_WIDTH / 2 + 10 + 18, 2 + 18);
-        [pane.containerView bringSubviewToFront:pane.splitButton];
-        if (wasHidden) SCPPopIn(@[pane.splitButton], 0);
-    }
-}
-
-// Keo tab xuong -> hien, keo len -> an (khong keo theo tay; nut bat ra bang animation)
-- (void)paneActionsPanned:(UIPanGestureRecognizer *)g
-{
-    SCPAppPane *pane = [self paneForView:g.view];
-    if (!pane) return;
-    if (g.state != UIGestureRecognizerStateEnded) return;
-    CGFloat ty = [g translationInView:pane.containerView].y, vy = [g velocityInView:pane.containerView].y;
-    if (ty > 12 || vy > 200)       [self setActionsVisible:YES forPane:pane animated:YES];
-    else if (ty < -12 || vy < -200) [self setActionsVisible:NO  forPane:pane animated:YES];
-}
-
-- (void)paneHandleTapped:(UITapGestureRecognizer *)g
-{
-    SCPAppPane *pane = [self paneForView:g.view];
-    if (pane) [self setActionsVisible:!pane.actionsVisible forPane:pane animated:YES];
-}
-
-- (void)setActionsVisible:(BOOL)visible forPane:(SCPAppPane *)pane animated:(BOOL)animated
-{
-    if (!pane.actionBar) return;
-    // Da o dung trang thai roi -> chi gia han bo dem tu an
-    if (visible == pane.actionsVisible && pane.actionBar.hidden == !visible) { if (visible) [self scheduleActionsHideForPane:pane]; return; }
-    pane.actionsVisible = visible;
-    [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
-    [self updatePaneActionStates];
-    NSArray *btns = [pane.actionBar viewWithTag:1002].subviews;
-    if (visible) {
-        [self hideDividerMenu];
-        pane.actionBar.hidden = NO;
-        if (animated) SCPPopIn(btns, 0.045);
-        [self scheduleActionsHideForPane:pane];
-    } else {
-        __weak SCPAppPane *weakPane = pane;
-        if (animated) SCPPopOut(btns, ^{ SCPAppPane *p = weakPane; if (p && !p.actionsVisible) p.actionBar.hidden = YES; });
-        else pane.actionBar.hidden = YES;
-    }
 }
 
 - (void)scheduleActionsHideForPane:(SCPAppPane *)pane
@@ -521,6 +464,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         BOOL alone = (self.panes.count == 1);
         p.fullscreenButton.hidden = alone && !isFull;
         p.pipButton.hidden = alone && !isPip;
+        p.splitButton.hidden = !([self singlePane] && !self.pickerView);   // chia doi: chi khi 1 app het man
         [self layoutBarContentForPane:p];
     }
 }
@@ -1047,7 +991,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     }
     NSInteger rows = (i + cols - 1) / cols;
     scroll.contentSize = CGSizeMake(scroll.bounds.size.width, 16 + rows * cellH);
-    for (SCPAppPane *p in self.panes) [self layoutActionsForPane:p];   // an nut chia doi khi bang chon dang mo
+    [self updatePaneActionStates];   // an nut chia doi khi bang chon dang mo
     SCPLog("picker: %ld app, slot=%d, half=%d", (long)i, (int)self.pickerSlot, (int)half);
 }
 
@@ -1159,7 +1103,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     self.pendingSlot = SCPSlotAuto;
     // Huy khi dang cho chon app -> ngan con lai tro ve het man (hoac giu split neu da mo du 2); hoac chi hien lai nut chia doi
     if (wasPending) [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
-    else if (hadPicker) for (SCPAppPane *p in self.panes) [self layoutActionsForPane:p];
+    else if (hadPicker) [self updatePaneActionStates];
 }
 
 // ---------------------------------------------------------------------
