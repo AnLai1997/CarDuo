@@ -425,6 +425,44 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     [pane.containerView bringSubviewToFront:pane.actionBar];
 }
 
+// Keo tab xuong -> hien, keo len -> an (khong keo theo tay; nut bat ra bang animation)
+- (void)paneActionsPanned:(UIPanGestureRecognizer *)g
+{
+    SCPAppPane *pane = [self paneForView:g.view];
+    if (!pane) return;
+    if (g.state != UIGestureRecognizerStateEnded) return;
+    CGFloat ty = [g translationInView:pane.containerView].y, vy = [g velocityInView:pane.containerView].y;
+    if (ty > 12 || vy > 200)       [self setActionsVisible:YES forPane:pane animated:YES];
+    else if (ty < -12 || vy < -200) [self setActionsVisible:NO  forPane:pane animated:YES];
+}
+
+- (void)paneHandleTapped:(UITapGestureRecognizer *)g
+{
+    SCPAppPane *pane = [self paneForView:g.view];
+    if (pane) [self setActionsVisible:!pane.actionsVisible forPane:pane animated:YES];
+}
+
+- (void)setActionsVisible:(BOOL)visible forPane:(SCPAppPane *)pane animated:(BOOL)animated
+{
+    if (!pane.actionBar) return;
+    // Da o dung trang thai roi -> chi gia han bo dem tu an
+    if (visible == pane.actionsVisible && pane.actionBar.hidden == !visible) { if (visible) [self scheduleActionsHideForPane:pane]; return; }
+    pane.actionsVisible = visible;
+    [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
+    [self updatePaneActionStates];
+    NSArray *btns = [pane.actionBar viewWithTag:1002].subviews;
+    if (visible) {
+        [self hideDividerMenu];
+        pane.actionBar.hidden = NO;
+        if (animated) SCPPopIn(btns, 0.045);
+        [self scheduleActionsHideForPane:pane];
+    } else {
+        __weak SCPAppPane *weakPane = pane;
+        if (animated) SCPPopOut(btns, ^{ SCPAppPane *p = weakPane; if (p && !p.actionsVisible) p.actionBar.hidden = YES; });
+        else pane.actionBar.hidden = YES;
+    }
+}
+
 - (void)scheduleActionsHideForPane:(SCPAppPane *)pane
 {
     [pane.actionsHideTimer invalidate];
