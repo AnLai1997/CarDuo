@@ -38,6 +38,22 @@ static long long SCPEffectiveOrientation(void)
     return appWantsOrientation > 0 ? appWantsOrientation : orientationOverride;
 }
 
+// Ep moi cua so cua app xoay ve huong dang ap. Goi sau `delay` giay de chay SAU khi UIKit xu ly xong
+// yeu cau cua app (neu goi ngay thi UIKit co the xoay de len). Khong xoay that cho den khi SpringBoard
+// doi khung scene -> phai tu kich.
+static void SCPApplyOrientation(double delay)
+{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        long long o = SCPEffectiveOrientation();
+        if (o <= 0) return;
+        for (UIWindow *w in [UIApplication sharedApplication].windows) {
+            if (w.hidden || !w.rootViewController) continue;
+            ((void (*)(id, SEL, long long, double, BOOL))objc_msgSend)(w,
+                NSSelectorFromString(@"_setRotatableViewOrientation:duration:force:"), o, 0.25, YES);
+        }
+    });
+}
+
 // Tu mask huong app xin -> 1 huong cu the. Co dọc thi coi nhu "tra ve binh thuong" (0).
 static long long SCPOrientationFromMask(NSUInteger mask)
 {
@@ -67,6 +83,7 @@ static long long SCPOrientationFromMask(NSUInteger mask)
         SCPLog("app xin huong mask=%lu -> %lld", (unsigned long)mask, appWantsOrientation);
     }
     %orig;
+    if (orientationOverride > 0) { SCPApplyOrientation(0.05); SCPApplyOrientation(0.4); }   // ep ngay, va ep lai sau khi UIKit xong
 }
 %end
 
@@ -79,6 +96,7 @@ static long long SCPOrientationFromMask(NSUInteger mask)
         SCPLog("app setOrientation %lld -> %lld", orientation, appWantsOrientation);
     }
     %orig;
+    if (orientationOverride > 0) { SCPApplyOrientation(0.05); SCPApplyOrientation(0.4); }
 }
 
 // App hoi "thiet bi dang xoay huong nao" -> tra loi theo huong dang ap (ngan hoac app xin),
