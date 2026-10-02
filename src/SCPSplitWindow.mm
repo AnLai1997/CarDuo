@@ -153,7 +153,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)hideDividerMenu;
 - (void)scheduleDividerMenuHide;
 - (void)exitOrStayInDemo;
-- (NSString *)ratioTitle;
+- (NSString *)ratioSymbol;
 - (void)layoutDividerMenu;
 - (BOOL)singlePane;
 - (void)logDiagnostics;
@@ -261,53 +261,67 @@ static UIImage *SCPAppIcon(NSString *bid)
     return nil;
 }
 
-// Nut lon cho man xe: 64x60, icon 22pt o tren + nhan chu 11pt o duoi, nen trang mo bo goc.
-// Dung chung cho thanh nut cua ngan va menu cua num keo -> nguoi dung chi phai hoc 1 kieu nut.
-#define SCP_BIG_BTN_W 64.0
-#define SCP_BIG_BTN_H 60.0
-#define SCP_BIG_BTN_GAP 8.0
+// Nut kieu HyperOS: hinh tron 52pt nen trang, icon hinh hoc den 24pt, khong nhan chu.
+// Nut dang "bat" (fullscreen / PiP) doi sang xanh (icon xanh, nen xanh nhat) nhu HyperOS.
+// Dung chung cho hang nut cua ngan, menu num keo va nut chia doi -> 1 kieu nut duy nhat.
+#define SCP_BTN      52.0
+#define SCP_BTN_GAP  10.0
+static UIColor *SCPInk(void)     { return [UIColor colorWithWhite:0.13 alpha:1]; }
+static UIColor *SCPAccent(void)  { return [UIColor colorWithRed:0.10 green:0.47 blue:1.0 alpha:1]; }
 static id SCPActionSymbolConfig(void)
 {
     static id cfg;
-    if (!cfg) cfg = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightSemibold scale:UIImageSymbolScaleMedium];
+    if (!cfg) cfg = [UIImageSymbolConfiguration configurationWithPointSize:24 weight:UIImageSymbolWeightMedium scale:UIImageSymbolScaleMedium];
     return cfg;
 }
 
-// Doi icon + nhan cua nut lon (dung khi trang thai thay doi: Toan man <-> Thu lai, PiP <-> Thoat PiP)
-static void SCPSetBigButton(UIButton *b, NSString *symbol, NSString *title)
+static void SCPSetIcon(UIButton *b, NSString *symbol)
 {
     [b setImage:[UIImage systemImageNamed:symbol withConfiguration:SCPActionSymbolConfig()] forState:UIControlStateNormal];
-    ((UILabel *)[b viewWithTag:1003]).text = title;
 }
 
-// Nut dang "bat" (fullscreen/PiP dang hoat dong) to mau vang de nhin thay ngay
-static void SCPSetBigButtonOn(UIButton *b, BOOL on)
+static void SCPSetOn(UIButton *b, BOOL on)
 {
-    b.tintColor = on ? [UIColor systemYellowColor] : [UIColor whiteColor];
-    ((UILabel *)[b viewWithTag:1003]).textColor = b.tintColor;
-    b.backgroundColor = on ? [[UIColor systemYellowColor] colorWithAlphaComponent:0.22] : [UIColor colorWithWhite:1 alpha:0.14];
+    b.tintColor = on ? SCPAccent() : SCPInk();
+    b.backgroundColor = on ? [UIColor colorWithRed:0.86 green:0.92 blue:1.0 alpha:1] : [UIColor colorWithWhite:1 alpha:0.96];
 }
 
-- (UIButton *)bigButton:(NSString *)symbol title:(NSString *)title action:(SEL)sel
+// Animation kieu MIUI: cac nut tron lan luot bat ra (scale 0.3 -> 1, lo xo), cach nhau `stagger` giay.
+// Thu tu bat ra theo thu tu mang `views` (nut bi an thi bo qua).
+static void SCPPopIn(NSArray<UIView *> *views, NSTimeInterval stagger)
+{
+    NSInteger i = 0;
+    for (UIView *v in views) {
+        if (v.hidden) continue;
+        v.alpha = 0; v.transform = CGAffineTransformMakeScale(0.3, 0.3);
+        [UIView animateWithDuration:0.5 delay:i * stagger usingSpringWithDamping:0.6 initialSpringVelocity:0.6
+                            options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{ v.alpha = 1; v.transform = CGAffineTransformIdentity; } completion:nil];
+        i++;
+    }
+}
+
+// Thu lai nhanh (tat ca cung luc), xong goi `done`
+static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
+{
+    [UIView animateWithDuration:0.16 delay:0 options:UIViewAnimationOptionBeginFromCurrentState animations:^{
+        for (UIView *v in views) { v.alpha = 0; v.transform = CGAffineTransformMakeScale(0.5, 0.5); }
+    } completion:^(BOOL f) {
+        for (UIView *v in views) { v.transform = CGAffineTransformIdentity; v.alpha = 1; }
+        if (done) done();
+    }];
+}
+
+- (UIButton *)roundButton:(NSString *)symbol action:(SEL)sel
 {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-    b.frame = CGRectMake(0, 0, SCP_BIG_BTN_W, SCP_BIG_BTN_H);
-    b.backgroundColor = [UIColor colorWithWhite:1 alpha:0.14];
-    b.layer.cornerRadius = 14;
-    b.tintColor = [UIColor whiteColor];
+    b.bounds = CGRectMake(0, 0, SCP_BTN, SCP_BTN);
+    b.layer.cornerRadius = SCP_BTN / 2;
+    b.layer.shadowColor = [UIColor blackColor].CGColor;
+    b.layer.shadowOpacity = 0.35; b.layer.shadowRadius = 6; b.layer.shadowOffset = CGSizeMake(0, 2);
     b.adjustsImageWhenHighlighted = YES;
-    // icon nam phan tren, nhan nam phan duoi
-    b.contentVerticalAlignment = UIControlContentVerticalAlignmentTop;
-    b.contentEdgeInsets = UIEdgeInsetsMake(7, 0, 0, 0);
-    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(0, SCP_BIG_BTN_H - 20, SCP_BIG_BTN_W, 16)];
-    l.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
-    l.textColor = [UIColor whiteColor];
-    l.textAlignment = NSTextAlignmentCenter;
-    l.adjustsFontSizeToFitWidth = YES; l.minimumScaleFactor = 0.7;
-    l.userInteractionEnabled = NO;
-    l.tag = 1003;
-    [b addSubview:l];
-    SCPSetBigButton(b, symbol, title);
+    SCPSetOn(b, NO);
+    SCPSetIcon(b, symbol);
     [b addTarget:self action:sel forControlEvents:UIControlEventTouchUpInside];
     [b addTarget:self action:@selector(actionButtonTouched:) forControlEvents:UIControlEventTouchUpInside];
     return b;
@@ -320,14 +334,14 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.35].CGColor;
     pane.containerView.layer.cornerRadius = 10;
 
-    // Dau "..." o giua mep tren (SF Symbol ellipsis tren nen toi mo, bo goc duoi)
+    // Tab "..." o giua mep tren: vien thuoc trang mo, 3 cham den (kieu HyperOS), bo goc duoi
     UIView *h = [[UIView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
-    h.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
+    h.backgroundColor = [UIColor colorWithWhite:1 alpha:0.88];
     h.layer.cornerRadius = SCP_PANE_HANDLE_HEIGHT / 2;
     h.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
     id dotsCfg = [UIImageSymbolConfiguration configurationWithPointSize:15 weight:UIImageSymbolWeightBold];
     UIImageView *dots = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis" withConfiguration:dotsCfg]];
-    dots.tintColor = [UIColor colorWithWhite:1 alpha:0.9];
+    dots.tintColor = SCPInk();
     dots.contentMode = UIViewContentModeCenter;
     dots.frame = h.bounds;
     dots.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -338,111 +352,76 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     pane.actionHandle = h;
     [pane.containerView addSubview:h];
 
-    // Thanh nut cua ngan: CHI viec cua ngan nay (doi app, toan man, PiP, dong). Viec cua ca cap
-    // (doi cho, ti le, cap yeu thich, ve CarPlay) nam o menu num keo giua 2 ngan -> khong lap, de nho.
-    UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, -SCP_PANE_BAR_HEIGHT, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
-    bar.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.92];
-    bar.layer.cornerRadius = 10;
-    bar.layer.maskedCorners = kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+    // Hang nut cua ngan (nen trong suot, chi thay cac nut tron): CHI viec cua ngan nay.
+    // Viec cua ca cap (doi cho, ti le, cap yeu thich, ve CarPlay) nam o menu num keo -> khong lap.
+    UIScrollView *bar = [[UIScrollView alloc] initWithFrame:CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 6, pane.containerView.bounds.size.width, SCP_PANE_BAR_HEIGHT)];
+    bar.backgroundColor = [UIColor clearColor];
     bar.showsHorizontalScrollIndicator = NO;
     bar.alwaysBounceHorizontal = NO;
-    [bar addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(paneActionsPanned:)]];
+    bar.clipsToBounds = NO;
+    bar.hidden = YES;
     pane.actionBar = bar;
     pane.actionsVisible = NO;
     [pane.containerView addSubview:bar];
 
-    // Toan bo nut nam trong 1 view "content" de can giua khi ngan rong hon cum nut
     UIView *content = [[UIView alloc] init];
     content.tag = 1002;
     [bar addSubview:content];
 
-    CGFloat y = (SCP_PANE_BAR_HEIGHT - SCP_BIG_BTN_H) / 2, x = 10, step = SCP_BIG_BTN_W + SCP_BIG_BTN_GAP;
+    // Icon theo HyperOS: luoi app = doi app, o vuong dac = toan man, cua so noi = PiP, X trong o vuong = dong
     UIButton *b;
-    b = [self bigButton:@"square.grid.2x2.fill" title:@"Đổi app" action:@selector(paneChooseApp:)];
-    b.frame = CGRectMake(x, y, SCP_BIG_BTN_W, SCP_BIG_BTN_H); [content addSubview:b]; x += step;
-    pane.fullscreenButton = [self bigButton:@"arrow.up.left.and.arrow.down.right" title:@"Toàn màn" action:@selector(paneToggleFullscreen:)];
-    pane.fullscreenButton.frame = CGRectMake(x, y, SCP_BIG_BTN_W, SCP_BIG_BTN_H); [content addSubview:pane.fullscreenButton]; x += step;
-    pane.pipButton = [self bigButton:@"pip" title:@"Thu nhỏ" action:@selector(paneTogglePiP:)];
-    pane.pipButton.frame = CGRectMake(x, y, SCP_BIG_BTN_W, SCP_BIG_BTN_H); [content addSubview:pane.pipButton]; x += step;
-    b = [self bigButton:@"xmark" title:@"Đóng" action:@selector(paneCloseApp:)];
-    b.tintColor = [UIColor systemRedColor]; ((UILabel *)[b viewWithTag:1003]).textColor = b.tintColor;
-    b.backgroundColor = [[UIColor systemRedColor] colorWithAlphaComponent:0.18];
-    b.frame = CGRectMake(x, y, SCP_BIG_BTN_W, SCP_BIG_BTN_H); [content addSubview:b]; x += step + 2;
-    content.frame = CGRectMake(0, 0, x, SCP_PANE_BAR_HEIGHT);
-    bar.contentSize = CGSizeMake(x, SCP_PANE_BAR_HEIGHT);
+    b = [self roundButton:@"square.grid.2x2" action:@selector(paneChooseApp:)]; [content addSubview:b];
+    pane.fullscreenButton = [self roundButton:@"square.fill" action:@selector(paneToggleFullscreen:)]; [content addSubview:pane.fullscreenButton];
+    pane.pipButton = [self roundButton:@"pip" action:@selector(paneTogglePiP:)]; [content addSubview:pane.pipButton];
+    b = [self roundButton:@"xmark.square" action:@selector(paneCloseApp:)]; [content addSubview:b];
 
-    // Nut "Chia đôi" noi o mep phai (giua chieu cao) - chi hien khi ngan nay dang mot minh het man.
-    // Bam: app nay ve nua trai, nua phai hien bang chon app (giong Xiaomi). Vien thuoc co icon + chu cho de hieu.
-    UIButton *sp = [UIButton buttonWithType:UIButtonTypeCustom];
-    id spCfg = [UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightSemibold];
-    [sp setImage:[UIImage systemImageNamed:@"rectangle.split.2x1" withConfiguration:spCfg] forState:UIControlStateNormal];
-    [sp setTitle:@"Chia đôi" forState:UIControlStateNormal];
-    sp.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-    [sp setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    sp.titleEdgeInsets = UIEdgeInsetsMake(0, 8, 0, 0);
-    sp.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 18);
-    sp.tintColor = [UIColor whiteColor];
-    sp.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6];
-    sp.layer.cornerRadius = 24;
-    sp.layer.borderWidth = 1;
-    sp.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.45].CGColor;
-    sp.layer.shadowColor = [UIColor blackColor].CGColor;
-    sp.layer.shadowOpacity = 0.5; sp.layer.shadowRadius = 4; sp.layer.shadowOffset = CGSizeZero;
-    [sp addTarget:self action:@selector(paneSplitTapped:) forControlEvents:UIControlEventTouchUpInside];
+    // Nut "chia doi" (tron, icon 2 nua) o mep phai giua ngan - chi khi ngan nay mot minh het man.
+    // Bam: app nay ve nua trai, nua phai hien bang chon app.
+    UIButton *sp = [self roundButton:@"rectangle.split.2x1" action:@selector(paneSplitTapped:)];
+    sp.hidden = YES;
     pane.splitButton = sp;
     [pane.containerView addSubview:sp];
 
     [self layoutActionsForPane:pane];
 }
 
-// Dat lai khung handle/bar theo kich thuoc ngan (goi moi lan relayout)
+// Dat lai khung tab / hang nut theo kich thuoc ngan (goi moi lan relayout)
 - (void)layoutActionsForPane:(SCPAppPane *)pane
 {
     if (!pane.actionBar) return;
     CGSize s = pane.containerView.bounds.size;
     BOOL isPip = (self.pipSlot == [self slotForPane:pane]);
-    // Dang PiP: mep tren danh cho thanh keo PiP, an option
+    // Dang PiP: mep tren danh cho thanh keo PiP, an tab + hang nut
     pane.actionHandle.hidden = isPip;
-    pane.actionBar.hidden = isPip;
     if (isPip && pane.actionsVisible) { pane.actionsVisible = NO; [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil; }
+    pane.actionBar.hidden = isPip || !pane.actionsVisible;
 
     pane.actionHandle.frame = CGRectMake((s.width - SCP_PANE_HANDLE_WIDTH) / 2, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT);
-    pane.actionHandle.alpha = pane.actionsVisible ? 0 : 1;
-    CGRect bf = CGRectMake(0, pane.actionsVisible ? 0 : -SCP_PANE_BAR_HEIGHT, s.width, SCP_PANE_BAR_HEIGHT);
-    pane.actionBar.frame = bf;
-    // Can giua cum nut khi ngan rong hon; ngan hep thi cuon ngang
+    pane.actionBar.frame = CGRectMake(0, SCP_PANE_HANDLE_HEIGHT + 6, s.width, SCP_PANE_BAR_HEIGHT);
     [self layoutBarContentForPane:pane];
     [pane.containerView bringSubviewToFront:pane.actionHandle];
     [pane.containerView bringSubviewToFront:pane.actionBar];
 
-    // Nut chia doi: chi khi ngan nay mot minh het man (khong dang cho chon app, khong fullscreen/PiP) va bang chon chua mo
+    // Nut chia doi: chi khi ngan nay mot minh het man (khong cho chon app, khong fullscreen/PiP) va bang chon chua mo
     BOOL showSplit = [self singlePane] && !self.pickerView;
+    BOOL wasHidden = pane.splitButton.hidden;
     pane.splitButton.hidden = !showSplit;
     if (showSplit) {
-        pane.splitButton.frame = CGRectMake(s.width - 132 - 14, (s.height - 48) / 2, 132, 48);
+        pane.splitButton.center = CGPointMake(s.width - SCP_BTN / 2 - 16, s.height / 2);
         [pane.containerView bringSubviewToFront:pane.splitButton];
+        if (wasHidden) SCPPopIn(@[pane.splitButton], 0);
     }
 }
 
+// Keo tab xuong -> hien, keo len -> an (khong keo theo tay; nut bat ra bang animation)
 - (void)paneActionsPanned:(UIPanGestureRecognizer *)g
 {
     SCPAppPane *pane = [self paneForView:g.view];
     if (!pane) return;
-    CGFloat ty = [g translationInView:pane.containerView].y;
-    CGFloat startY = pane.actionsVisible ? 0 : -SCP_PANE_BAR_HEIGHT;
-    if (g.state == UIGestureRecognizerStateBegan || g.state == UIGestureRecognizerStateChanged) {
-        [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
-        CGRect fr = pane.actionBar.frame;
-        fr.origin.y = MIN(0, MAX(-SCP_PANE_BAR_HEIGHT, startY + ty));
-        pane.actionBar.frame = fr;
-        pane.actionHandle.alpha = 1 - (fr.origin.y + SCP_PANE_BAR_HEIGHT) / SCP_PANE_BAR_HEIGHT;
-        return;
-    }
-    if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled) {
-        CGFloat vy = [g velocityInView:pane.containerView].y;
-        BOOL show = (vy > 150) || (vy > -150 && CGRectGetMinY(pane.actionBar.frame) > -SCP_PANE_BAR_HEIGHT / 2);
-        [self setActionsVisible:show forPane:pane animated:YES];
-    }
+    if (g.state != UIGestureRecognizerStateEnded) return;
+    CGFloat ty = [g translationInView:pane.containerView].y, vy = [g velocityInView:pane.containerView].y;
+    if (ty > 12 || vy > 200)       [self setActionsVisible:YES forPane:pane animated:YES];
+    else if (ty < -12 || vy < -200) [self setActionsVisible:NO  forPane:pane animated:YES];
 }
 
 - (void)paneHandleTapped:(UITapGestureRecognizer *)g
@@ -454,18 +433,22 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
 - (void)setActionsVisible:(BOOL)visible forPane:(SCPAppPane *)pane animated:(BOOL)animated
 {
     if (!pane.actionBar) return;
+    // Da o dung trang thai roi -> chi gia han bo dem tu an
+    if (visible == pane.actionsVisible && pane.actionBar.hidden == !visible) { if (visible) [self scheduleActionsHideForPane:pane]; return; }
     pane.actionsVisible = visible;
     [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
     [self updatePaneActionStates];
-    CGRect fr = pane.actionBar.frame;
-    fr.origin.y = visible ? 0 : -SCP_PANE_BAR_HEIGHT;
-    void (^apply)(void) = ^{
-        pane.actionBar.frame = fr;
-        pane.actionHandle.alpha = visible ? 0 : 1;
-    };
-    if (animated) [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:apply completion:nil];
-    else apply();
-    if (visible) [self scheduleActionsHideForPane:pane];
+    NSArray *btns = [pane.actionBar viewWithTag:1002].subviews;
+    if (visible) {
+        [self hideDividerMenu];
+        pane.actionBar.hidden = NO;
+        if (animated) SCPPopIn(btns, 0.045);
+        [self scheduleActionsHideForPane:pane];
+    } else {
+        __weak SCPAppPane *weakPane = pane;
+        if (animated) SCPPopOut(btns, ^{ SCPAppPane *p = weakPane; if (p && !p.actionsVisible) p.actionBar.hidden = YES; });
+        else pane.actionBar.hidden = YES;
+    }
 }
 
 - (void)scheduleActionsHideForPane:(SCPAppPane *)pane
@@ -484,7 +467,7 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     for (SCPAppPane *p in self.panes) if (p.actionsVisible) [self setActionsVisible:NO forPane:p animated:YES];
 }
 
-// Bam nut nao tren bar cung reset bo dem tu an
+// Bam nut nao cung reset bo dem tu an
 - (void)actionButtonTouched:(UIButton *)b
 {
     SCPAppPane *pane = [self paneForView:b];
@@ -492,18 +475,17 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     else if (self.dividerMenu) [self scheduleDividerMenuHide];
 }
 
-// Icon + nhan cua Toan man / Thu nho doi theo trang thai (vang khi dang bat)
+// Icon Toan man / PiP doi theo trang thai; dang bat thi xanh (nhu nut "cua so noi" trong HyperOS)
 - (void)updatePaneActionStates
 {
     for (SCPAppPane *p in self.panes) {
         if (!p.actionBar) continue;
         SCPSlot slot = [self slotForPane:p];
         BOOL isFull = (self.fullscreenSlot == slot), isPip = (self.pipSlot == slot);
-        SCPSetBigButton(p.fullscreenButton, isFull ? @"arrow.down.right.and.arrow.up.left" : @"arrow.up.left.and.arrow.down.right",
-                        isFull ? @"Thu lại" : @"Toàn màn");
-        SCPSetBigButtonOn(p.fullscreenButton, isFull);
-        SCPSetBigButton(p.pipButton, isPip ? @"pip.exit" : @"pip", isPip ? @"Thoát PiP" : @"Thu nhỏ");
-        SCPSetBigButtonOn(p.pipButton, isPip);
+        SCPSetIcon(p.fullscreenButton, isFull ? @"rectangle.split.2x1" : @"square.fill");   // dang toan man -> bam de ve 2 nua
+        SCPSetOn(p.fullscreenButton, isFull);
+        SCPSetIcon(p.pipButton, isPip ? @"pip.exit" : @"pip");
+        SCPSetOn(p.pipButton, isPip);
         // 1 ngan mot minh: khong co gi de toan man / PiP -> an bot cho gon
         BOOL alone = (self.panes.count == 1);
         p.fullscreenButton.hidden = alone && !isFull;
@@ -512,17 +494,17 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     }
 }
 
-// Xep lai nut con hien trong bar (co nut bi an), roi can giua
+// Xep cac nut con hien thanh 1 hang, can giua ngan (ngan hep thi cuon ngang). Dung bounds/center vi nut co the dang scale.
 - (void)layoutBarContentForPane:(SCPAppPane *)pane
 {
     UIView *content = [pane.actionBar viewWithTag:1002];
-    CGFloat x = 10, y = (SCP_PANE_BAR_HEIGHT - SCP_BIG_BTN_H) / 2;
+    CGFloat x = SCP_BTN_GAP, y = SCP_PANE_BAR_HEIGHT / 2;
     for (UIView *v in content.subviews) {
         if (v.hidden) continue;
-        v.frame = CGRectMake(x, y, SCP_BIG_BTN_W, SCP_BIG_BTN_H);
-        x += SCP_BIG_BTN_W + SCP_BIG_BTN_GAP;
+        v.bounds = CGRectMake(0, 0, SCP_BTN, SCP_BTN);
+        v.center = CGPointMake(x + SCP_BTN / 2, y);
+        x += SCP_BTN + SCP_BTN_GAP;
     }
-    x += 2;
     CGFloat w = pane.actionBar.bounds.size.width;
     CGFloat pad = MAX(0, (w - x) / 2);
     content.frame = CGRectMake(pad, 0, x, SCP_PANE_BAR_HEIGHT);
@@ -669,7 +651,7 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     self.dividerPill.layer.cornerRadius = SCP_KNOB_W / 2;
 }
 
-// ---- menu cua num keo (kieu Xiaomi): doi cho | bo cuc | dong split ----
+// ---- menu cua num keo: viec cua CA CAP (doi cho | ti le | cap yeu thich | ve CarPlay) ----
 - (void)dividerTapped:(UITapGestureRecognizer *)g
 {
     // Chi nhan cham ngay tren num (noi rong 14pt moi phia); cham cho khac tren duong ranh thi bo qua
@@ -678,46 +660,53 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     if (self.dividerMenu) [self hideDividerMenu]; else [self showDividerMenu];
 }
 
+// Icon cua nut ti le = bo cuc SE AP khi bam (nhu icon nua tren/nua duoi trong HyperOS)
+- (NSString *)ratioSymbol
+{
+    CGFloat r = self.ratio;
+    BOOL special = (self.fullscreenSlot != SCPSlotAuto) || (self.pipSlot != SCPSlotAuto);
+    CGFloat next = special ? 0.5 : (fabs(r - 0.5) < 0.05 ? 0.7 : (r > 0.6 ? 0.3 : 0.5));
+    BOOL v = [self vertical];
+    if (fabs(next - 0.5) < 0.01) return v ? @"rectangle.split.1x2" : @"rectangle.split.2x1";
+    if (next > 0.5)              return v ? @"rectangle.tophalf.filled" : @"rectangle.lefthalf.filled";
+    return v ? @"rectangle.bottomhalf.filled" : @"rectangle.righthalf.filled";
+}
+
 - (void)showDividerMenu
 {
     [self hideDividerMenu];
     [self hideAllPaneActions];
-    // Viec cua CA CAP: doi cho, ti le, cap yeu thich 1-3 (neu da dat), ve CarPlay
     NSMutableArray<UIButton *> *btns = [NSMutableArray array];
-    [btns addObject:[self bigButton:@"arrow.left.arrow.right" title:@"Đổi chỗ" action:@selector(menuSwap)]];
-    [btns addObject:[self bigButton:@"rectangle.lefthalf.inset.filled" title:[self ratioTitle] action:@selector(menuCycleLayout)]];
+    [btns addObject:[self roundButton:@"arrow.left.arrow.right" action:@selector(menuSwap)]];
+    UIButton *ratio = [self roundButton:[self ratioSymbol] action:@selector(menuCycleLayout)];
+    ratio.tag = 1010;
+    [btns addObject:ratio];
     for (NSInteger i = 1; i <= 3; i++) {
-        NSDictionary *fav = [SCPPrefs favorite:i];
-        if (!fav) continue;
-        NSString *name = [fav[@"name"] length] ? fav[@"name"] : [NSString stringWithFormat:@"Cặp %ld", (long)i];
-        UIButton *f = [self bigButton:[NSString stringWithFormat:@"%ld.circle.fill", (long)i] title:name action:@selector(menuFavTapped:)];
+        if (![SCPPrefs favorite:i]) continue;
+        UIButton *f = [self roundButton:[NSString stringWithFormat:@"%ld.circle", (long)i] action:@selector(menuFavTapped:)];
         f.tag = i;
         [btns addObject:f];
     }
-    UIButton *home = [self bigButton:(self.onMainScreen ? @"xmark.circle" : @"house.fill")
-                               title:(self.onMainScreen ? @"Đóng hết" : @"CarPlay") action:@selector(menuCloseSplit)];
-    [btns addObject:home];
+    [btns addObject:[self roundButton:(self.onMainScreen ? @"xmark.square" : @"house") action:@selector(menuCloseSplit)]];
 
-    CGFloat pad = 8, gap = SCP_BIG_BTN_GAP;
-    CGFloat w = pad * 2 + btns.count * SCP_BIG_BTN_W + (btns.count - 1) * gap, h = pad * 2 + SCP_BIG_BTN_H;
+    // Container trong suot, cac nut tron trang xep 1 hang; bat ra lan luot tu giua ra 2 ben (kieu MIUI)
+    CGFloat w = btns.count * SCP_BTN + (btns.count - 1) * SCP_BTN_GAP, h = SCP_BTN;
     UIView *m = [[UIView alloc] initWithFrame:CGRectMake(0, 0, w, h)];
-    m.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.94];
-    m.layer.cornerRadius = 22;
-    m.layer.borderWidth = 1;
-    m.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
-    m.layer.shadowColor = [UIColor blackColor].CGColor;
-    m.layer.shadowOpacity = 0.6; m.layer.shadowRadius = 8; m.layer.shadowOffset = CGSizeMake(0, 2);
-    CGFloat x = pad;
+    m.backgroundColor = [UIColor clearColor];
+    CGFloat x = 0;
     for (UIButton *b in btns) {
-        b.frame = CGRectMake(x, pad, SCP_BIG_BTN_W, SCP_BIG_BTN_H);
+        b.center = CGPointMake(x + SCP_BTN / 2, h / 2);
         [m addSubview:b];
-        x += SCP_BIG_BTN_W + gap;
+        x += SCP_BTN + SCP_BTN_GAP;
     }
     self.dividerMenu = m;
     [self.rootWindow addSubview:m];
     [self layoutDividerMenu];
-    m.alpha = 0; m.transform = CGAffineTransformMakeScale(0.8, 0.8);
-    [UIView animateWithDuration:0.18 animations:^{ m.alpha = 1; m.transform = CGAffineTransformIdentity; }];
+    NSArray *order = [btns sortedArrayUsingComparator:^NSComparisonResult(UIButton *a, UIButton *b) {
+        CGFloat da = fabs(a.center.x - w / 2), db = fabs(b.center.x - w / 2);
+        return da < db ? NSOrderedAscending : (da > db ? NSOrderedDescending : NSOrderedSame);
+    }];
+    SCPPopIn(order, 0.04);
     [self scheduleDividerMenuHide];
 }
 
@@ -728,25 +717,15 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     self.dividerMenuTimer = [NSTimer scheduledTimerWithTimeInterval:8 repeats:NO block:^(NSTimer *t) { [weakSelf hideDividerMenu]; }];
 }
 
-// Nhan nut ti le hien ti le se ap ke tiep, de nguoi dung biet bam se ra gi
-- (NSString *)ratioTitle
-{
-    CGFloat r = self.ratio;
-    BOOL special = (self.fullscreenSlot != SCPSlotAuto) || (self.pipSlot != SCPSlotAuto);
-    CGFloat next = special ? 0.5 : (fabs(r - 0.5) < 0.05 ? 0.7 : (r > 0.6 ? 0.3 : 0.5));
-    return [NSString stringWithFormat:@"%d/%d", (int)lround(next * 100), (int)lround((1 - next) * 100)];
-}
-
-// Menu nam ngay canh num keo, can giua duong ranh; chia tren/duoi thi lech xuong duoi num mot chut
+// Menu nam ngay canh num keo, can giua duong ranh: phia tren num (chia trai/phai) hoac duoi num (chia tren/duoi)
 - (void)layoutDividerMenu
 {
     if (!self.dividerMenu) return;
     CGRect d = self.dividerView.frame, b = self.rootWindow.bounds;
     CGSize ms = self.dividerMenu.bounds.size;
     CGPoint c = CGPointMake(CGRectGetMidX(d), CGRectGetMidY(d));
-    // Menu nam ngay phia tren num (chia trai/phai) hoac ngay duoi num (chia tren/duoi), khong de len num
-    if ([self vertical]) c.y += SCP_KNOB_W / 2 + 10 + ms.height / 2;
-    else                 c.y -= SCP_KNOB_H / 2 + 10 + ms.height / 2;
+    if ([self vertical]) c.y += SCP_KNOB_W / 2 + 14 + ms.height / 2;
+    else                 c.y -= SCP_KNOB_H / 2 + 14 + ms.height / 2;
     c.x = MIN(CGRectGetMaxX(b) - ms.width / 2 - 8, MAX(ms.width / 2 + 8, c.x));
     c.y = MIN(CGRectGetMaxY(b) - ms.height / 2 - 8, MAX(ms.height / 2 + 8, c.y));
     self.dividerMenu.center = c;
@@ -758,12 +737,21 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     UIView *m = self.dividerMenu;
     if (!m) return;
     self.dividerMenu = nil;
-    [UIView animateWithDuration:0.15 animations:^{ m.alpha = 0; m.transform = CGAffineTransformMakeScale(0.85, 0.85); }
-                     completion:^(BOOL done) { [m removeFromSuperview]; }];
+    SCPPopOut(m.subviews, ^{ [m removeFromSuperview]; });
 }
 
 - (void)menuSwap        { [self hideDividerMenu]; [self swapPanes]; }
 - (void)menuCloseSplit  { [self hideDividerMenu]; [self exitOrStayInDemo]; }
+- (void)menuFavTapped:(UIButton *)b { [self hideDividerMenu]; [self applyFavorite:b.tag]; }
+
+// Doi ti le: giu menu mo (cap nhat icon cho buoc ke tiep) de bam tiep neu chua vua y
+- (void)menuCycleLayout
+{
+    [self cycleLayoutPreset];
+    UIButton *ratio = (UIButton *)[self.dividerMenu viewWithTag:1010];
+    if (ratio) SCPSetIcon(ratio, [self ratioSymbol]);
+    [self scheduleDividerMenuHide];
+}
 
 // Thoat split: tren xe -> dong cua so ve dashboard CarPlay. Che do thu tren iPhone -> chi dong app,
 // giu cua so va hien bang chon de thu tiep; thoat han bang nut trong Settings.
@@ -775,16 +763,6 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     [self closeSlot:SCPSlotRight];
     [self relayoutPanes];
     [self showAppPickerForSlot:SCPSlotLeft];
-}
-- (void)menuFavTapped:(UIButton *)b { [self hideDividerMenu]; [self applyFavorite:b.tag]; }
-// Doi ti le: giu menu mo (cap nhat nhan) de bam tiep neu chua vua y
-- (void)menuCycleLayout
-{
-    [self cycleLayoutPreset];
-    for (UIButton *b in self.dividerMenu.subviews) {
-        if ([b isKindOfClass:[UIButton class]] && [((UILabel *)[b viewWithTag:1003]).text containsString:@"/"]) SCPSetBigButton(b, @"rectangle.lefthalf.inset.filled", [self ratioTitle]);
-    }
-    [self scheduleDividerMenuHide];
 }
 
 - (void)dividerPanned:(UIPanGestureRecognizer *)g
@@ -973,7 +951,7 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     [self.rootWindow addSubview:pv];
     [self hideAllPaneActions];
 
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 15, pv.bounds.size.width - 124, 30)];
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 17, pv.bounds.size.width - 90, 30)];
     if (half) title.text = @"Chọn app để chia đôi";
     else title.text = (self.pickerSlot == SCPSlotLeft) ? @"Chọn app cho ngăn TRÁI  (giữ icon và kéo để thả vào ngăn)" : @"Chọn app cho ngăn PHẢI";
     title.textColor = [UIColor whiteColor];
@@ -981,17 +959,11 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     title.adjustsFontSizeToFitWidth = YES;
     [pv addSubview:title];
 
-    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeCustom];
-    [cancel setTitle:@"Huỷ" forState:UIControlStateNormal];
-    cancel.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-    [cancel setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    cancel.backgroundColor = [UIColor colorWithWhite:1 alpha:0.14];
-    cancel.layer.cornerRadius = 22;
-    cancel.frame = CGRectMake(pv.bounds.size.width - 96, 8, 84, 44);
-    [cancel addTarget:self action:@selector(hideAppPicker) forControlEvents:UIControlEventTouchUpInside];
+    UIButton *cancel = [self roundButton:@"xmark" action:@selector(hideAppPicker)];
+    cancel.center = CGPointMake(pv.bounds.size.width - 8 - SCP_BTN / 2, 6 + SCP_BTN / 2);
     [pv addSubview:cancel];
 
-    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 60, pv.bounds.size.width, pv.bounds.size.height - 60)];
+    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 66, pv.bounds.size.width, pv.bounds.size.height - 66)];
     scroll.alwaysBounceVertical = YES;
     scroll.tag = 77;
     [pv addSubview:scroll];
