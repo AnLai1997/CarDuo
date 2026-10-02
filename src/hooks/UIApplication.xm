@@ -17,6 +17,8 @@ static void SCPPostFakeDeviceRotation(double delay)
 {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (fakeDeviceOrientation <= 0) return;
+        NSUInteger m = SCPAppEffectiveMask();
+        if (!(m & UIInterfaceOrientationMaskPortrait)) { SCPLog("bo qua su kien xoay gia: app dang chi cho mask %lu", (unsigned long)m); return; }
         SCPLog("phat su kien xoay gia (%d)", fakeDeviceOrientation);
         [[NSNotificationCenter defaultCenter] postNotificationName:UIDeviceOrientationDidChangeNotification object:[UIDevice currentDevice]];
     });
@@ -78,7 +80,27 @@ static NSUInteger SCPEffectiveMask(UIWindow *w)
 // Bao cho SpringBoard: app nay vua doi yeu cau xoay (o = huong muon, 0 = ve huong ngan, 0xFF = chi "lay" lai).
 // SpringBoard se gui lai scene settings -> UIKit trong app tinh lai huong dung theo app (giong luc keo num chia).
 // Dung Darwin notify + state vi distributed notification co the bi sandbox cua app chan.
-// Mask hieu luc cua ca app: cua so key (hoac cua so dau tien co root VC)
+// Duyet cay VC (con + presented) dang hien trong cua so: neu co VC nao chi cho NGANG (khong co doc) -> tra mask do.
+// YouTube fullscreen: VC gốc van tra "doc", nhung YTWatchFullscreenViewController (la VC con) tra "ngang".
+static NSUInteger SCPLandscapeOnlyMaskInTree(UIViewController *vc, int depth)
+{
+    if (!vc || depth > 12) return 0;
+    if (vc.isViewLoaded && vc.view.window && !vc.view.hidden) {
+        NSUInteger m = vc.supportedInterfaceOrientations;
+        if (m && !(m & UIInterfaceOrientationMaskPortrait) && (m & UIInterfaceOrientationMaskLandscape)) return m;
+    }
+    if (vc.presentedViewController && !vc.presentedViewController.isBeingDismissed) {
+        NSUInteger m = SCPLandscapeOnlyMaskInTree(vc.presentedViewController, depth + 1);
+        if (m) return m;
+    }
+    for (UIViewController *c in vc.childViewControllers) {
+        NSUInteger m = SCPLandscapeOnlyMaskInTree(c, depth + 1);
+        if (m) return m;
+    }
+    return 0;
+}
+
+// Mask hieu luc cua ca app: cua so key (hoac cua so dau tien co root VC). Uu tien VC chi-cho-ngang dang hien.
 static NSUInteger SCPAppEffectiveMask(void)
 {
     UIWindow *best = nil;
@@ -86,11 +108,15 @@ static NSUInteger SCPAppEffectiveMask(void)
         if (![sc isKindOfClass:[UIWindowScene class]]) continue;
         for (UIWindow *w in ((UIWindowScene *)sc).windows) {
             if (!w.rootViewController || w.hidden) continue;
-            if (w.isKeyWindow) return SCPEffectiveMask(w);
+            if (w.isKeyWindow) { best = w; break; }
             if (!best) best = w;
         }
+        if (best && best.isKeyWindow) break;
     }
-    return best ? SCPEffectiveMask(best) : UIInterfaceOrientationMaskAll;
+    if (!best) return UIInterfaceOrientationMaskAll;
+    NSUInteger landscapeOnly = SCPLandscapeOnlyMaskInTree(best.rootViewController, 0);
+    if (landscapeOnly) return landscapeOnly;
+    return SCPEffectiveMask(best);
 }
 
 static void SCPTellSpringBoardNow(long long o);
@@ -103,7 +129,7 @@ static void SCPTellSpringBoard(long long o)
         pending = nil;
         SCPTellSpringBoardNow(o);
     });
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), pending);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), pending);
 }
 
 static void SCPTellSpringBoardNow(long long o)
