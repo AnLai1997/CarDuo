@@ -252,7 +252,7 @@ splitcarplay://close</string>
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>GỠ LỖI (DÀNH CHO DEV)</string>
-			<key>footerText</key><string>Chỉ để kiểm tra cơ chế host app khi chưa có xe: mở cửa sổ chia đôi tạm trên màn iPhone (tự đóng sau 2 phút). Trên xe, tweak tự dùng màn CarPlay. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.</string>
+			<key>footerText</key><string>Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm "Đóng split thử" ở đây (hoặc splitcarplay://close). Trên xe, tweak tự dùng màn CarPlay. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>

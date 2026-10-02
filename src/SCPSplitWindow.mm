@@ -155,6 +155,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)showDividerMenu;
 - (void)hideDividerMenu;
 - (void)scheduleDividerMenuHide;
+- (void)exitOrStayInDemo;
 - (NSString *)ratioTitle;
 - (void)layoutDividerMenu;
 - (BOOL)singlePane;
@@ -213,13 +214,9 @@ static UIImage *SCPAppIcon(NSString *bid)
 
     if (mainScreen) {
         self.rootWindow = SCPMakePhoneWindow(YES);
-        // An toan: tu dong dong sau 120s de khong bi ket
-        __weak SCPSplitWindow *weakSelfTest = self;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(120 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            SCPSplitWindow *s = weakSelfTest;
-            if (s && s.onMainScreen && [SCPSplitWindow current] == s) { SCPLog("test window auto-close"); [s dismiss]; }
-        });
-        SCPLog("TEST window tren man chinh, bounds=%@", NSStringFromCGRect(self.rootWindow.bounds));
+        // Che do thu (demo) tren man iPhone: KHONG tu dong; chi thoat khi bam "Dong split thu" trong Settings
+        // (hoac splitcarplay://close). Cac nut dong trong cua so chi dong app roi hien lai bang chon.
+        SCPLog("TEST window tren man chinh, bounds=%@ (khong tu dong)", NSStringFromCGRect(self.rootWindow.bounds));
     } else {
         self.rootWindow = SCPMakeCarWindow();
         if (!self.rootWindow) return nil;
@@ -553,7 +550,7 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
     if (!pane) return;
     SCPSlot slot = [self slotForPane:pane];
     [self closeSlot:slot terminate:YES];
-    if (self.panes.count == 0) { [self dismiss]; return; }
+    if (self.panes.count == 0) { [self exitOrStayInDemo]; return; }
     [UIView animateWithDuration:0.25 animations:^{ [self relayoutPanes]; }];
 }
 
@@ -709,7 +706,8 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
         f.tag = i;
         [btns addObject:f];
     }
-    UIButton *home = [self bigButton:@"house.fill" title:@"CarPlay" action:@selector(menuCloseSplit)];
+    UIButton *home = [self bigButton:(self.onMainScreen ? @"xmark.circle" : @"house.fill")
+                               title:(self.onMainScreen ? @"Đóng hết" : @"CarPlay") action:@selector(menuCloseSplit)];
     [btns addObject:home];
 
     CGFloat pad = 8, gap = SCP_BIG_BTN_GAP;
@@ -778,7 +776,19 @@ static void SCPSetBigButtonOn(UIButton *b, BOOL on)
 }
 
 - (void)menuSwap        { [self hideDividerMenu]; [self swapPanes]; }
-- (void)menuCloseSplit  { [self hideDividerMenu]; [self dismiss]; }
+- (void)menuCloseSplit  { [self hideDividerMenu]; [self exitOrStayInDemo]; }
+
+// Thoat split: tren xe -> dong cua so ve dashboard CarPlay. Che do thu tren iPhone -> chi dong app,
+// giu cua so va hien bang chon de thu tiep; thoat han bang nut trong Settings.
+- (void)exitOrStayInDemo
+{
+    if (!self.onMainScreen) { [self dismiss]; return; }
+    SCPLog("demo: dong app, giu cua so thu");
+    [self closeSlot:SCPSlotLeft];
+    [self closeSlot:SCPSlotRight];
+    [self relayoutPanes];
+    [self showAppPickerForSlot:SCPSlotLeft];
+}
 - (void)menuFavTapped:(UIButton *)b { [self hideDividerMenu]; [self applyFavorite:b.tag]; }
 // Doi ti le: giu menu mo (cap nhat nhan) de bam tiep neu chua vua y
 - (void)menuCycleLayout
