@@ -1,6 +1,6 @@
 Package: com.anpham.splitcarplay
 Name: CarDuo
-Version: 0.2.0
+Version: 0.3.0
 Architecture: iphoneos-arm64
 Description: Split CarPlay screen - personal build (Dopamine rootless, iOS 16.5)
 Author: AnLai97 <laihoangan123456@gmail.com>
