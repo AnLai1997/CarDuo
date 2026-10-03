@@ -1,6 +1,10 @@
 #import "../common.h"
 #import <notify.h>
 #import <CoreLocation/CoreLocation.h>
+#import <execinfo.h>
+#import <signal.h>
+#import <fcntl.h>
+#import <unistd.h>
 
 // Inject vao app nguoi dung: nhan yeu cau xoay tu SpringBoard
 %group APPS
@@ -562,22 +566,28 @@ static void SCPNoteScan(int speed, int limit)
     if (limit >= 5 && limit <= 200) { sScanLimit = limit; sScanLimitAt = now; }
 }
 
-// Tat ca cua so cua app: cua so iPhone (key truoc) + cua so CarPlay (CPTemplateApplicationScene.carWindow)
+// Cua so de quet: cua so chinh tren iPhone + cua so CarPlay (CPTemplateApplicationScene.carWindow) neu dang hien
 static NSArray<UIWindow *> *SCPAllWindows(void)
 {
-    NSMutableArray<UIWindow *> *out = [NSMutableArray array];
+    // iPhone: CHI 1 cua so chinh (key, khong co thi cua so dau co rootViewController) - giong ban on dinh cu.
+    // Khong quet cac cua so phu (ban phim, overlay he thong...).
+    UIWindow *phone = nil, *car = nil;
     for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
         if ([sc isKindOfClass:[UIWindowScene class]]) {
             for (UIWindow *w in ((UIWindowScene *)sc).windows) {
-                if (!w.rootViewController) continue;
-                if (w.isKeyWindow) [out insertObject:w atIndex:0]; else [out addObject:w];
+                if (w.isKeyWindow) { phone = w; break; }
+                if (!phone && w.rootViewController) phone = w;
             }
-        }
-        if ([sc respondsToSelector:NSSelectorFromString(@"carWindow")]) {
-            UIWindow *cw = ((id (*)(id, SEL))objc_msgSend)(sc, NSSelectorFromString(@"carWindow"));
-            if ([cw isKindOfClass:[UIWindow class]] && ![out containsObject:cw]) [out addObject:cw];
+        } else if (!car && sc.activationState == UISceneActivationStateForegroundActive
+                   && [sc respondsToSelector:NSSelectorFromString(@"carWindow")]) {
+            // CarPlay dang ket noi va dang hien Vietmap: them cua so CarPlay
+            id cw = ((id (*)(id, SEL))objc_msgSend)(sc, NSSelectorFromString(@"carWindow"));
+            if ([cw isKindOfClass:[UIWindow class]]) car = cw;
         }
     }
+    NSMutableArray<UIWindow *> *out = [NSMutableArray array];
+    if (phone) [out addObject:phone];
+    if (car && car != phone) [out addObject:car];
     return out;
 }
 
@@ -660,12 +670,77 @@ static void SCPStartSpeedScanner(void)
     });
 }
 
+// ---------------------------------------------------------------------
+//  Ghi crash cua Vietmap: tin hieu (SIGSEGV...) va exception ObjC -> ghi stack vao
+//  Documents/CarDuo-crash.txt trong container cua app. Lan mo sau dua noi dung vao log chung.
+//  Chay xong goi tiep handler cu (Crashlytics...) de app crash binh thuong.
+// ---------------------------------------------------------------------
+static int sCrashFd = -1;
+static volatile sig_atomic_t sInCrash = 0;
+static struct sigaction sOldAct[NSIG];
+static NSUncaughtExceptionHandler *sOldExc;
+static const int kCrashSignals[] = { SIGSEGV, SIGBUS, SIGABRT, SIGILL, SIGTRAP, SIGFPE };
+
+static void SCPCrashWrite(const char *s) { if (sCrashFd >= 0 && s) write(sCrashFd, s, strlen(s)); }
+
+static void SCPCrashSignal(int sig, siginfo_t *info, void *ctx)
+{
+    if (!sInCrash) {
+        sInCrash = 1;
+        char hdr[96];
+        snprintf(hdr, sizeof hdr, "signal %d addr %p\n", sig, info ? info->si_addr : NULL);
+        SCPCrashWrite(hdr);
+        void *bt[64];
+        int n = backtrace(bt, 64);
+        if (sCrashFd >= 0) { backtrace_symbols_fd(bt, n, sCrashFd); fsync(sCrashFd); }
+    }
+    // Tra lai handler cu roi phat lai tin hieu
+    if (sig > 0 && sig < NSIG) sigaction(sig, &sOldAct[sig], NULL); else signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void SCPCrashException(NSException *e)
+{
+    NSString *s = [NSString stringWithFormat:@"exception %@: %@\n%@\n", e.name, e.reason,
+                   [e.callStackSymbols componentsJoinedByString:@"\n"]];
+    SCPCrashWrite(s.UTF8String);
+    if (sCrashFd >= 0) fsync(sCrashFd);
+    if (sOldExc) sOldExc(e);
+}
+
+static void SCPInstallCrashLogger(void)
+{
+    NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/CarDuo-crash.txt"];
+    NSString *prev = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    if (prev.length) {
+        NSArray *lines = [prev componentsSeparatedByString:@"\n"];
+        if (lines.count > 70) lines = [lines subarrayWithRange:NSMakeRange(0, 70)];
+        NSString *report = [lines componentsJoinedByString:@"\n"];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            SCPLog("CRASH lan truoc cua Vietmap:\n%@", report);
+        });
+    }
+    sCrashFd = open(path.fileSystemRepresentation, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (sCrashFd < 0) return;
+    struct sigaction sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_sigaction = SCPCrashSignal;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    for (size_t i = 0; i < sizeof kCrashSignals / sizeof kCrashSignals[0]; i++) {
+        int sig = kCrashSignals[i];
+        sigaction(sig, &sa, &sOldAct[sig]);
+    }
+    sOldExc = NSGetUncaughtExceptionHandler();
+    NSSetUncaughtExceptionHandler(&SCPCrashException);
+}
+
 %ctor
 {
     NSString *path = [[NSBundle mainBundle] bundlePath];
     NSString *bid  = [[NSBundle mainBundle] bundleIdentifier];
     if ([path containsString:@".app"] && bid && ![bid hasPrefix:@"com.apple."]) {
         %init(APPS);
-        if ([bid isEqualToString:SCP_SPEED_APP]) { %init(SPEEDGPS); SCPEnableFlutterSemantics(); SCPStartSpeedScanner(); }
+        if ([bid isEqualToString:SCP_SPEED_APP]) { SCPInstallCrashLogger(); %init(SPEEDGPS); SCPEnableFlutterSemantics(); SCPStartSpeedScanner(); }
     }
 }
