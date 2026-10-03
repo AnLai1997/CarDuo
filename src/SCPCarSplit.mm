@@ -344,19 +344,24 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     if ([d respondsToSelector:NSSelectorFromString(@"statusBarInsets")]) {
         ins = ((UIEdgeInsets (*)(id, SEL))objc_msgSend)(d, NSSelectorFromString(@"statusBarInsets"));
     }
-    CGRect result = area;
+    // View dock chi bao khung cum icon (vd {{0,64.5},{45,111}}), khong phai ca thanh dock cao het man.
+    // Xac dinh huong dock theo hinh dang cua chinh no va mep no bam vao, roi cat het chieu doc/ngang
+    // o mep do. Gop voi statusBarInsets (lay max tung canh) de khong cat trung 2 lan.
+    UIEdgeInsets cut = ins;
     if (!CGRectIsNull(inter) && inter.size.width > 1 && inter.size.height > 1) {
-        if (inter.size.height >= area.size.height * 0.6) {   // dock doc o mep trai/phai
-            CGFloat leftW = inter.origin.x - area.origin.x, rightW = CGRectGetMaxX(area) - CGRectGetMaxX(inter);
-            result = (leftW >= rightW) ? CGRectMake(area.origin.x, area.origin.y, leftW, area.size.height)
-                                       : CGRectMake(CGRectGetMaxX(inter), area.origin.y, rightW, area.size.height);
+        if (inter.size.height >= inter.size.width) {          // dock doc o mep trai/phai
+            CGFloat leftGap = inter.origin.x - area.origin.x, rightGap = CGRectGetMaxX(area) - CGRectGetMaxX(inter);
+            if (leftGap <= rightGap) cut.left = MAX(cut.left, CGRectGetMaxX(inter) - area.origin.x);
+            else cut.right = MAX(cut.right, CGRectGetMaxX(area) - inter.origin.x);
         } else {                                              // dock ngang o mep tren/duoi
-            CGFloat topH = inter.origin.y - area.origin.y, botH = CGRectGetMaxY(area) - CGRectGetMaxY(inter);
-            result = (topH >= botH) ? CGRectMake(area.origin.x, area.origin.y, area.size.width, topH)
-                                    : CGRectMake(area.origin.x, CGRectGetMaxY(inter), area.size.width, botH);
+            CGFloat topGap = inter.origin.y - area.origin.y, botGap = CGRectGetMaxY(area) - CGRectGetMaxY(inter);
+            if (topGap <= botGap) cut.top = MAX(cut.top, CGRectGetMaxY(inter) - area.origin.y);
+            else cut.bottom = MAX(cut.bottom, CGRectGetMaxY(area) - inter.origin.y);
         }
-    } else {
-        result = UIEdgeInsetsInsetRect(area, ins);
+    }
+    CGRect result = UIEdgeInsetsInsetRect(area, cut);
+    if (result.size.width < area.size.width * 0.5 || result.size.height < area.size.height * 0.5) {
+        result = UIEdgeInsetsInsetRect(area, ins);            // cat qua tay -> chi dung statusBarInsets
     }
     if (!self.loggedArea) {
         self.loggedArea = YES;
