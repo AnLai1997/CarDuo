@@ -473,7 +473,20 @@ static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString
 //  (khong bat GPS rieng). Van dung duoc khi Vietmap dang hien tren CarPlay va man iPhone khong
 //  hien toc do. Gioi han toc do van lay tu man hinh (quet), chi gui khi vua thay gan day.
 // ---------------------------------------------------------------------
-static NSHashTable *sLocManagers;
+static NSHashTable *sLocManagers;   // chi doc / ghi qua 3 ham duoi (co khoa: Vietmap co the bat GPS tu luong khac)
+static NSObject *SCPLocLock(void) { static NSObject *o; static dispatch_once_t once; dispatch_once(&once, ^{ o = [NSObject new]; }); return o; }
+// Them manager; tra ve so manager sau khi them, 0 neu da co san
+static NSUInteger SCPLocAdd(id m)
+{
+    @synchronized (SCPLocLock()) {
+        if (!sLocManagers) sLocManagers = [NSHashTable weakObjectsHashTable];
+        if ([sLocManagers containsObject:m]) return 0;
+        [sLocManagers addObject:m];
+        return sLocManagers.count;
+    }
+}
+static BOOL SCPLocHas(id m) { @synchronized (SCPLocLock()) { return [sLocManagers containsObject:m]; } }
+static NSArray *SCPLocAll(void) { @synchronized (SCPLocLock()) { return sLocManagers.allObjects ?: @[]; } }
 static int sScanSpeed = -1, sScanLimit = -1;
 static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
 
@@ -485,13 +498,9 @@ static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
 %hook CLLocationManager
 - (void)startUpdatingLocation
 {
-    if (!sLocManagers) sLocManagers = [NSHashTable weakObjectsHashTable];
-    if (![sLocManagers containsObject:self]) {
-        double old = self.distanceFilter;
-        [sLocManagers addObject:self];
-        SCPLog("speed gps: Vietmap bat GPS (%lu CLLocationManager, distanceFilter %.1fm -> none)",
-               (unsigned long)sLocManagers.count, old);
-    }
+    double old = self.distanceFilter;
+    NSUInteger n = SCPLocAdd(self);
+    if (n) SCPLog("speed gps: Vietmap bat GPS (%lu CLLocationManager, distanceFilter %.1fm -> none)", (unsigned long)n, old);
     // Nhan MOI ban tin GPS (khong loc theo khoang cach) de toc do cap nhat lien tuc ~1 lan/giay
     self.distanceFilter = kCLDistanceFilterNone;
     %orig;
@@ -500,7 +509,7 @@ static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
 - (void)setDistanceFilter:(double)d
 {
     // Manager dang dung cho toc do -> luon none; manager khac giu nguyen y app
-    %orig([sLocManagers containsObject:self] ? kCLDistanceFilterNone : d);
+    %orig(SCPLocHas(self) ? kCLDistanceFilterNone : d);
 }
 %end
 %end // SPEEDGPS
@@ -509,7 +518,7 @@ static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
 static CLLocation *SCPLatestFix(void)
 {
     CLLocation *best = nil;
-    for (CLLocationManager *m in sLocManagers.allObjects) {
+    for (CLLocationManager *m in SCPLocAll()) {
         CLLocation *l = m.location;
         if (l && (!best || [l.timestamp compare:best.timestamp] == NSOrderedDescending)) best = l;
     }
@@ -637,7 +646,7 @@ static void SCPSpeedTick(void)
     int limit = SCPCurrentLimit();
     if (gps < 0 && scan >= 0) SCPSendSpeed(scan, limit);   // co GPS thi nhip GPS da gui
     if (doLog) SCPLog("speed: gps=%d (vi tri cach %.1fs, %lu manager) quet=%d gioi han=%d -> gui %d", gps, age,
-                      (unsigned long)sLocManagers.count, scan, limit, gps >= 0 ? gps : scan);
+                      (unsigned long)SCPLocAll().count, scan, limit, gps >= 0 ? gps : scan);
 }
 
 static void SCPStartSpeedScanner(void)
