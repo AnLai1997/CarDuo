@@ -103,9 +103,7 @@ PLIST
 - Respring: sau 10 giây cửa sổ chia đôi hiện trên màn iPhone (xoay ngang).
 - Chế độ thử mô phỏng màn CarPlay: khung 800x480 vừa màn iPhone, dock CarPlay bên trái (giờ, nút thoát đỏ, icon app đang mở, nút Home mở bảng chọn app).
   Nội dung app thu nhỏ đúng tỉ lệ như trên xe.
-- Thử giao diện CarPlay trên iPhone (`src/SCPPhoneCarScene.mm`, thử nghiệm): SpringBoard tự tạo scene CarPlay của app trên màn iPhone
-  giống DashBoard (`CRSUIApplicationSceneSpecification` cho Maps/Music, `CRSUIProxyApplicationSceneSpecification` qua
-  CarPlayTemplateUIHost cho app template). Sau 8 giây chưa có nội dung thì ngăn tự về giao diện iPhone. Log: dòng "CarScene:".
+- Không thể hiện giao diện CarPlay của app trên iPhone khi không có xe: tạo scene CarPlay từ SpringBoard (thử ở commit 126ea50) làm SpringBoard crash và màn đen tới khi khởi động lại máy.
 - Hoặc không cần respring: `notifyutil -p com.anpham.splitcarplay.test` (package `notifyutil`/`darwintools`).
 - Đóng: kéo dấu "..." của một ngăn xuống rồi bấm nút Home, hoặc `notifyutil -p com.anpham.splitcarplay.close`.
 - Xoá key `TestOnMainScreen` khi không muốn tự mở nữa.

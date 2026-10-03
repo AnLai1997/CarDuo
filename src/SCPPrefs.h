@@ -16,10 +16,6 @@
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
 + (BOOL)speedBubble;           // bong bong toc do tu Vietmap Live khi app khong hien
-+ (BOOL)demoCarPlayUI;         // che do thu tren iPhone: thu hien giao dien CarPlay cua app (thu nghiem, mac dinh tat)
-+ (void)setDemoCarPlayUI:(BOOL)v;
-+ (BOOL)carSceneInProgress;    // dang tao scene CarPlay tren iPhone (de phat hien SpringBoard chet giua chung)
-+ (void)setCarSceneInProgress:(BOOL)v;
 + (BOOL)allowPhoneApps;        // app khong co CarPlay: cho chieu giao dien iPhone (mac dinh tat)
 
 // Cap app yeu thich 1..3: @{ @"name", @"left", @"right" } (nil neu chua dat)

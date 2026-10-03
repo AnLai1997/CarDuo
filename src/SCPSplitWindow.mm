@@ -2,7 +2,6 @@
 #import "SCPSpeedBubble.h"
 #import "SCPPrefs.h"
 #import "SCPCarSplit.h"
-#import "SCPPhoneCarScene.h"
 
 // =====================================================================
 //  SCPSplitWindow - cua so tren man CarPlay, host 2 app cua iPhone
@@ -1395,34 +1394,12 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pane.containerView.clipsToBounds = YES;
     [self.rootWindow insertSubview:pane.containerView belowSubview:self.dividerView];
 
-    SCPCarAppKind carKind = (self.onMainScreen && [SCPPrefs demoCarPlayUI]) ? [SCPPhoneCarScene carPlayKindForBundleID:bundleID] : SCPCarAppKindNone;
-    // App template (Vietmap, Google Maps, Spotify...) can CarPlayTemplateUIHost: tao scene do tu SpringBoard lam SpringBoard
-    // crash, va TemplateUIHost con giu scene sau respring -> man den. Chi thu voi app tu ve CarPlay (Apple Maps, Nhac).
-    if (carKind == SCPCarAppKindTemplate) {
-        SCPLog("demo: %@ la app template CarPlay -> khong thu tren iPhone (lam crash SpringBoard), dung giao dien iPhone", bundleID);
-        carKind = SCPCarAppKindNone;
-    }
-    if (carKind != SCPCarAppKindNone) {
-        // Che do thu: hien giao dien CarPlay cua app (scene CarPlay tao ngay tren iPhone)
-        SCPPhoneCarScene *cs = [[SCPPhoneCarScene alloc] initWithBundleID:bundleID kind:carKind];
-        pane.carScene = cs;
-        [pane.containerView addSubview:cs.view];
-        __weak SCPSplitWindow *weakSelf = self;
-        __weak SCPAppPane *weakPane = pane;
-        cs.onFail = ^(NSString *reason) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf fallBackToPhoneUIForPane:weakPane]; });
-        };
-        CGFloat k = [self carScale];
-        CGSize box = pane.containerView.bounds.size;
-        [cs startWithLogicalSize:CGSizeMake(round(box.width / k), round(box.height / k)) scale:k];
-    } else {
-        @try {
-            [self setupLiveAppViewForPane:pane];
-        } @catch (NSException *e) {
-            SCPLog("setupLiveAppView that bai: %@", e);
-            [pane.containerView removeFromSuperview];
-            return;
-        }
+    @try {
+        [self setupLiveAppViewForPane:pane];
+    } @catch (NSException *e) {
+        SCPLog("setupLiveAppView that bai: %@", e);
+        [pane.containerView removeFromSuperview];
+        return;
     }
 
     if (slot == SCPSlotLeft) self.leftPane = pane; else self.rightPane = pane;
@@ -1560,29 +1537,9 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     return pane.orientation > 0 ? pane.orientation : 1;
 }
 
-// Scene CarPlay tren iPhone khong len (app can phien CarPlay that) -> ngan nay chieu giao dien iPhone nhu cu
-- (void)fallBackToPhoneUIForPane:(SCPAppPane *)pane
-{
-    if (!pane || !pane.carScene || (pane != self.leftPane && pane != self.rightPane)) return;
-    SCPLog("demo: %@ ve lai giao dien iPhone", pane.bundleIdentifier);
-    [pane.carScene invalidate];
-    pane.carScene = nil;
-    @try {
-        [self setupLiveAppViewForPane:pane];
-        [pane.containerView sendSubviewToBack:[pane.appViewController view]];
-        [self relayoutPanes];
-    } @catch (NSException *e) {
-        SCPLog("setupLiveAppView that bai: %@", e);
-    }
-}
-
 // live=YES: dang keo thanh phan cach -> chi doi khung container, resize scene khi tha tay
 - (void)layoutPane:(SCPAppPane *)pane live:(BOOL)live
 {
-    if (pane.carScene) {
-        [(SCPPhoneCarScene *)pane.carScene layoutInBounds:pane.containerView.bounds.size scale:[self carScale] live:live];
-        return;
-    }
     if (!pane.appViewController || live) return;
     id deviceAppVC = getIvar(pane.appViewController, @"_deviceAppViewController");
     id sceneView   = getIvar(deviceAppVC, @"sceneView");
@@ -1644,7 +1601,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 
 - (void)nudgePane:(SCPAppPane *)pane
 {
-    if (pane.carScene) return;
     id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
     if (!scene) return;
     CGFloat z = [self contentZoom];
@@ -1724,11 +1680,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     if (pane == self.rightPane) [self teardownMirror];
     [pane.actionsHideTimer invalidate]; pane.actionsHideTimer = nil;
     [pane.sceneMonitor invalidate];
-    if (pane.carScene) {
-        [(SCPPhoneCarScene *)pane.carScene invalidate];
-        pane.carScene = nil;
-        if (!pane.appViewController) { [pane.containerView removeFromSuperview]; return; }
-    }
     NSString *appID = pane.bundleIdentifier;
 
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
