@@ -40,6 +40,11 @@
     notify_post("com.anpham.splitcarplay.test");
 }
 
+- (void)bubbleDemo
+{
+    notify_post("com.anpham.splitcarplay.bubbledemo");
+}
+
 - (void)closeSplit
 {
     notify_post("com.anpham.splitcarplay.close");

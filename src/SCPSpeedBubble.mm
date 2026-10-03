@@ -47,6 +47,10 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 @property (nonatomic) CGFloat scale;                 // phong to/thu nho bang 2 ngon (0.6 .. 2.2)
 @property (nonatomic, strong) UIButton *closeButton; // X do: giu bong bong de hien, bam de tat han Vietmap
 @property (nonatomic, strong) NSTimer *closeTimer;
+@property (nonatomic) NSInteger builtStyle;          // kieu dang ve trong the (-1 = chua ve)
+@property (nonatomic, strong) CAShapeLayer *gaugeTrack, *gaugeArc;   // kieu Dong ho
+@property (nonatomic, strong) UIView *stateBar;      // kieu HUD: vach mau ben trai
+@property (nonatomic, strong) NSTimer *demoTimer;    // "Xem thu bong bong" trong Cai dat
 @end
 
 @implementation SCPSpeedBubble
@@ -54,7 +58,7 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 + (instancetype)shared
 {
     static SCPSpeedBubble *s; static dispatch_once_t once;
-    dispatch_once(&once, ^{ s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; s.scale = 1; });
+    dispatch_once(&once, ^{ s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; s.scale = 1; s.builtStyle = -1; });
     return s;
 }
 
@@ -100,16 +104,10 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
     [self ensureWindow];
     if (!self.window) return;
 
-    BOOL hasLimit = self.limit > 0;
+    NSInteger style = [SCPPrefs speedBubbleStyle];
+    if (style != self.builtStyle) [self buildStyle:style];
     // So doi muot: chi dat text, khong animation (cap nhat lien tuc)
-    self.speedLabel.text = [NSString stringWithFormat:@"%d", self.speed];
-    self.limitLabel.text = hasLimit ? [NSString stringWithFormat:@"%d", self.limit] : @"";
-    self.limitRing.hidden = !hasLimit;
-    // Vuot gioi han -> vong toc do doi sang do, so do
-    BOOL over = hasLimit && self.speed > self.limit;
-    self.speedRing.layer.borderColor = (over ? [UIColor colorWithRed:0.86 green:0.1 blue:0.1 alpha:1] : [UIColor colorWithRed:0.2 green:0.55 blue:1.0 alpha:1]).CGColor;
-    self.speedLabel.textColor = over ? [UIColor colorWithRed:0.8 green:0.05 blue:0.05 alpha:1] : [UIColor blackColor];
-    [self layoutCardKeepingCenter];
+    [self renderStyle];
 
     if (self.window.hidden) {
         self.window.hidden = NO;
@@ -134,19 +132,275 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
     [self.timer invalidate]; self.timer = nil;
 }
 
-// Xep 2 vong trong the: [ (gioi han) (toc do) ]; khong co gioi han thi chi 1 vong. Giu tam the co dinh.
-- (void)layoutCardKeepingCenter
+// =====================================================================
+//  Cac kieu bong bong (Cai dat > Bong bong toc do > Kieu hien thi)
+//    0 Vietmap      : 2 vong trang (do = gioi han, xanh = toc do) trong the toi
+//    1 Toi gian     : so toc do lon + km/h, bien gioi han nho ben phai
+//    2 Bien bao     : bien gioi han lon, toc do trong o tron nho o goc
+//    3 Dong ho      : cung 270 do chay theo toc do, so o giua, bien nho ben duoi
+//    4 Thanh HUD    : thanh ngang mong, vach mau trang thai ben trai
+//    5 Mau toc do   : hinh tron to mau xanh la / cam / do theo muc vuot gioi han
+// =====================================================================
+static UIColor *SCPBlue(void)   { return [UIColor colorWithRed:0.2 green:0.55 blue:1.0 alpha:1]; }
+static UIColor *SCPRed(void)    { return [UIColor colorWithRed:0.86 green:0.1 blue:0.1 alpha:1]; }
+static UIColor *SCPOrange(void) { return [UIColor colorWithRed:1.0 green:0.58 blue:0.0 alpha:1]; }
+static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 blue:0.33 alpha:1]; }
+
+// 0 = binh thuong, 1 = sap cham gioi han (>= 90%), 2 = vuot
+- (int)speedState
 {
-    BOOL hasLimit = !self.limitRing.hidden;
-    CGFloat w = SCP_PAD * 2 + SCP_RING + (hasLimit ? SCP_RING + SCP_RING_GAP : 0), h = SCP_PAD * 2 + SCP_RING;
+    if (self.limit <= 0) return 0;
+    if (self.speed > self.limit) return 2;
+    if (self.speed >= self.limit * 0.9) return 1;
+    return 0;
+}
+
+- (UIColor *)stateColor
+{
+    switch ([self speedState]) {
+        case 2: return SCPRed();
+        case 1: return SCPOrange();
+        default: return self.limit > 0 ? SCPGreen() : SCPBlue();
+    }
+}
+
+- (UILabel *)labelWithSize:(CGFloat)size weight:(UIFontWeight)w color:(UIColor *)c mono:(BOOL)mono
+{
+    UILabel *l = [[UILabel alloc] init];
+    l.font = mono ? [UIFont monospacedDigitSystemFontOfSize:size weight:w] : [UIFont systemFontOfSize:size weight:w];
+    l.textColor = c;
+    l.textAlignment = NSTextAlignmentCenter;
+    l.adjustsFontSizeToFitWidth = YES;
+    l.minimumScaleFactor = 0.5;
+    return l;
+}
+
+// Bien gioi han: tron trang, vien do, so den
+- (UIView *)limitSignWithDiameter:(CGFloat)d border:(CGFloat)bw fontSize:(CGFloat)fs
+{
+    UIView *ring = [self ringWithColor:SCPRed()];
+    ring.bounds = CGRectMake(0, 0, d, d);
+    ring.layer.cornerRadius = d / 2;
+    ring.layer.borderWidth = bw;
+    UILabel *l = [self labelWithSize:fs weight:UIFontWeightBold color:[UIColor blackColor] mono:NO];
+    l.frame = CGRectInset(ring.bounds, bw, bw);
+    l.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [ring addSubview:l];
+    self.limitLabel = l;
+    return ring;
+}
+
+- (void)buildStyle:(NSInteger)style
+{
+    UIView *card = self.card;
+    for (UIView *v in [card.subviews copy]) [v removeFromSuperview];
+    [self.gaugeTrack removeFromSuperlayer]; [self.gaugeArc removeFromSuperlayer];
+    self.gaugeTrack = nil; self.gaugeArc = nil; self.stateBar = nil;
+    self.limitRing = nil; self.speedRing = nil; self.limitLabel = nil; self.speedLabel = nil; self.unitLabel = nil;
+    card.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.6];
+    card.layer.borderWidth = 1;
+    card.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.2].CGColor;
+    card.layer.shadowOpacity = 0;
+
+    switch (style) {
+    case 1: {   // Toi gian
+        card.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.78];
+        self.speedLabel = [self labelWithSize:34 weight:UIFontWeightHeavy color:[UIColor whiteColor] mono:YES];
+        self.unitLabel = [self labelWithSize:11 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:0.7 alpha:1] mono:NO];
+        self.limitRing = [self limitSignWithDiameter:34 border:4 fontSize:15];
+        [card addSubview:self.speedLabel]; [card addSubview:self.unitLabel]; [card addSubview:self.limitRing];
+        break;
+    }
+    case 2: {   // Bien bao
+        card.backgroundColor = [UIColor clearColor];
+        card.layer.borderWidth = 0;
+        self.limitRing = [self limitSignWithDiameter:72 border:8 fontSize:30];
+        UIView *bubble = [[UIView alloc] init];
+        bubble.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.92];
+        bubble.layer.borderWidth = 2; bubble.layer.borderColor = [UIColor whiteColor].CGColor;
+        bubble.layer.shadowColor = [UIColor blackColor].CGColor;
+        bubble.layer.shadowOpacity = 0.4; bubble.layer.shadowRadius = 3; bubble.layer.shadowOffset = CGSizeMake(0, 1);
+        self.speedRing = bubble;
+        self.speedLabel = [self labelWithSize:20 weight:UIFontWeightBold color:[UIColor whiteColor] mono:YES];
+        [bubble addSubview:self.speedLabel];
+        [card addSubview:self.limitRing]; [card addSubview:bubble];
+        break;
+    }
+    case 3: {   // Dong ho
+        card.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.8];
+        CAShapeLayer *track = [CAShapeLayer layer], *arc = [CAShapeLayer layer];
+        for (CAShapeLayer *l in @[track, arc]) {
+            l.fillColor = [UIColor clearColor].CGColor;
+            l.lineWidth = 7; l.lineCap = kCALineCapRound;
+            [card.layer addSublayer:l];
+        }
+        track.strokeColor = [UIColor colorWithWhite:1 alpha:0.15].CGColor;
+        self.gaugeTrack = track; self.gaugeArc = arc;
+        self.speedLabel = [self labelWithSize:30 weight:UIFontWeightHeavy color:[UIColor whiteColor] mono:YES];
+        self.unitLabel = [self labelWithSize:10 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:0.7 alpha:1] mono:NO];
+        self.limitRing = [self limitSignWithDiameter:28 border:3.5 fontSize:12];
+        [card addSubview:self.speedLabel]; [card addSubview:self.unitLabel]; [card addSubview:self.limitRing];
+        break;
+    }
+    case 4: {   // Thanh HUD
+        card.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.72];
+        self.stateBar = [[UIView alloc] init];
+        self.speedLabel = [self labelWithSize:26 weight:UIFontWeightBold color:[UIColor whiteColor] mono:YES];
+        self.speedLabel.textAlignment = NSTextAlignmentRight;
+        self.unitLabel = [self labelWithSize:12 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:0.7 alpha:1] mono:NO];
+        self.unitLabel.textAlignment = NSTextAlignmentLeft;
+        self.limitRing = [self limitSignWithDiameter:32 border:4 fontSize:14];
+        for (UIView *v in @[self.stateBar, self.speedLabel, self.unitLabel, self.limitRing]) [card addSubview:v];
+        break;
+    }
+    case 5: {   // Mau theo toc do
+        card.backgroundColor = [UIColor clearColor];
+        card.layer.borderWidth = 0;
+        UIView *disc = [[UIView alloc] init];
+        disc.layer.borderWidth = 3; disc.layer.borderColor = [UIColor whiteColor].CGColor;
+        disc.layer.shadowColor = [UIColor blackColor].CGColor;
+        disc.layer.shadowOpacity = 0.45; disc.layer.shadowRadius = 4; disc.layer.shadowOffset = CGSizeMake(0, 2);
+        self.speedRing = disc;
+        self.speedLabel = [self labelWithSize:30 weight:UIFontWeightHeavy color:[UIColor whiteColor] mono:YES];
+        self.unitLabel = [self labelWithSize:10 weight:UIFontWeightBold color:[UIColor colorWithWhite:1 alpha:0.85] mono:NO];
+        [disc addSubview:self.speedLabel]; [disc addSubview:self.unitLabel];
+        self.limitRing = [self limitSignWithDiameter:30 border:4 fontSize:13];
+        [card addSubview:disc]; [card addSubview:self.limitRing];
+        break;
+    }
+    default: {  // 0 Vietmap: 2 vong
+        UIView *limitRing = [self limitSignWithDiameter:SCP_RING border:5 fontSize:24];
+        UIView *speedRing = [self ringWithColor:SCPBlue()];
+        self.speedLabel = [self labelWithSize:24 weight:UIFontWeightBold color:[UIColor blackColor] mono:YES];
+        self.speedLabel.frame = CGRectMake(0, 8, SCP_RING, 28);
+        self.unitLabel = [self labelWithSize:9 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:0.25 alpha:1] mono:NO];
+        self.unitLabel.frame = CGRectMake(0, 34, SCP_RING, 12);
+        [speedRing addSubview:self.speedLabel]; [speedRing addSubview:self.unitLabel];
+        self.limitRing = limitRing; self.speedRing = speedRing;
+        [card addSubview:limitRing]; [card addSubview:speedRing];
+        style = 0;
+        break;
+    }
+    }
+    self.unitLabel.text = @"km/h";
+    self.builtStyle = style;
+    SCPLog("speed bubble: kieu %ld", (long)style);
+}
+
+// Dat so + mau + bo cuc theo kieu, giu tam the co dinh
+- (void)renderStyle
+{
+    BOOL hasLimit = self.limit > 0;
+    int state = [self speedState];
+    UIColor *sc = [self stateColor];
+    self.speedLabel.text = [NSString stringWithFormat:@"%d", self.speed];
+    self.limitLabel.text = hasLimit ? [NSString stringWithFormat:@"%d", self.limit] : @"";
+    self.limitRing.hidden = !hasLimit;
+
     CGPoint c = self.card.center;
-    self.card.bounds = CGRectMake(0, 0, w, h);
-    self.card.layer.cornerRadius = h / 2;
-    CGFloat x = SCP_PAD;
-    if (hasLimit) { self.limitRing.frame = CGRectMake(x, SCP_PAD, SCP_RING, SCP_RING); x += SCP_RING + SCP_RING_GAP; }
-    self.speedRing.frame = CGRectMake(x, SCP_PAD, SCP_RING, SCP_RING);
+    CGSize size;
+    switch (self.builtStyle) {
+    case 1: {   // Toi gian
+        CGFloat numW = 66, h = 64;
+        size = CGSizeMake(10 + numW + (hasLimit ? 8 + 34 : 0) + 10, h);
+        self.speedLabel.frame = CGRectMake(10, 6, numW, 38);
+        self.unitLabel.frame = CGRectMake(10, 44, numW, 14);
+        self.limitRing.center = CGPointMake(10 + numW + 8 + 17, h / 2);
+        self.speedLabel.textColor = state == 2 ? SCPRed() : (state == 1 ? SCPOrange() : [UIColor whiteColor]);
+        self.card.layer.cornerRadius = 14;
+        break;
+    }
+    case 2: {   // Bien bao
+        CGFloat sign = 72, bub = 44;
+        if (hasLimit) {
+            size = CGSizeMake(sign + bub / 2, sign + bub / 2);
+            self.limitRing.center = CGPointMake(sign / 2, sign / 2);
+            self.speedRing.frame = CGRectMake(size.width - bub, size.height - bub, bub, bub);
+        } else {
+            bub = 60;
+            size = CGSizeMake(bub, bub);
+            self.speedRing.frame = CGRectMake(0, 0, bub, bub);
+        }
+        self.speedRing.layer.cornerRadius = bub / 2;
+        self.speedLabel.frame = CGRectInset(self.speedRing.bounds, 4, 4);
+        self.speedRing.backgroundColor = state == 2 ? SCPRed() : [UIColor colorWithWhite:0.08 alpha:0.92];
+        self.card.layer.cornerRadius = 0;
+        break;
+    }
+    case 3: {   // Dong ho
+        CGFloat d = 104;
+        size = CGSizeMake(d, d);
+        CGPoint mid = CGPointMake(d / 2, d / 2);
+        UIBezierPath *path = [UIBezierPath bezierPathWithArcCenter:mid radius:d / 2 - 10
+                                                        startAngle:M_PI * 0.75 endAngle:M_PI * 2.25 clockwise:YES];
+        self.gaugeTrack.path = path.CGPath; self.gaugeArc.path = path.CGPath;
+        self.gaugeTrack.frame = CGRectMake(0, 0, d, d); self.gaugeArc.frame = CGRectMake(0, 0, d, d);
+        CGFloat maxV = hasLimit ? MAX(self.limit * 1.3, 40) : 160;
+        [CATransaction begin]; [CATransaction setAnimationDuration:0.4];
+        self.gaugeArc.strokeEnd = MIN(1.0, MAX(0.0, self.speed / maxV));
+        self.gaugeArc.strokeColor = sc.CGColor;
+        [CATransaction commit];
+        self.speedLabel.frame = CGRectMake(14, d / 2 - 24, d - 28, 34);
+        self.unitLabel.frame = CGRectMake(14, d / 2 + 8, d - 28, 12);
+        self.limitRing.center = CGPointMake(d / 2, d - 16);
+        self.card.layer.cornerRadius = d / 2;
+        break;
+    }
+    case 4: {   // Thanh HUD
+        CGFloat h = 46;
+        size = CGSizeMake(8 + 6 + 8 + 50 + 4 + 34 + (hasLimit ? 10 + 32 : 0) + 10, h);
+        self.stateBar.frame = CGRectMake(8, 9, 6, h - 18);
+        self.stateBar.layer.cornerRadius = 3;
+        self.stateBar.backgroundColor = sc;
+        self.speedLabel.frame = CGRectMake(22, 6, 50, h - 12);
+        self.unitLabel.frame = CGRectMake(76, 14, 34, h - 22);
+        self.limitRing.center = CGPointMake(76 + 34 + 10 + 16, h / 2);
+        self.speedLabel.textColor = state == 2 ? SCPRed() : [UIColor whiteColor];
+        self.card.layer.cornerRadius = h / 2;
+        break;
+    }
+    case 5: {   // Mau theo toc do
+        CGFloat d = 78;
+        size = hasLimit ? CGSizeMake(d + 12, d + 6) : CGSizeMake(d, d);
+        self.speedRing.frame = CGRectMake(0, size.height - d, d, d);
+        self.speedRing.layer.cornerRadius = d / 2;
+        self.speedRing.backgroundColor = sc;
+        self.speedLabel.frame = CGRectMake(8, d / 2 - 22, d - 16, 34);
+        self.unitLabel.frame = CGRectMake(8, d / 2 + 10, d - 16, 12);
+        self.limitRing.center = CGPointMake(size.width - 15, 15);
+        self.card.layer.cornerRadius = 0;
+        break;
+    }
+    default: {  // Vietmap
+        size = CGSizeMake(SCP_PAD * 2 + SCP_RING + (hasLimit ? SCP_RING + SCP_RING_GAP : 0), SCP_PAD * 2 + SCP_RING);
+        CGFloat x = SCP_PAD;
+        if (hasLimit) { self.limitRing.frame = CGRectMake(x, SCP_PAD, SCP_RING, SCP_RING); x += SCP_RING + SCP_RING_GAP; }
+        self.speedRing.frame = CGRectMake(x, SCP_PAD, SCP_RING, SCP_RING);
+        // Vuot gioi han -> vong toc do doi sang do, so do
+        self.speedRing.layer.borderColor = (state == 2 ? SCPRed() : SCPBlue()).CGColor;
+        self.speedLabel.textColor = state == 2 ? [UIColor colorWithRed:0.8 green:0.05 blue:0.05 alpha:1] : [UIColor blackColor];
+        self.card.layer.cornerRadius = size.height / 2;
+        break;
+    }
+    }
+    self.card.bounds = CGRectMake(0, 0, size.width, size.height);
     self.card.center = c;
     [self clampCard];
+}
+
+// "Xem thu bong bong" trong Cai dat: toc do gia 10 giay (tang qua gioi han 60 de thay doi mau)
+- (void)runDemo
+{
+    [self.demoTimer invalidate];
+    __block int tick = 0;
+    SCPLog("speed bubble: xem thu 10 giay");
+    __weak SCPSpeedBubble *weakSelf = self;
+    self.demoTimer = [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) {
+        tick++;
+        if (tick > 20) { [t invalidate]; weakSelf.demoTimer = nil; return; }
+        int speed = 40 + tick * 2;   // 42 -> 80 km/h
+        [weakSelf updateSpeed:speed limit:60];
+    }];
 }
 
 - (void)positionCloseButton
@@ -238,37 +492,8 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
     w.windowLevel = UIWindowLevelStatusBar + 70;   // tren cua so split (1050) va nut launcher (1060)
     w.backgroundColor = [UIColor clearColor];
 
-    // The nen toi mo, ben trong 2 vong giong Vietmap: vong do = gioi han, vong xanh = toc do + km/h
+    // The chua noi dung theo kieu da chon (xem buildStyle:)
     UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 10)];
-    card.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.6];
-    card.layer.borderWidth = 1;
-    card.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.2].CGColor;
-
-    UIView *limitRing = [self ringWithColor:[UIColor colorWithRed:0.86 green:0.1 blue:0.1 alpha:1]];
-    UILabel *limit = [[UILabel alloc] initWithFrame:limitRing.bounds];
-    limit.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBold];
-    limit.textColor = [UIColor blackColor];
-    limit.textAlignment = NSTextAlignmentCenter;
-    limit.adjustsFontSizeToFitWidth = YES;
-    limit.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [limitRing addSubview:limit];
-
-    UIView *speedRing = [self ringWithColor:[UIColor colorWithRed:0.2 green:0.55 blue:1.0 alpha:1]];
-    UILabel *speed = [[UILabel alloc] initWithFrame:CGRectMake(0, 8, SCP_RING, 28)];
-    speed.font = [UIFont monospacedDigitSystemFontOfSize:24 weight:UIFontWeightBold];
-    speed.textColor = [UIColor blackColor];
-    speed.textAlignment = NSTextAlignmentCenter;
-    speed.adjustsFontSizeToFitWidth = YES;
-    [speedRing addSubview:speed];
-    UILabel *unit = [[UILabel alloc] initWithFrame:CGRectMake(0, 34, SCP_RING, 12)];
-    unit.text = @"km/h";
-    unit.font = [UIFont systemFontOfSize:9 weight:UIFontWeightSemibold];
-    unit.textColor = [UIColor colorWithWhite:0.25 alpha:1];
-    unit.textAlignment = NSTextAlignmentCenter;
-    [speedRing addSubview:unit];
-
-    [card addSubview:limitRing];
-    [card addSubview:speedRing];
     [card addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(panned:)]];
     [card addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)]];
     UIPinchGestureRecognizer *pinch = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(pinched:)];
@@ -292,8 +517,8 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
     self.closeButton = x;
     [w addSubview:card];
 
-    self.window = w; self.card = card; self.limitRing = limitRing; self.speedRing = speedRing;
-    self.limitLabel = limit; self.speedLabel = speed; self.unitLabel = unit;
+    self.window = w; self.card = card;
+    self.builtStyle = -1;   // ve lai noi dung trong the moi
     // Vi tri mac dinh: goc tren trai (tranh nut launcher o goc tren phai)
     if (CGPointEqualToPoint(self.savedCenter, CGPointZero)) self.savedCenter = CGPointMake(16 + 70, 12 + 36);
     card.center = self.savedCenter;

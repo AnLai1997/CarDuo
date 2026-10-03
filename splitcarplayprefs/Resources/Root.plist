@@ -104,6 +104,36 @@
 			<key>default</key><true/>
 			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
 		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkListCell</string>
+			<key>detail</key><string>PSListItemsController</string>
+			<key>label</key><string>Kiểu hiển thị</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>SpeedBubbleStyle</string>
+			<key>default</key><integer>0</integer>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>validValues</key>
+			<array><integer>0</integer><integer>1</integer><integer>2</integer><integer>3</integer><integer>4</integer><integer>5</integer></array>
+			<key>validTitles</key>
+			<array>
+				<string>Vietmap (2 vòng tròn)</string>
+				<string>Tối giản (số lớn + biển nhỏ)</string>
+				<string>Biển báo (biển lớn, tốc độ ở góc)</string>
+				<string>Đồng hồ (vòng cung)</string>
+				<string>Thanh HUD (thanh ngang)</string>
+				<string>Màu theo tốc độ (xanh / cam / đỏ)</string>
+			</array>
+			<key>shortTitles</key>
+			<array>
+				<string>Vietmap</string><string>Tối giản</string><string>Biển báo</string>
+				<string>Đồng hồ</string><string>Thanh HUD</string><string>Màu tốc độ</string>
+			</array>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSButtonCell</string>
+			<key>label</key><string>Xem thử bong bóng (10 giây)</string>
+			<key>action</key><string>bubbleDemo</string>
+		</dict>
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
