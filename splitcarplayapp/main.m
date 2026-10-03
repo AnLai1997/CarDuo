@@ -6,7 +6,7 @@
 #import <UIKit/UIKit.h>
 #import <notify.h>
 
-#define SCP_DOMAIN CFSTR("com.anpham.splitcarplay")
+#define SCP_DOMAIN CFSTR("com.anlai97.carduo")
 
 static void setPref(NSString *key, NSString *value)
 {
@@ -31,7 +31,7 @@ static BOOL handleURL(NSURL *url)
         setPref(@"PendingRight", q[@"right"]);
     }
     CFPreferencesAppSynchronize(SCP_DOMAIN);
-    notify_post("com.anpham.splitcarplay.open");
+    notify_post("com.anlai97.carduo.open");
     return YES;
 }
 

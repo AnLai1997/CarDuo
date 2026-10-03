@@ -1,7 +1,7 @@
 # CarDuo (Dopamine rootless, iOS 16.5)
 
 Tweak cá nhân: chia màn hình CarPlay thành 2 app chạy song song.
-Tên hiển thị là **CarDuo**; tên kỹ thuật (package `com.anpham.splitcarplay`, URL scheme `splitcarplay://`,
+Tên hiển thị là **CarDuo**; tên kỹ thuật (package `com.anlai97.carduo`, URL scheme `splitcarplay://`,
 file dylib/log) vẫn giữ SplitCarPlay để không hỏng Shortcuts và workflow build.
 
 ## Kiến trúc (đã xác minh qua mã nguồn carplay-cast, iOS 14+)
@@ -91,7 +91,7 @@ Cần package `PreferenceLoader` và `AltList` (Sileo tự cài theo Depends).
 ## Test ngay trên màn iPhone (chưa có xe, cách cũ qua SSH)
 Tạo file prefs qua SSH (đổi bundle id tuỳ ý, nên dùng app bên thứ ba):
 ```
-cat > /var/jb/var/mobile/Library/Preferences/com.anpham.splitcarplay.plist <<'PLIST'
+cat > /var/jb/var/mobile/Library/Preferences/com.anlai97.carduo.plist <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
   <key>TestLeft</key><string>com.google.ios.youtube</string>
@@ -104,8 +104,8 @@ PLIST
 - Chế độ thử mô phỏng màn CarPlay: khung 800x480 vừa màn iPhone, dock CarPlay bên trái (giờ, nút thoát đỏ, icon app đang mở, nút Home mở bảng chọn app).
   Nội dung app thu nhỏ đúng tỉ lệ như trên xe.
 - Không thể hiện giao diện CarPlay của app trên iPhone khi không có xe: tạo scene CarPlay từ SpringBoard (thử ở commit 126ea50) làm SpringBoard crash và màn đen tới khi khởi động lại máy.
-- Hoặc không cần respring: `notifyutil -p com.anpham.splitcarplay.test` (package `notifyutil`/`darwintools`).
-- Đóng: kéo dấu "..." của một ngăn xuống rồi bấm nút Home, hoặc `notifyutil -p com.anpham.splitcarplay.close`.
+- Hoặc không cần respring: `notifyutil -p com.anlai97.carduo.test` (package `notifyutil`/`darwintools`).
+- Đóng: kéo dấu "..." của một ngăn xuống rồi bấm nút Home, hoặc `notifyutil -p com.anlai97.carduo.close`.
 - Xoá key `TestOnMainScreen` khi không muốn tự mở nữa.
 
 ## Cài & xem log

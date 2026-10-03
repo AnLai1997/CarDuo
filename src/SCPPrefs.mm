@@ -1,12 +1,27 @@
 #import "SCPPrefs.h"
+#import "common.h"
 
 @implementation SCPPrefs
+
+// Doi ten package com.anpham.splitcarplay -> com.anlai97.carduo: lan dau chay chep cau hinh cu sang domain moi
+static void migrateOldDomain(NSUserDefaults *d)
+{
+    if ([d objectForKey:@"Migrated"]) return;
+    CFArrayRef keys = CFPreferencesCopyKeyList(CFSTR("com.anpham.splitcarplay"), kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    NSDictionary *old = keys ? CFBridgingRelease(CFPreferencesCopyMultiple(keys, CFSTR("com.anpham.splitcarplay"),
+                                                                           kCFPreferencesCurrentUser, kCFPreferencesAnyHost)) : nil;
+    if (keys) CFRelease(keys);
+    for (NSString *k in old) if (![d objectForKey:k]) [d setObject:old[k] forKey:k];
+    [d setBool:YES forKey:@"Migrated"];
+    [d synchronize];
+    SCPLog("prefs: chep %lu khoa tu com.anpham.splitcarplay", (unsigned long)old.count);
+}
 
 static NSUserDefaults *defaults(void)
 {
     static NSUserDefaults *d;
     static dispatch_once_t once;
-    dispatch_once(&once, ^{ d = [[NSUserDefaults alloc] initWithSuiteName:SCP_PREFS_DOMAIN]; });
+    dispatch_once(&once, ^{ d = [[NSUserDefaults alloc] initWithSuiteName:SCP_PREFS_DOMAIN]; migrateOldDomain(d); });
     return d;
 }
 

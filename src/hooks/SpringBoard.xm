@@ -5,11 +5,11 @@
 #import "../SCPCarSplit.h"
 #import <notify.h>
 
-#define SCP_DARWIN_TEST     "com.anpham.splitcarplay.test"      // nut "Mo split thu" trong Settings
-#define SCP_DARWIN_CLOSE    "com.anpham.splitcarplay.close"     // nut "Dong split"
-#define SCP_DARWIN_CLEARLOG "com.anpham.splitcarplay.clearlog"
-#define SCP_DARWIN_OPEN     "com.anpham.splitcarplay.open"      // tu app URL scheme (Shortcuts / Siri)
-#define SCP_DARWIN_BUBBLE   "com.anpham.splitcarplay.bubbledemo" // Cai dat: xem thu bong bong toc do
+#define SCP_DARWIN_TEST     "com.anlai97.carduo.test"      // nut "Mo split thu" trong Settings
+#define SCP_DARWIN_CLOSE    "com.anlai97.carduo.close"     // nut "Dong split"
+#define SCP_DARWIN_CLEARLOG "com.anlai97.carduo.clearlog"
+#define SCP_DARWIN_OPEN     "com.anlai97.carduo.open"      // tu app URL scheme (Shortcuts / Siri)
+#define SCP_DARWIN_BUBBLE   "com.anlai97.carduo.bubbledemo" // Cai dat: xem thu bong bong toc do
 
 // Inject vao SpringBoard: nhan yeu cau tu CarPlay process / Settings / app URL, giu app song khi khoa may
 %group SPRINGBOARD
@@ -129,7 +129,7 @@ static void SCPHandlePendingRequest(void)
     notify_register_dispatch(SCP_DARWIN_BUBBLE, &tokBubble, dispatch_get_main_queue(), ^(int t) { [[SCPSpeedBubble shared] runDemo]; });
     // Doi kieu bong bong trong Cai dat -> ve lai ngay
     int tokPrefs = 0;
-    notify_register_dispatch("com.anpham.splitcarplay.prefschanged", &tokPrefs, dispatch_get_main_queue(), ^(int t) { [[SCPSpeedBubble shared] refresh]; });
+    notify_register_dispatch("com.anlai97.carduo.prefschanged", &tokPrefs, dispatch_get_main_queue(), ^(int t) { [[SCPSpeedBubble shared] refresh]; });
     // Vietmap Live gui toc do + gioi han -> bong bong
     notify_register_dispatch(SCP_DARWIN_SPEED, &tokSpeed, dispatch_get_main_queue(), ^(int t) {
         uint64_t state = 0; notify_get_state(t, &state);

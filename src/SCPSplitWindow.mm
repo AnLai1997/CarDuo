@@ -112,7 +112,7 @@ static NSArray<NSDictionary *> *SCPInstalledApps(void)
     NSMutableArray *user = [NSMutableArray array], *system = [NSMutableArray array];
     NSSet *skip = [NSSet setWithArray:@[@"com.apple.springboard", @"com.apple.CarPlayApp", @"com.apple.CarPlaySettings",
                                         @"com.apple.CarPlayTemplateUIHost", @"com.apple.webapp", @"com.apple.Preferences",
-                                        @"com.anpham.splitcarplayapp"]];
+                                        @"com.anlai97.carduo.app"]];
     NSSet *appleAllowed = [NSSet setWithArray:@[@"com.apple.mobilesafari", @"com.apple.Music", @"com.apple.Maps", @"com.apple.podcasts",
                                                 @"com.apple.mobileslideshow", @"com.apple.tv", @"com.apple.MobileSMS",
                                                 @"com.apple.mobilephone", @"com.apple.Bridge", @"com.apple.mobilenotes"]];

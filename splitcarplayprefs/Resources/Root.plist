@@ -27,18 +27,18 @@
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Bật CarDuo</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Enabled</string>
 			<key>default</key><true/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Cho phép app không có CarPlay</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>AllowPhoneApps</string>
 			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
@@ -55,9 +55,9 @@
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Ngăn trái</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>LeftApp</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key>
 			<array>
 				<dict><key>sectionType</key><string>User</string></dict>
@@ -71,9 +71,9 @@
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Ngăn phải</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>RightApp</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key>
 			<array>
 				<dict><key>sectionType</key><string>User</string></dict>
@@ -85,10 +85,10 @@
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Tự mở split khi cắm xe</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>AutoLaunch</string>
 			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 
 		<dict>
@@ -99,19 +99,19 @@
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Bong bóng tốc độ (Vietmap Live)</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>SpeedBubble</string>
 			<key>default</key><true/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSLinkListCell</string>
 			<key>detail</key><string>PSListItemsController</string>
 			<key>label</key><string>Kiểu hiển thị</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>SpeedBubbleStyle</string>
 			<key>default</key><integer>0</integer>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>validValues</key>
 			<array><integer>0</integer><integer>1</integer><integer>2</integer><integer>3</integer><integer>4</integer><integer>5</integer></array>
 			<key>validTitles</key>
@@ -144,18 +144,18 @@
 			<key>cell</key><string>PSEditTextCell</string>
 			<key>label</key><string>Tên cặp 1</string>
 			<key>placeholder</key><string>Đi làm</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav1Name</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSLinkListCell</string>
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Cặp 1: ngăn trái</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav1Left</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
 			<key>useSearchBar</key><true/>
 		</dict>
@@ -164,9 +164,9 @@
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Cặp 1: ngăn phải</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav1Right</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
 			<key>useSearchBar</key><true/>
 		</dict>
@@ -174,18 +174,18 @@
 			<key>cell</key><string>PSEditTextCell</string>
 			<key>label</key><string>Tên cặp 2</string>
 			<key>placeholder</key><string>Đi chơi</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav2Name</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSLinkListCell</string>
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Cặp 2: ngăn trái</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav2Left</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
 			<key>useSearchBar</key><true/>
 		</dict>
@@ -194,9 +194,9 @@
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Cặp 2: ngăn phải</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav2Right</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
 			<key>useSearchBar</key><true/>
 		</dict>
@@ -204,18 +204,18 @@
 			<key>cell</key><string>PSEditTextCell</string>
 			<key>label</key><string>Tên cặp 3</string>
 			<key>placeholder</key><string>Đi xa</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav3Name</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSLinkListCell</string>
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Cặp 3: ngăn trái</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav3Left</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
 			<key>useSearchBar</key><true/>
 		</dict>
@@ -224,9 +224,9 @@
 			<key>detail</key><string>ATLApplicationListSelectionController</string>
 			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
 			<key>label</key><string>Cặp 3: ngăn phải</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Fav3Right</string>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
 			<key>useSearchBar</key><true/>
 		</dict>
@@ -238,32 +238,32 @@
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
 			<key>label</key><string>Kiểu chia</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>SplitDirection</string>
 			<key>default</key><integer>0</integer>
 			<key>validValues</key><array><integer>0</integer><integer>1</integer></array>
 			<key>validTitles</key><array><string>Trái / phải</string><string>Trên / dưới</string></array>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
 			<key>label</key><string>Hướng app trong ngăn</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>PaneOrientation</string>
 			<key>default</key><integer>1</integer>
 			<key>validValues</key><array><integer>1</integer><integer>3</integer></array>
 			<key>validTitles</key><array><string>Dọc (portrait)</string><string>Ngang (landscape)</string></array>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
 			<key>label</key><string>Tỉ lệ màn xe (chỉ cho xem trước)</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>ScreenAspect</string>
 			<key>default</key><string>16:9</string>
 			<key>validValues</key><array><string>16:9</string><string>5:3</string><string>8:3</string></array>
 			<key>validTitles</key><array><string>16:9</string><string>5:3 (800x480)</string><string>8:3 (siêu rộng)</string></array>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
@@ -272,14 +272,14 @@
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSliderCell</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>SplitRatio</string>
 			<key>default</key><real>0.5</real>
 			<key>min</key><real>0.2</real>
 			<key>max</key><real>0.8</real>
 			<key>showValue</key><true/>
 			<key>isSegmented</key><false/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 
 		<dict>
@@ -290,10 +290,10 @@
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Mirror ngăn phải lên iPhone (thử)</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>MirrorRight</string>
 			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 
 		<dict>
@@ -328,10 +328,10 @@ splitcarplay://close</string>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Mở split thử 1 lần sau respring kế tiếp</string>
-			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>TestOnMainScreen</string>
 			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 
 		<dict>

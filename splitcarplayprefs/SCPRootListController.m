@@ -37,22 +37,22 @@
 // Gui Darwin notification sang SpringBoard
 - (void)runTest
 {
-    notify_post("com.anpham.splitcarplay.test");
+    notify_post("com.anlai97.carduo.test");
 }
 
 - (void)bubbleDemo
 {
-    notify_post("com.anpham.splitcarplay.bubbledemo");
+    notify_post("com.anlai97.carduo.bubbledemo");
 }
 
 - (void)closeSplit
 {
-    notify_post("com.anpham.splitcarplay.close");
+    notify_post("com.anlai97.carduo.close");
 }
 
 - (void)clearLog
 {
-    notify_post("com.anpham.splitcarplay.clearlog");
+    notify_post("com.anlai97.carduo.clearlog");
 }
 
 @end

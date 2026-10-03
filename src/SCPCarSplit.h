@@ -13,9 +13,9 @@
 
 // SpringBoard / Settings -> CarPlay process: mo split CarPlay
 // userInfo: action = open | pair | picker | close | fav ; identifier, slot, left, right, index
-#define SCP_NOTIF_NATIVE        @"com.anpham.splitcarplay.native"
+#define SCP_NOTIF_NATIVE        @"com.anlai97.carduo.native"
 // CarPlay process -> SpringBoard: danh sach app dang hien trong ngan CarPlay (cho bong bong toc do)
-#define SCP_NOTIF_NATIVE_STATE  @"com.anpham.splitcarplay.nativestate"
+#define SCP_NOTIF_NATIVE_STATE  @"com.anlai97.carduo.nativestate"
 
 @interface SCPCarSplit : NSObject
 + (instancetype)shared;

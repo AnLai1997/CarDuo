@@ -21,7 +21,7 @@
 		</dict>
 	</dict>
 	<key>CFBundleIdentifier</key>
-	<string>com.anpham.splitcarplayapp</string>
+	<string>com.anlai97.carduo.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -42,7 +42,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.anpham.splitcarplay</string>
+			<string>com.anlai97.carduo</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>splitcarplay</string>

@@ -1,9 +1,9 @@
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 
-#define SCP_PREFS_DOMAIN @"com.anpham.splitcarplay"
+#define SCP_PREFS_DOMAIN @"com.anlai97.carduo"
 
-// Doc cau hinh tu domain com.anpham.splitcarplay (Settings ghi qua cfprefsd).
+// Doc cau hinh tu domain com.anlai97.carduo (Settings ghi qua cfprefsd).
 // Doc moi lan can nen thay doi trong Settings co hieu luc ngay, khong can respring.
 @interface SCPPrefs : NSObject
 + (BOOL)enabled;

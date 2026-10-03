@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SplitCarPlayPrefs</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.anpham.splitcarplayprefs</string>
+	<string>com.anlai97.carduo.prefs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

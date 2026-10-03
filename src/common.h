@@ -10,13 +10,13 @@
 #define SCPLog(fmt, ...) SCPLogWrite([NSString stringWithFormat:@fmt, ##__VA_ARGS__])
 
 // Notification CarPlay process -> SpringBoard: yeu cau mo app vao mot ngan
-#define SCP_NOTIF_LAUNCH        @"com.anpham.splitcarplay.launch"
+#define SCP_NOTIF_LAUNCH        @"com.anlai97.carduo.launch"
 // SpringBoard -> app process: ep huong xoay
-#define SCP_NOTIF_ORIENTATION   @"com.anpham.splitcarplay.orientation"
+#define SCP_NOTIF_ORIENTATION   @"com.anlai97.carduo.orientation"
 // App process -> SpringBoard (Darwin notify, qua duoc sandbox cua app): app vua doi yeu cau xoay (YouTube fullscreen).
 // Payload trong notify state: (hash bundle id << 24) | (mask huong app dang cho phep << 8) | ma
 // (ma: huong app xin, 0 = ve huong ngan, 0xFF = app vua doi mask -> SpringBoard tu suy ra huong tu mask).
-#define SCP_DARWIN_APP_ORIENT "com.anpham.splitcarplay.apporient"
+#define SCP_DARWIN_APP_ORIENT "com.anlai97.carduo.apporient"
 static inline uint64_t SCPBundleHash(NSString *bid)
 {
     uint32_t h = 2166136261u;
@@ -24,12 +24,12 @@ static inline uint64_t SCPBundleHash(NSString *bid)
     return h;
 }
 // App process -> SpringBoard: chuyen tiep 1 dong log (app bi sandbox, khong ghi duoc file log chung)
-#define SCP_NOTIF_LOG           @"com.anpham.splitcarplay.log"
+#define SCP_NOTIF_LOG           @"com.anlai97.carduo.log"
 // Vietmap Live -> SpringBoard: toc do hien tai + gioi han (Darwin notify; state = flags<<16 | speed<<8 | limit)
-#define SCP_DARWIN_SPEED        "com.anpham.splitcarplay.speed"
+#define SCP_DARWIN_SPEED        "com.anlai97.carduo.speed"
 #define SCP_SPEED_APP           @"vn.vietmap.live"
 // SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
-#define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
+#define SCP_NOTIF_SPLIT_CLOSED  @"com.anlai97.carduo.closed"
 
 // Moi ngan co the (grabber) trang tron 44x6 o giua mep tren (vung cham no rong 18pt moi phia); cham hoac keo xuong
 // de hien hang nut tron trang (kieu HyperOS) bat ra lan luot ngay duoi. Nut tron 38pt, icon den don sac.

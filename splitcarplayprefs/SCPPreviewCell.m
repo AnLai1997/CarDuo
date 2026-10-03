@@ -5,7 +5,7 @@
 #import <objc/message.h>
 #import <notify.h>
 
-#define SCP_DOMAIN @"com.anpham.splitcarplay"
+#define SCP_DOMAIN @"com.anlai97.carduo"
 
 @interface UIImage (SCPPrivate)
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bid format:(int)format scale:(double)scale;
@@ -80,7 +80,7 @@
 
     int tok = 0;
     __weak SCPPreviewView *weakSelf = self;
-    notify_register_dispatch("com.anpham.splitcarplay.prefschanged", &tok, dispatch_get_main_queue(), ^(int t) {
+    notify_register_dispatch("com.anlai97.carduo.prefschanged", &tok, dispatch_get_main_queue(), ^(int t) {
         [weakSelf reload];
     });
     return self;
