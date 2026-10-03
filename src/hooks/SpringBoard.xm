@@ -91,6 +91,12 @@ static void SCPHandlePendingRequest(void)
 {
     %orig;
     SCPLog("SpringBoard ready, dang ky notification");
+    if ([SCPPrefs carSceneInProgress]) {
+        // Lan truoc SpringBoard chet khi dang tao scene CarPlay tren iPhone -> tat tinh nang thu nghiem
+        SCPLog("CarScene: SpringBoard da crash khi tao scene CarPlay tren iPhone -> tu tat 'Thu giao dien CarPlay'");
+        [SCPPrefs setCarSceneInProgress:NO];
+        [SCPPrefs setDemoCarPlayUI:NO];
+    }
 
     // CarPlay process -> app KHONG co CarPlay (khi bat "Cho phep app iPhone"): chieu giao dien iPhone vao cua so rieng
     NSNotificationCenter *dnc = [objc_getClass("NSDistributedNotificationCenter") defaultCenter];

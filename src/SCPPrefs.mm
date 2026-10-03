@@ -40,7 +40,7 @@ static NSString *str(NSString *key)
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
 + (BOOL)speedBubble        { id v = value(@"SpeedBubble");      return v ? [v boolValue] : YES; }
-+ (BOOL)demoCarPlayUI      { id v = value(@"DemoCarPlayUI");    return v ? [v boolValue] : YES; }
++ (BOOL)demoCarPlayUI      { id v = value(@"DemoCarPlayUI");    return v ? [v boolValue] : NO; }
 + (BOOL)allowPhoneApps     { id v = value(@"AllowPhoneApps");   return v ? [v boolValue] : NO; }
 
 + (NSDictionary *)favorite:(NSInteger)index
@@ -92,6 +92,9 @@ static NSString *pairKey(NSString *left, NSString *right)
     return d;
 }
 
++ (void)setDemoCarPlayUI:(BOOL)v      { [defaults() setBool:v forKey:@"DemoCarPlayUI"]; [defaults() synchronize]; }
++ (BOOL)carSceneInProgress           { return [value(@"CarSceneInProgress") boolValue]; }
++ (void)setCarSceneInProgress:(BOOL)v { if (v) [defaults() setBool:YES forKey:@"CarSceneInProgress"]; else [defaults() removeObjectForKey:@"CarSceneInProgress"]; [defaults() synchronize]; }
 + (void)setTestOnMainScreen:(BOOL)v { [defaults() setBool:v forKey:@"TestOnMainScreen"]; [defaults() synchronize]; }
 + (void)setSplitRatio:(CGFloat)r     { [defaults() setDouble:r forKey:@"SplitRatio"]; [defaults() synchronize]; }
 + (void)setLeftApp:(NSString *)bid   { [defaults() setObject:bid forKey:@"LeftApp"];  [defaults() synchronize]; }

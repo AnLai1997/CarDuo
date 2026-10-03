@@ -1,4 +1,5 @@
 #import "SCPPhoneCarScene.h"
+#import "SCPPrefs.h"
 
 #define SCPP_TEMPLATE_HOST  @"com.apple.CarPlayTemplateUIHost"
 #define SCPP_CONTENT_TIMEOUT 8.0     // giay cho scene co noi dung truoc khi bao that bai
@@ -120,6 +121,11 @@ static NSString *SCPPWorkspaceIdentifier(NSString *bid)
 {
     self.logicalSize = logicalSize;
     [self layoutInBounds:CGSizeMake(logicalSize.width * scale, logicalSize.height * scale) scale:scale live:NO];
+    // Danh dau "dang tao": neu SpringBoard chet giua chung, lan khoi dong sau se tu tat tinh nang nay
+    [SCPPrefs setCarSceneInProgress:YES];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((SCPP_CONTENT_TIMEOUT + 4) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [SCPPrefs setCarSceneInProgress:NO];
+    });
     @try {
         [self createScene];
     } @catch (NSException *e) {

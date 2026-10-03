@@ -282,10 +282,10 @@ splitcarplay://close</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Thử giao diện CarPlay của app</string>
+			<key>label</key><string>Thử giao diện CarPlay (dễ respring)</string>
 			<key>defaults</key><string>com.anpham.splitcarplay</string>
 			<key>key</key><string>DemoCarPlayUI</string>
-			<key>default</key><true/>
+			<key>default</key><false/>
 			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
 		</dict>
 		<dict>
