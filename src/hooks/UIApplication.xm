@@ -485,31 +485,65 @@ static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
 %hook CLLocationManager
 - (void)startUpdatingLocation
 {
-    %orig;
     if (!sLocManagers) sLocManagers = [NSHashTable weakObjectsHashTable];
     if (![sLocManagers containsObject:self]) {
+        double old = self.distanceFilter;
         [sLocManagers addObject:self];
-        SCPLog("speed gps: Vietmap bat GPS (%lu CLLocationManager)", (unsigned long)sLocManagers.count);
+        SCPLog("speed gps: Vietmap bat GPS (%lu CLLocationManager, distanceFilter %.1fm -> none)",
+               (unsigned long)sLocManagers.count, old);
     }
+    // Nhan MOI ban tin GPS (khong loc theo khoang cach) de toc do cap nhat lien tuc ~1 lan/giay
+    self.distanceFilter = kCLDistanceFilterNone;
+    %orig;
+}
+
+- (void)setDistanceFilter:(double)d
+{
+    // Manager dang dung cho toc do -> luon none; manager khac giu nguyen y app
+    %orig([sLocManagers containsObject:self] ? kCLDistanceFilterNone : d);
 }
 %end
 %end // SPEEDGPS
 
-// Toc do km/h tu vi tri GPS moi nhat; -1 neu khong co vi tri moi / sai so qua lon
-static int SCPGPSSpeed(double *outAge)
+// Vi tri GPS moi nhat trong cac manager cua Vietmap
+static CLLocation *SCPLatestFix(void)
 {
     CLLocation *best = nil;
     for (CLLocationManager *m in sLocManagers.allObjects) {
         CLLocation *l = m.location;
         if (l && (!best || [l.timestamp compare:best.timestamp] == NSOrderedDescending)) best = l;
     }
-    double age = best ? -[best.timestamp timeIntervalSinceNow] : -1;
+    return best;
+}
+
+// Toc do km/h tu 1 vi tri; -1 neu vi tri cu / sai so qua lon
+static int SCPSpeedFromFix(CLLocation *fix, double *outAge)
+{
+    double age = fix ? -[fix.timestamp timeIntervalSinceNow] : -1;
     if (outAge) *outAge = age;
-    if (!best || age > SCP_GPS_FRESH || best.horizontalAccuracy < 0 || best.horizontalAccuracy > 100) return -1;
-    double v = best.speed;               // m/s, < 0 = khong hop le (thuong la dang dung yen)
+    if (!fix || age > SCP_GPS_FRESH || fix.horizontalAccuracy < 0 || fix.horizontalAccuracy > 100) return -1;
+    double v = fix.speed;                // m/s, < 0 = khong hop le (thuong la dang dung yen)
     if (v < 0) v = 0;
     int kmh = (int)lround(v * 3.6);
     return kmh > 300 ? -1 : kmh;
+}
+
+static int SCPGPSSpeed(double *outAge) { return SCPSpeedFromFix(SCPLatestFix(), outAge); }
+
+static int SCPCurrentLimit(void)
+{
+    return (CFAbsoluteTimeGetCurrent() - sScanLimitAt) < SCP_LIMIT_FRESH ? sScanLimit : -1;
+}
+
+// Nhip GPS 0.2s (re: chi doc thuoc tinh): co vi tri MOI -> gui ngay, khong cho nhip quet man hinh
+static void SCPGPSTick(void)
+{
+    static NSDate *lastStamp;
+    CLLocation *fix = SCPLatestFix();
+    if (!fix || [fix.timestamp isEqualToDate:lastStamp]) return;
+    lastStamp = fix.timestamp;
+    int kmh = SCPSpeedFromFix(fix, NULL);
+    if (kmh >= 0) SCPSendSpeed(kmh, SCPCurrentLimit());
 }
 
 static void SCPNoteScan(int speed, int limit)
@@ -588,7 +622,7 @@ static void SCPScanSpeed(BOOL doLog)
     if (doLog) SCPLog("speed scan: toc do=%d gioi han=%d; ung vien:%@", speed, limit, desc);
 }
 
-// Moi nhip: toc do uu tien GPS, khong co GPS thi dung so quet duoc; gioi han tu lan quet gan nhat
+// Nhip quet man hinh 0.5s: lay gioi han (va toc do du phong khi khong co GPS)
 static void SCPSpeedTick(void)
 {
     static CFAbsoluteTime lastLog = 0;
@@ -600,18 +634,20 @@ static void SCPSpeedTick(void)
     double age = -1;
     int gps = SCPGPSSpeed(&age);
     int scan = (now - sScanSpeedAt) < SCP_SCAN_FRESH ? sScanSpeed : -1;
-    int speed = gps >= 0 ? gps : scan;
-    int limit = (now - sScanLimitAt) < SCP_LIMIT_FRESH ? sScanLimit : -1;
-    if (speed >= 0) SCPSendSpeed(speed, limit);
+    int limit = SCPCurrentLimit();
+    if (gps < 0 && scan >= 0) SCPSendSpeed(scan, limit);   // co GPS thi nhip GPS da gui
     if (doLog) SCPLog("speed: gps=%d (vi tri cach %.1fs, %lu manager) quet=%d gioi han=%d -> gui %d", gps, age,
-                      (unsigned long)sLocManagers.count, scan, limit, speed);
+                      (unsigned long)sLocManagers.count, scan, limit, gps >= 0 ? gps : scan);
 }
 
 static void SCPStartSpeedScanner(void)
 {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         SCPLog("speed scan: bat dau");
-        [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) { SCPSpeedTick(); }];   // cap nhat lien tuc
+        [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) { SCPSpeedTick(); }];   // quet man hinh
+        NSTimer *g = [NSTimer timerWithTimeInterval:0.2 repeats:YES block:^(NSTimer *t) { SCPGPSTick(); }];   // GPS
+        g.tolerance = 0.05;
+        [[NSRunLoop mainRunLoop] addTimer:g forMode:NSRunLoopCommonModes];   // chay ca khi dang keo/cuon ban do
     });
 }
 
