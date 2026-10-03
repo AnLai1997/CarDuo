@@ -49,6 +49,7 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 @property (nonatomic) NSInteger builtStyle;          // kieu dang ve trong the (-1 = chua ve)
 @property (nonatomic, strong) CAShapeLayer *gaugeTrack, *gaugeArc;   // kieu Dong ho
 @property (nonatomic, strong) UIView *stateBar;      // kieu HUD: vach mau ben trai
+@property (nonatomic, strong) UIView *flashView;     // kieu Dong ho: nen do nhay khi vuot gioi han
 @property (nonatomic, strong) NSTimer *demoTimer;    // "Xem thu bong bong" trong Cai dat
 @property (nonatomic) CGFloat appliedRotation;       // goc xoay dang ap cho cua so tren iPhone
 @property (nonatomic) CGPoint phoneFraction, carFraction;   // vi tri the theo ti le man (-1 = mac dinh), rieng iPhone / xe
@@ -201,7 +202,7 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
     UIView *card = self.card;
     for (UIView *v in [card.subviews copy]) [v removeFromSuperview];
     [self.gaugeTrack removeFromSuperlayer]; [self.gaugeArc removeFromSuperlayer];
-    self.gaugeTrack = nil; self.gaugeArc = nil; self.stateBar = nil;
+    self.gaugeTrack = nil; self.gaugeArc = nil; self.stateBar = nil; self.flashView = nil;
     self.limitRing = nil; self.speedRing = nil; self.limitLabel = nil; self.speedLabel = nil; self.unitLabel = nil;
     card.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.6];
     card.layer.borderWidth = 1;
@@ -234,6 +235,12 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
     }
     case 3: {   // Dong ho
         card.backgroundColor = [UIColor colorWithWhite:0.04 alpha:0.8];
+        UIView *flash = [[UIView alloc] init];
+        flash.backgroundColor = SCPRed();
+        flash.alpha = 0;
+        flash.userInteractionEnabled = NO;
+        [card addSubview:flash];
+        self.flashView = flash;
         CAShapeLayer *track = [CAShapeLayer layer], *arc = [CAShapeLayer layer];
         for (CAShapeLayer *l in @[track, arc]) {
             l.fillColor = [UIColor clearColor].CGColor;
@@ -244,7 +251,7 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
         self.gaugeTrack = track; self.gaugeArc = arc;
         self.speedLabel = [self labelWithSize:30 weight:UIFontWeightHeavy color:[UIColor whiteColor] mono:YES];
         self.unitLabel = [self labelWithSize:10 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:0.7 alpha:1] mono:NO];
-        self.limitRing = [self limitSignWithDiameter:28 border:3.5 fontSize:12];
+        self.limitRing = [self limitSignWithDiameter:38 border:4.5 fontSize:17];
         [card addSubview:self.speedLabel]; [card addSubview:self.unitLabel]; [card addSubview:self.limitRing];
         break;
     }
@@ -293,6 +300,31 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
     SCPLog("speed bubble: kieu %ld", (long)style);
 }
 
+// Vuot gioi han (kieu Dong ho): nen the nhay do, bien gioi han dap theo nhip
+- (void)setOverLimitWarning:(BOOL)on
+{
+    UIView *f = self.flashView;
+    BOOL running = [f.layer animationForKey:@"scpFlash"] != nil;
+    if (on == running) return;
+    if (on) {
+        CABasicAnimation *blink = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        blink.fromValue = @0.0; blink.toValue = @0.75;
+        blink.duration = 0.35; blink.autoreverses = YES; blink.repeatCount = HUGE_VALF;
+        blink.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        f.alpha = 1; f.layer.opacity = 0;
+        [f.layer addAnimation:blink forKey:@"scpFlash"];
+        CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+        pulse.fromValue = @1.0; pulse.toValue = @1.18;
+        pulse.duration = 0.35; pulse.autoreverses = YES; pulse.repeatCount = HUGE_VALF;
+        [self.limitRing.layer addAnimation:pulse forKey:@"scpPulse"];
+        SCPLog("speed bubble: vuot gioi han -> nhay canh bao");
+    } else {
+        [f.layer removeAnimationForKey:@"scpFlash"];
+        f.alpha = 0;
+        [self.limitRing.layer removeAnimationForKey:@"scpPulse"];
+    }
+}
+
 // Dat so + mau + bo cuc theo kieu, giu tam the co dinh
 - (void)renderStyle
 {
@@ -334,8 +366,10 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
         break;
     }
     case 3: {   // Dong ho
-        CGFloat d = 104;
+        CGFloat d = 112;
         size = CGSizeMake(d, d);
+        self.flashView.frame = CGRectMake(0, 0, d, d);
+        self.flashView.layer.cornerRadius = d / 2;
         CGPoint mid = CGPointMake(d / 2, d / 2);
         UIBezierPath *path = [UIBezierPath bezierPathWithArcCenter:mid radius:d / 2 - 10
                                                         startAngle:M_PI * 0.75 endAngle:M_PI * 2.25 clockwise:YES];
@@ -346,9 +380,10 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
         self.gaugeArc.strokeEnd = MIN(1.0, MAX(0.0, self.speed / maxV));
         self.gaugeArc.strokeColor = sc.CGColor;
         [CATransaction commit];
-        self.speedLabel.frame = CGRectMake(14, d / 2 - 24, d - 28, 34);
-        self.unitLabel.frame = CGRectMake(14, d / 2 + 8, d - 28, 12);
-        self.limitRing.center = CGPointMake(d / 2, d - 16);
+        self.speedLabel.frame = CGRectMake(14, d / 2 - 30, d - 28, 34);
+        self.unitLabel.frame = CGRectMake(14, d / 2 + 2, d - 28, 12);
+        self.limitRing.center = CGPointMake(d / 2, d - 22);
+        [self setOverLimitWarning:(state == 2)];
         self.card.layer.cornerRadius = d / 2;
         break;
     }
