@@ -1,5 +1,6 @@
 #import "../common.h"
 #import <notify.h>
+#import <CoreLocation/CoreLocation.h>
 
 // Inject vao app nguoi dung: nhan yeu cau xoay tu SpringBoard
 %group APPS
@@ -467,28 +468,97 @@ static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString
     return speed >= 0;
 }
 
-static void SCPScanSpeed(void)
+// ---------------------------------------------------------------------
+//  Toc do theo GPS: lay vi tri moi nhat tu cac CLLocationManager ma chinh Vietmap dang chay
+//  (khong bat GPS rieng). Van dung duoc khi Vietmap dang hien tren CarPlay va man iPhone khong
+//  hien toc do. Gioi han toc do van lay tu man hinh (quet), chi gui khi vua thay gan day.
+// ---------------------------------------------------------------------
+static NSHashTable *sLocManagers;
+static int sScanSpeed = -1, sScanLimit = -1;
+static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
+
+#define SCP_GPS_FRESH    3.0    // giay: vi tri cu hon -> coi nhu khong co GPS
+#define SCP_SCAN_FRESH   2.0    // giay: toc do quet duoc cu hon -> bo
+#define SCP_LIMIT_FRESH 15.0    // giay: giu bien gioi han sau lan cuoi thay tren man hinh
+
+%group SPEEDGPS
+%hook CLLocationManager
+- (void)startUpdatingLocation
 {
-    UIWindow *win = nil;
-    for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
-        if (![sc isKindOfClass:[UIWindowScene class]]) continue;
-        for (UIWindow *w in ((UIWindowScene *)sc).windows) { if (w.isKeyWindow) { win = w; break; } if (!win && w.rootViewController) win = w; }
+    %orig;
+    if (!sLocManagers) sLocManagers = [NSHashTable weakObjectsHashTable];
+    if (![sLocManagers containsObject:self]) {
+        [sLocManagers addObject:self];
+        SCPLog("speed gps: Vietmap bat GPS (%lu CLLocationManager)", (unsigned long)sLocManagers.count);
     }
-    if (!win) return;
+}
+%end
+%end // SPEEDGPS
+
+// Toc do km/h tu vi tri GPS moi nhat; -1 neu khong co vi tri moi / sai so qua lon
+static int SCPGPSSpeed(double *outAge)
+{
+    CLLocation *best = nil;
+    for (CLLocationManager *m in sLocManagers.allObjects) {
+        CLLocation *l = m.location;
+        if (l && (!best || [l.timestamp compare:best.timestamp] == NSOrderedDescending)) best = l;
+    }
+    double age = best ? -[best.timestamp timeIntervalSinceNow] : -1;
+    if (outAge) *outAge = age;
+    if (!best || age > SCP_GPS_FRESH || best.horizontalAccuracy < 0 || best.horizontalAccuracy > 100) return -1;
+    double v = best.speed;               // m/s, < 0 = khong hop le (thuong la dang dung yen)
+    if (v < 0) v = 0;
+    int kmh = (int)lround(v * 3.6);
+    return kmh > 300 ? -1 : kmh;
+}
+
+static void SCPNoteScan(int speed, int limit)
+{
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    if (speed >= 0 && speed <= 300) { sScanSpeed = speed; sScanSpeedAt = now; }
+    if (limit >= 5 && limit <= 200) { sScanLimit = limit; sScanLimitAt = now; }
+}
+
+// Tat ca cua so cua app: cua so iPhone (key truoc) + cua so CarPlay (CPTemplateApplicationScene.carWindow)
+static NSArray<UIWindow *> *SCPAllWindows(void)
+{
+    NSMutableArray<UIWindow *> *out = [NSMutableArray array];
+    for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
+        if ([sc isKindOfClass:[UIWindowScene class]]) {
+            for (UIWindow *w in ((UIWindowScene *)sc).windows) {
+                if (!w.rootViewController) continue;
+                if (w.isKeyWindow) [out insertObject:w atIndex:0]; else [out addObject:w];
+            }
+        }
+        if ([sc respondsToSelector:NSSelectorFromString(@"carWindow")]) {
+            UIWindow *cw = ((id (*)(id, SEL))objc_msgSend)(sc, NSSelectorFromString(@"carWindow"));
+            if ([cw isKindOfClass:[UIWindow class]] && ![out containsObject:cw]) [out addObject:cw];
+        }
+    }
+    return out;
+}
+
+static void SCPScanSpeed(BOOL doLog)
+{
+    NSArray<UIWindow *> *wins = SCPAllWindows();
+    if (!wins.count) return;
+    UIWindow *win = wins.firstObject;
     NSMutableArray<UILabel *> *labels = [NSMutableArray array];
     SCPCollectLabels(win, labels, 0);
 
-    static CFAbsoluteTime lastLog = 0;
-    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-    BOOL doLog = (now - lastLog > 20);
-    if (doLog) lastLog = now;
-
-    // App Flutter (khong co UILabel): doc cay accessibility
+    // App Flutter (khong co UILabel): doc cay accessibility, thu lan luot tung cua so (iPhone roi CarPlay)
     if (labels.count == 0) {
-        int axSpeed = -1, axLimit = -1; NSString *axDesc = nil;
-        BOOL ok = SCPScanSpeedAX(win, &axSpeed, &axLimit, doLog ? &axDesc : NULL);
-        if (doLog) SCPLog("speed scan (AX): toc do=%d gioi han=%d; %@", axSpeed, axLimit, axDesc ?: @"(khong co phan tu)");
-        if (ok) SCPSendSpeed(axSpeed, axLimit);
+        int axSpeed = -1, axLimit = -1; NSString *axDesc = nil, *firstDesc = nil; NSUInteger hit = NSNotFound;
+        for (NSUInteger i = 0; i < wins.count; i++) {
+            int sp = -1, li = -1; NSString *d = nil;
+            BOOL ok = SCPScanSpeedAX(wins[i], &sp, &li, doLog ? &d : NULL);
+            if (i == 0) firstDesc = d;
+            if (ok || li >= 0) { axSpeed = sp; axLimit = li; axDesc = d; hit = i; if (ok) break; }
+        }
+        if (doLog) SCPLog("speed scan (AX, %lu cua so, trung %@): toc do=%d gioi han=%d; %@", (unsigned long)wins.count,
+                          hit == NSNotFound ? @"-" : NSStringFromClass([wins[hit] class]), axSpeed, axLimit,
+                          (axDesc ?: firstDesc) ?: @"(khong co phan tu)");
+        SCPNoteScan(axSpeed, axLimit);
         return;
     }
 
@@ -514,15 +584,34 @@ static void SCPScanSpeed(void)
     if (speed > 300) speed = -1;
     if (limit > 200 || limit < 5) limit = -1;
 
-    if (speed >= 0) SCPSendSpeed(speed, limit);
+    SCPNoteScan(speed, limit);
     if (doLog) SCPLog("speed scan: toc do=%d gioi han=%d; ung vien:%@", speed, limit, desc);
+}
+
+// Moi nhip: toc do uu tien GPS, khong co GPS thi dung so quet duoc; gioi han tu lan quet gan nhat
+static void SCPSpeedTick(void)
+{
+    static CFAbsoluteTime lastLog = 0;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    BOOL doLog = (now - lastLog > 20);
+    if (doLog) lastLog = now;
+
+    SCPScanSpeed(doLog);
+    double age = -1;
+    int gps = SCPGPSSpeed(&age);
+    int scan = (now - sScanSpeedAt) < SCP_SCAN_FRESH ? sScanSpeed : -1;
+    int speed = gps >= 0 ? gps : scan;
+    int limit = (now - sScanLimitAt) < SCP_LIMIT_FRESH ? sScanLimit : -1;
+    if (speed >= 0) SCPSendSpeed(speed, limit);
+    if (doLog) SCPLog("speed: gps=%d (vi tri cach %.1fs, %lu manager) quet=%d gioi han=%d -> gui %d", gps, age,
+                      (unsigned long)sLocManagers.count, scan, limit, speed);
 }
 
 static void SCPStartSpeedScanner(void)
 {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         SCPLog("speed scan: bat dau");
-        [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) { SCPScanSpeed(); }];   // cap nhat lien tuc
+        [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) { SCPSpeedTick(); }];   // cap nhat lien tuc
     });
 }
 
@@ -532,6 +621,6 @@ static void SCPStartSpeedScanner(void)
     NSString *bid  = [[NSBundle mainBundle] bundleIdentifier];
     if ([path containsString:@".app"] && bid && ![bid hasPrefix:@"com.apple."]) {
         %init(APPS);
-        if ([bid isEqualToString:SCP_SPEED_APP]) { SCPEnableFlutterSemantics(); SCPStartSpeedScanner(); }
+        if ([bid isEqualToString:SCP_SPEED_APP]) { %init(SPEEDGPS); SCPEnableFlutterSemantics(); SCPStartSpeedScanner(); }
     }
 }
