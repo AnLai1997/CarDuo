@@ -101,6 +101,8 @@ cat > /var/jb/var/mobile/Library/Preferences/com.anpham.splitcarplay.plist <<'PL
 PLIST
 ```
 - Respring: sau 10 giây cửa sổ chia đôi hiện trên màn iPhone (xoay ngang).
+- Chế độ thử mô phỏng màn CarPlay: khung 800x480 vừa màn iPhone, dock CarPlay bên trái (giờ, nút thoát đỏ, icon app đang mở, nút Home mở bảng chọn app).
+  Nội dung app thu nhỏ đúng tỉ lệ như trên xe. Trong ngăn vẫn là giao diện iPhone (giao diện CarPlay thật chỉ có khi cắm xe).
 - Hoặc không cần respring: `notifyutil -p com.anpham.splitcarplay.test` (package `notifyutil`/`darwintools`).
 - Đóng: kéo dấu "..." của một ngăn xuống rồi bấm nút Home, hoặc `notifyutil -p com.anpham.splitcarplay.close`.
 - Xoá key `TestOnMainScreen` khi không muốn tự mở nữa.
