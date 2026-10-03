@@ -42,7 +42,6 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic) int speed, limit;
 @property (nonatomic) CFAbsoluteTime lastUpdate;
-@property (nonatomic) CGPoint savedCenter;          // vi tri nguoi dung keo toi (giu giua cac lan hien)
 @property (nonatomic) BOOL onPhone;
 @property (nonatomic) CGFloat scale;                 // phong to/thu nho bang 2 ngon (0.6 .. 2.2)
 @property (nonatomic, strong) UIButton *closeButton; // X do: giu bong bong de hien, bam de tat han Vietmap
@@ -51,6 +50,8 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 @property (nonatomic, strong) CAShapeLayer *gaugeTrack, *gaugeArc;   // kieu Dong ho
 @property (nonatomic, strong) UIView *stateBar;      // kieu HUD: vach mau ben trai
 @property (nonatomic, strong) NSTimer *demoTimer;    // "Xem thu bong bong" trong Cai dat
+@property (nonatomic) CGFloat appliedRotation;       // goc xoay dang ap cho cua so tren iPhone
+@property (nonatomic) CGPoint phoneFraction, carFraction;   // vi tri the theo ti le man (-1 = mac dinh), rieng iPhone / xe
 @end
 
 @implementation SCPSpeedBubble
@@ -58,7 +59,11 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 + (instancetype)shared
 {
     static SCPSpeedBubble *s; static dispatch_once_t once;
-    dispatch_once(&once, ^{ s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; s.scale = 1; s.builtStyle = -1; });
+    dispatch_once(&once, ^{
+        s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; s.scale = 1; s.builtStyle = -1;
+        s.phoneFraction = CGPointMake(-1, -1); s.carFraction = CGPointMake(-1, -1);
+        [s startOrientationTracking];
+    });
     return s;
 }
 
@@ -103,6 +108,7 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
     if (!show) { [self hide]; return; }
     [self ensureWindow];
     if (!self.window) return;
+    if (self.onPhone) [self applyPhoneOrientationForce:NO];
 
     NSInteger style = [SCPPrefs speedBubbleStyle];
     if (style != self.builtStyle) [self buildStyle:style];
@@ -464,7 +470,7 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
         self.card.transform = [self baseTransform];
         [self clampCard];
     }
-    if (g.state == UIGestureRecognizerStateEnded) self.savedCenter = self.card.center;
+    if (g.state == UIGestureRecognizerStateEnded) [self saveCardPosition];
 }
 
 - (UIView *)ringWithColor:(UIColor *)color
@@ -485,7 +491,7 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
     BOOL car = SCPGetCarPlayCADisplay() != nil;
     if (self.window && self.onPhone == !car) return;
     if (self.window) { self.window.hidden = YES; [self.window removeFromSuperview]; self.window = nil; }
-    UIWindow *w = car ? SCPMakeCarWindow() : SCPMakePhoneWindow(YES);
+    UIWindow *w = car ? SCPMakeCarWindow() : SCPMakePhoneWindow(NO);   // iPhone: xoay theo huong may (applyPhoneOrientation)
     if (!w) return;
     self.onPhone = !car;
     SCPMakeWindowPassThrough(w);
@@ -519,11 +525,80 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
 
     self.window = w; self.card = card;
     self.builtStyle = -1;   // ve lai noi dung trong the moi
-    // Vi tri mac dinh: goc tren trai (tranh nut launcher o goc tren phai)
-    if (CGPointEqualToPoint(self.savedCenter, CGPointZero)) self.savedCenter = CGPointMake(16 + 70, 12 + 36);
-    card.center = self.savedCenter;
+    if (!car) [self applyPhoneOrientationForce:YES];
+    [self restoreCardPosition];
     w.hidden = YES;
     SCPLog("speed bubble: cua so %@ tao xong", car ? @"xe" : @"iPhone");
+}
+
+// ---------------------------------------------------------------------
+//  Huong & vi tri
+//  iPhone: cua so xoay theo huong cam may (doc / ngang trai / ngang phai); cua so split thu dang mo (ngang) thi theo no.
+//  CarPlay: cua so nam tren man xe (huong cua man xe), vi tri mac dinh ben phai dock CarPlay.
+// ---------------------------------------------------------------------
+- (void)startOrientationTracking
+{
+    [[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
+    __weak SCPSpeedBubble *weakSelf = self;
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIDeviceOrientationDidChangeNotification object:nil
+                                                       queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *n) {
+        SCPSpeedBubble *me = weakSelf;
+        if (me.window && me.onPhone) [me applyPhoneOrientationForce:NO];
+    }];
+}
+
+// Goc xoay noi dung tren iPhone (giu goc cu khi may nam ngua / up / khong ro)
+- (CGFloat)phoneRotation
+{
+    SCPSplitWindow *sw = [SCPSplitWindow current];
+    if (sw && sw.onMainScreen) return M_PI_2;   // giong cua so split thu (SCPMakePhoneWindow ngang)
+    switch ([UIDevice currentDevice].orientation) {
+        case UIDeviceOrientationPortrait:      return 0;
+        case UIDeviceOrientationLandscapeLeft: return M_PI_2;
+        case UIDeviceOrientationLandscapeRight: return -M_PI_2;
+        default: return self.appliedRotation;
+    }
+}
+
+- (void)applyPhoneOrientationForce:(BOOL)force
+{
+    if (!self.window || !self.onPhone) return;
+    CGFloat r = [self phoneRotation];
+    if (!force && fabs(r - self.appliedRotation) < 0.01) return;
+    BOOL wasVisible = !self.window.hidden && self.card.bounds.size.width > 10;
+    if (wasVisible && !force) [self saveCardPosition];
+    CGRect sb = [UIScreen mainScreen].bounds;
+    BOOL land = fabs(r) > 0.1;
+    self.window.transform = CGAffineTransformMakeRotation(r);
+    self.window.bounds = land ? CGRectMake(0, 0, sb.size.height, sb.size.width) : CGRectMake(0, 0, sb.size.width, sb.size.height);
+    self.window.center = CGPointMake(CGRectGetMidX(sb), CGRectGetMidY(sb));
+    self.appliedRotation = r;
+    [self restoreCardPosition];
+    SCPLog("speed bubble: iPhone xoay %.0f do", r * 180 / M_PI);
+}
+
+// Vi tri mac dinh: iPhone = goc tren trai (duoi thanh trang thai); xe = ngay ben phai dock CarPlay
+- (CGPoint)defaultCardCenter
+{
+    CGRect b = self.window.bounds;
+    if (self.onPhone) return CGPointMake(16 + 70, b.size.height > b.size.width ? 70 : 12 + 40);
+    return CGPointMake(MIN(b.size.width - 80, 90 + 80), 12 + 40);
+}
+
+- (void)saveCardPosition
+{
+    CGRect b = self.window.bounds;
+    if (b.size.width < 1 || b.size.height < 1) return;
+    CGPoint f = CGPointMake(self.card.center.x / b.size.width, self.card.center.y / b.size.height);
+    if (self.onPhone) self.phoneFraction = f; else self.carFraction = f;
+}
+
+- (void)restoreCardPosition
+{
+    CGRect b = self.window.bounds;
+    CGPoint f = self.onPhone ? self.phoneFraction : self.carFraction;
+    self.card.center = (f.x < 0) ? [self defaultCardCenter] : CGPointMake(f.x * b.size.width, f.y * b.size.height);
+    [self clampCard];
 }
 
 - (void)clampCard
@@ -541,7 +616,7 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
     self.card.center = CGPointMake(self.card.center.x + t.x, self.card.center.y + t.y);
     [self clampCard];
     [g setTranslation:CGPointZero inView:self.window];
-    if (g.state == UIGestureRecognizerStateEnded) self.savedCenter = self.card.center;
+    if (g.state == UIGestureRecognizerStateEnded) [self saveCardPosition];
 }
 
 // Cham bong bong -> mo lai Vietmap: dang bi che boi toan man ngan khac thi bo toan man; chua co ngan thi mo vao ngan trong
