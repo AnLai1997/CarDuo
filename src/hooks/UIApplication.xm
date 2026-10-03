@@ -352,10 +352,15 @@ static void SCPEnableFlutterSemantics(void)
     }
 }
 
+// Han thoi gian cho 1 lan duyet cay accessibility (chay tren luong chinh -> khong duoc lam treo app)
+static CFAbsoluteTime sAXDeadline = 0;
+static BOOL sAXTimedOut = NO;
+
 // Thu thap phan tu accessibility co chu: @{ @"t": text, @"f": NSValue(CGRect man hinh) }
 static void SCPCollectAX(id node, NSMutableArray<NSDictionary *> *out, NSMutableSet *seen, int depth)
 {
-    if (!node || depth > 80 || out.count > 600) return;
+    if (!node || depth > 80 || out.count > 600 || seen.count > 4000 || sAXTimedOut) return;
+    if (CFAbsoluteTimeGetCurrent() > sAXDeadline) { sAXTimedOut = YES; return; }
     NSValue *key = [NSValue valueWithNonretainedObject:node];
     if ([seen containsObject:key]) return;
     [seen addObject:key];
@@ -410,7 +415,9 @@ static BOOL SCPMentionsKmh(NSString *t)
 static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString **outDesc)
 {
     NSMutableArray<NSDictionary *> *items = [NSMutableArray array];
+    sAXDeadline = CFAbsoluteTimeGetCurrent() + 0.04; sAXTimedOut = NO;   // toi da 40ms moi cua so
     SCPCollectAX(win, items, [NSMutableSet set], 0);
+    if (sAXTimedOut) { static CFAbsoluteTime lastWarn; if (CFAbsoluteTimeGetCurrent() - lastWarn > 20) { lastWarn = CFAbsoluteTimeGetCurrent(); SCPLog("speed scan: duyet AX qua 40ms -> dung giua chung (%lu phan tu)", (unsigned long)items.count); } }
     if (!items.count) return NO;
 
     // Flutter gop ca cum thanh 1 phan tu, vd Vietmap: "60 | 0 | km/h" (3 dong) = [gioi han] [toc do] km/h.
@@ -473,24 +480,11 @@ static BOOL SCPScanSpeedAX(UIWindow *win, int *outSpeed, int *outLimit, NSString
 }
 
 // ---------------------------------------------------------------------
-//  Toc do theo GPS: lay vi tri moi nhat tu cac CLLocationManager ma chinh Vietmap dang chay
-//  (khong bat GPS rieng). Van dung duoc khi Vietmap dang hien tren CarPlay va man iPhone khong
-//  hien toc do. Gioi han toc do van lay tu man hinh (quet), chi gui khi vua thay gan day.
+//  Toc do theo GPS: tweak co 1 CLLocationManager RIENG trong tien trinh Vietmap (dung quyen vi tri
+//  cua Vietmap), chi chay khi Vietmap dang bat GPS. Vi tri den qua delegate -> gui toc do ngay,
+//  khong doc dinh ky, khong goi dong bo tren luong chinh, khong sua manager cua Vietmap.
+//  Gioi han toc do van lay tu man hinh (quet), chi gui khi vua thay gan day.
 // ---------------------------------------------------------------------
-static NSHashTable *sLocManagers;   // chi doc / ghi qua 3 ham duoi (co khoa: Vietmap co the bat GPS tu luong khac)
-static NSObject *SCPLocLock(void) { static NSObject *o; static dispatch_once_t once; dispatch_once(&once, ^{ o = [NSObject new]; }); return o; }
-// Them manager; tra ve so manager sau khi them, 0 neu da co san
-static NSUInteger SCPLocAdd(id m)
-{
-    @synchronized (SCPLocLock()) {
-        if (!sLocManagers) sLocManagers = [NSHashTable weakObjectsHashTable];
-        if ([sLocManagers containsObject:m]) return 0;
-        [sLocManagers addObject:m];
-        return sLocManagers.count;
-    }
-}
-static BOOL SCPLocHas(id m) { @synchronized (SCPLocLock()) { return [sLocManagers containsObject:m]; } }
-static NSArray *SCPLocAll(void) { @synchronized (SCPLocLock()) { return sLocManagers.allObjects ?: @[]; } }
 static int sScanSpeed = -1, sScanLimit = -1;
 static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
 
@@ -498,35 +492,9 @@ static CFAbsoluteTime sScanSpeedAt = 0, sScanLimitAt = 0;
 #define SCP_SCAN_FRESH   2.0    // giay: toc do quet duoc cu hon -> bo
 #define SCP_LIMIT_FRESH 15.0    // giay: giu bien gioi han sau lan cuoi thay tren man hinh
 
-%group SPEEDGPS
-%hook CLLocationManager
-- (void)startUpdatingLocation
+static int SCPCurrentLimit(void)
 {
-    double old = self.distanceFilter;
-    NSUInteger n = SCPLocAdd(self);
-    if (n) SCPLog("speed gps: Vietmap bat GPS (%lu CLLocationManager, distanceFilter %.1fm -> none)", (unsigned long)n, old);
-    // Nhan MOI ban tin GPS (khong loc theo khoang cach) de toc do cap nhat lien tuc ~1 lan/giay
-    self.distanceFilter = kCLDistanceFilterNone;
-    %orig;
-}
-
-- (void)setDistanceFilter:(double)d
-{
-    // Manager dang dung cho toc do -> luon none; manager khac giu nguyen y app
-    %orig(SCPLocHas(self) ? kCLDistanceFilterNone : d);
-}
-%end
-%end // SPEEDGPS
-
-// Vi tri GPS moi nhat trong cac manager cua Vietmap
-static CLLocation *SCPLatestFix(void)
-{
-    CLLocation *best = nil;
-    for (CLLocationManager *m in SCPLocAll()) {
-        CLLocation *l = m.location;
-        if (l && (!best || [l.timestamp compare:best.timestamp] == NSOrderedDescending)) best = l;
-    }
-    return best;
+    return (CFAbsoluteTimeGetCurrent() - sScanLimitAt) < SCP_LIMIT_FRESH ? sScanLimit : -1;
 }
 
 // Toc do km/h tu 1 vi tri; -1 neu vi tri cu / sai so qua lon
@@ -541,23 +509,112 @@ static int SCPSpeedFromFix(CLLocation *fix, double *outAge)
     return kmh > 300 ? -1 : kmh;
 }
 
-static int SCPGPSSpeed(double *outAge) { return SCPSpeedFromFix(SCPLatestFix(), outAge); }
+@interface SCPSpeedGPS : NSObject <CLLocationManagerDelegate>
+@property (nonatomic, strong) CLLocationManager *mgr;
+@property (nonatomic, strong) CLLocation *last;
+@property (nonatomic, strong) NSHashTable *appManagers;   // manager cua Vietmap dang chay (chi dung tren luong chinh)
+@property (nonatomic) BOOL loggedFirst;
++ (instancetype)shared;
+- (void)appManager:(CLLocationManager *)m running:(BOOL)running;
+@end
 
-static int SCPCurrentLimit(void)
+@implementation SCPSpeedGPS
+
++ (instancetype)shared
 {
-    return (CFAbsoluteTimeGetCurrent() - sScanLimitAt) < SCP_LIMIT_FRESH ? sScanLimit : -1;
+    static SCPSpeedGPS *s; static dispatch_once_t once;
+    dispatch_once(&once, ^{ s = [SCPSpeedGPS new]; });
+    return s;
 }
 
-// Nhip GPS 0.2s (re: chi doc thuoc tinh): co vi tri MOI -> gui ngay, khong cho nhip quet man hinh
-static void SCPGPSTick(void)
+// Vietmap bat / tat GPS tren 1 manager. Luon goi tren luong chinh.
+- (void)appManager:(CLLocationManager *)m running:(BOOL)running
 {
-    static NSDate *lastStamp;
-    CLLocation *fix = SCPLatestFix();
-    if (!fix || [fix.timestamp isEqualToDate:lastStamp]) return;
-    lastStamp = fix.timestamp;
+    if (!self.appManagers) self.appManagers = [NSHashTable weakObjectsHashTable];
+    if (running) [self.appManagers addObject:m]; else [self.appManagers removeObject:m];
+    BOOL active = self.appManagers.allObjects.count > 0;
+    if (active && !self.mgr) [self start];
+    else if (!active && self.mgr) [self stop];
+}
+
+- (void)start
+{
+    CLLocationManager *m = [CLLocationManager new];
+    m.delegate = self;
+    m.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
+    m.distanceFilter = kCLDistanceFilterNone;
+    m.activityType = CLActivityTypeAutomotiveNavigation;
+    m.pausesLocationUpdatesAutomatically = NO;
+    // Chi bat cap nhat nen khi app co khai bao UIBackgroundModes=location (khong thi CoreLocation nem exception)
+    NSArray *modes = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIBackgroundModes"];
+    BOOL bg = [modes isKindOfClass:[NSArray class]] && [modes containsObject:@"location"];
+    if (bg) {
+        @try { m.allowsBackgroundLocationUpdates = YES; } @catch (NSException *e) {}
+    }
+    self.mgr = m;
+    self.loggedFirst = NO;
+    [m startUpdatingLocation];
+    SCPLog("speed gps: bat GPS rieng (nen=%d)", bg);
+}
+
+- (void)stop
+{
+    [self.mgr stopUpdatingLocation];
+    self.mgr.delegate = nil;
+    self.mgr = nil;
+    self.last = nil;
+    SCPLog("speed gps: Vietmap tat GPS -> tat GPS rieng");
+}
+
+- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations
+{
+    CLLocation *fix = locations.lastObject;
+    if (!fix || manager != self.mgr) return;
+    // Manager cua Vietmap bi huy ma khong goi stop -> tat GPS rieng
+    if (self.appManagers.allObjects.count == 0) { [self stop]; return; }
+    self.last = fix;
     int kmh = SCPSpeedFromFix(fix, NULL);
-    if (kmh >= 0) SCPSendSpeed(kmh, SCPCurrentLimit());
+    if (!self.loggedFirst) {
+        self.loggedFirst = YES;
+        SCPLog("speed gps: vi tri dau tien, %d km/h (sai so %.0fm)", kmh, fix.horizontalAccuracy);
+    }
+    if (kmh >= 0) SCPSendSpeed(kmh, SCPCurrentLimit());   // moi ban tin GPS -> gui ngay
 }
+
+- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error
+{
+    SCPLog("speed gps: loi %@", error.localizedDescription);
+}
+
+@end
+
+static int SCPGPSSpeed(double *outAge) { return SCPSpeedFromFix([SCPSpeedGPS shared].last, outAge); }
+
+// Vietmap bat / tat GPS: chi ghi nhan, KHONG sua manager cua Vietmap. Bo qua manager rieng cua tweak.
+static void SCPAppGPSChanged(CLLocationManager *m, BOOL running)
+{
+    void (^apply)(void) = ^{
+        if (m == [SCPSpeedGPS shared].mgr) return;
+        [[SCPSpeedGPS shared] appManager:m running:running];
+    };
+    if ([NSThread isMainThread]) apply(); else dispatch_async(dispatch_get_main_queue(), apply);
+}
+
+%group SPEEDGPS
+%hook CLLocationManager
+- (void)startUpdatingLocation
+{
+    %orig;
+    SCPAppGPSChanged(self, YES);
+}
+
+- (void)stopUpdatingLocation
+{
+    %orig;
+    SCPAppGPSChanged(self, NO);
+}
+%end
+%end // SPEEDGPS
 
 static void SCPNoteScan(int speed, int limit)
 {
@@ -655,8 +712,8 @@ static void SCPSpeedTick(void)
     int scan = (now - sScanSpeedAt) < SCP_SCAN_FRESH ? sScanSpeed : -1;
     int limit = SCPCurrentLimit();
     if (gps < 0 && scan >= 0) SCPSendSpeed(scan, limit);   // co GPS thi nhip GPS da gui
-    if (doLog) SCPLog("speed: gps=%d (vi tri cach %.1fs, %lu manager) quet=%d gioi han=%d -> gui %d", gps, age,
-                      (unsigned long)SCPLocAll().count, scan, limit, gps >= 0 ? gps : scan);
+    if (doLog) SCPLog("speed: gps=%d (vi tri cach %.1fs, GPS rieng %@) quet=%d gioi han=%d -> gui %d", gps, age,
+                      [SCPSpeedGPS shared].mgr ? @"bat" : @"tat", scan, limit, gps >= 0 ? gps : scan);
 }
 
 static void SCPStartSpeedScanner(void)
@@ -664,9 +721,6 @@ static void SCPStartSpeedScanner(void)
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         SCPLog("speed scan: bat dau");
         [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *t) { SCPSpeedTick(); }];   // quet man hinh
-        NSTimer *g = [NSTimer timerWithTimeInterval:0.2 repeats:YES block:^(NSTimer *t) { SCPGPSTick(); }];   // GPS
-        g.tolerance = 0.05;
-        [[NSRunLoop mainRunLoop] addTimer:g forMode:NSRunLoopCommonModes];   // chay ca khi dang keo/cuon ban do
     });
 }
 
