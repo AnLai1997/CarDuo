@@ -278,7 +278,7 @@ splitcarplay://close</string>
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>GỠ LỖI (DÀNH CHO DEV)</string>
-			<key>footerText</key><string>Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm "Đóng split thử" ở đây (hoặc splitcarplay://close). Bật "Thử giao diện CarPlay của app": app có CarPlay (Maps, Nhạc, Vietmap...) sẽ được thử mở bằng giao diện CarPlay ngay trên iPhone (thử nghiệm, nếu không lên sau 8 giây thì tự về giao diện iPhone). Trên xe, tweak tự dùng màn CarPlay. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.</string>
+			<key>footerText</key><string>Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm "Đóng split thử" ở đây (hoặc splitcarplay://close). Bật "Thử giao diện CarPlay": chỉ Bản đồ và Nhạc của Apple được thử mở bằng giao diện CarPlay ngay trên iPhone (thử nghiệm, có thể làm respring). App template như Vietmap, Google Maps, Spotify chỉ hiện giao diện CarPlay khi cắm xe. Trên xe, tweak tự dùng màn CarPlay. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>

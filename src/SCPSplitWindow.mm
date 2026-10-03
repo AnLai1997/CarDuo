@@ -1396,6 +1396,12 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     [self.rootWindow insertSubview:pane.containerView belowSubview:self.dividerView];
 
     SCPCarAppKind carKind = (self.onMainScreen && [SCPPrefs demoCarPlayUI]) ? [SCPPhoneCarScene carPlayKindForBundleID:bundleID] : SCPCarAppKindNone;
+    // App template (Vietmap, Google Maps, Spotify...) can CarPlayTemplateUIHost: tao scene do tu SpringBoard lam SpringBoard
+    // crash, va TemplateUIHost con giu scene sau respring -> man den. Chi thu voi app tu ve CarPlay (Apple Maps, Nhac).
+    if (carKind == SCPCarAppKindTemplate) {
+        SCPLog("demo: %@ la app template CarPlay -> khong thu tren iPhone (lam crash SpringBoard), dung giao dien iPhone", bundleID);
+        carKind = SCPCarAppKindNone;
+    }
     if (carKind != SCPCarAppKindNone) {
         // Che do thu: hien giao dien CarPlay cua app (scene CarPlay tao ngay tren iPhone)
         SCPPhoneCarScene *cs = [[SCPPhoneCarScene alloc] initWithBundleID:bundleID kind:carKind];
