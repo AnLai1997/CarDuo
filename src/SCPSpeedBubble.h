@@ -8,4 +8,5 @@
 - (void)updateSpeed:(int)speed limit:(int)limit;   // speed/limit < 0 = khong co
 - (void)refresh;                                    // tinh lai hien/an (goi khi bo cuc split doi)
 - (void)hide;
+- (void)setNativeVisibleBundles:(NSArray<NSString *> *)bundles;   // app dang hien trong ngan split CarPlay (process CarPlay bao)
 @end

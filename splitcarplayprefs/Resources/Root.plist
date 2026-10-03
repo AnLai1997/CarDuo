@@ -22,7 +22,7 @@
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CHUNG</string>
-			<key>footerText</key><string>Trên màn CarPlay có nút tròn ở góc trên phải để mở split và chọn app. Giữ icon app 1 giây trên dashboard cũng mở app đó vào một ngăn. Trong split, mỗi ngăn có dấu "..." ở giữa mép trên: kéo xuống để hiện các option của ngăn đó.</string>
+			<key>footerText</key><string>Mỗi ngăn hiện đúng giao diện CarPlay của app (như khi mở app trên CarPlay), không chiếu giao diện iPhone. Nút tròn ở góc trên phải màn CarPlay mở split: app CarPlay đang mở vào ngăn trái, ngăn còn lại là bảng chọn app CarPlay. Giữ icon app 1 giây trên màn chính CarPlay cũng mở app đó vào một ngăn. Đang split mà chạm app trên dock thì app đó vào ngăn vừa chạm. Thẻ trắng ở giữa mép trên mỗi ngăn: chạm để Đổi app / Toàn màn / Đóng. Nút Home của CarPlay tắt split.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
@@ -32,11 +32,23 @@
 			<key>default</key><true/>
 			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
 		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Cho phép app không có CarPlay</string>
+			<key>defaults</key><string>com.anpham.splitcarplay</string>
+			<key>key</key><string>AllowPhoneApps</string>
+			<key>default</key><false/>
+			<key>PostNotification</key><string>com.anpham.splitcarplay.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>footerText</key><string>Tắt (mặc định): chỉ mở được app có hỗ trợ CarPlay. Bật: app không có CarPlay (ví dụ YouTube) sẽ được chiếu nguyên giao diện iPhone vào một cửa sổ riêng như bản cũ.</string>
+		</dict>
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>APP MẶC ĐỊNH</string>
-			<key>footerText</key><string>Cặp app dùng cho nút "Mở split" và tự mở khi cắm xe.</string>
+			<key>footerText</key><string>Cặp app tự mở khi cắm xe. Nên chọn app có CarPlay (Vietmap, Google Maps, Spotify, Nhạc...).</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSLinkListCell</string>

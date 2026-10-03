@@ -32,12 +32,14 @@ static inline uint64_t SCPBundleHash(NSString *bid)
 #define SCP_NOTIF_SPLIT_CLOSED  @"com.anpham.splitcarplay.closed"
 
 // Moi ngan co the (grabber) trang tron 44x6 o giua mep tren (vung cham no rong 18pt moi phia); cham hoac keo xuong
-// de hien hang nut tron trang (kieu HyperOS) bat ra lan luot ngay duoi. Nut tron 52pt, icon den don sac.
-#define SCP_PANE_BAR_HEIGHT    64.0
-#define SCP_PANE_HANDLE_WIDTH  44.0
-#define SCP_PANE_HANDLE_HEIGHT 6.0
-#define SCP_PANE_BORDER        2.5
-#define SCP_PANE_INSET         3.0    // ngan lui vao so voi mep man -> thay ro bo goc tren nen toi
+// de hien hang nut tron trang (kieu HyperOS) bat ra lan luot ngay duoi. Nut tron 38pt, icon den don sac.
+#define SCP_PANE_BAR_HEIGHT    48.0
+#define SCP_PANE_HANDLE_WIDTH  30.0
+#define SCP_PANE_HANDLE_HEIGHT 4.0
+#define SCP_PANE_BORDER        1.0
+#define SCP_PANE_INSET         2.0    // ngan lui vao so voi mep man -> thay ro bo goc tren nen toi
+// App iPhone chieu len xe: scene ve o kich thuoc ngan / ZOOM roi thu nho lai -> chu va nut cua app khong to qua tren man xe
+#define SCP_MIRROR_ZOOM        0.72
 
 #define getIvar(object, ivar)        [object valueForKey:ivar]
 #define setIvar(object, ivar, value) [object setValue:value forKey:ivar]

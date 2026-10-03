@@ -1,6 +1,7 @@
 #import "SCPSplitWindow.h"
 #import "SCPSpeedBubble.h"
 #import "SCPPrefs.h"
+#import "SCPCarSplit.h"
 
 // =====================================================================
 //  SCPSplitWindow - cua so tren man CarPlay, host 2 app cua iPhone
@@ -13,9 +14,9 @@ const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 
 #define SCP_DIVIDER_WIDTH 4.0      // khe toi mong giua 2 ngan; num keo nam de len khe
 #define SCP_DIVIDER_HIT   28.0     // vung cham moi ben cua duong ranh giua 2 ngan (tong 56pt, de dat ngon tay)
-#define SCP_KNOB_W        18.0     // num keo: vien thuoc trang 18 x 56 co 3 cham den (⋮) nam giua duong ranh; cham de mo menu, keo de doi ti le
-#define SCP_KNOB_H        56.0
-#define SCP_KNOB_DOT      4.0
+#define SCP_KNOB_W        10.0     // num keo: vien thuoc trang 18 x 56 co 3 cham den (⋮) nam giua duong ranh; cham de mo menu, keo de doi ti le
+#define SCP_KNOB_H        36.0
+#define SCP_KNOB_DOT      3.0
 #define SCP_PIP_SCALE     0.36
 
 // Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
@@ -305,14 +306,14 @@ static UIImage *SCPAppIcon(NSString *bid)
 // Nut kieu HyperOS: hinh tron 52pt nen trang, icon hinh hoc den 24pt, khong nhan chu.
 // Nut dang "bat" (fullscreen / PiP) doi sang xanh (icon xanh, nen xanh nhat) nhu HyperOS.
 // Dung chung cho hang nut cua ngan, menu num keo va nut chia doi -> 1 kieu nut duy nhat.
-#define SCP_BTN      52.0
-#define SCP_BTN_GAP  10.0
+#define SCP_BTN      38.0
+#define SCP_BTN_GAP  8.0
 static UIColor *SCPInk(void)     { return [UIColor colorWithWhite:0.13 alpha:1]; }
 static UIColor *SCPAccent(void)  { return [UIColor colorWithRed:0.10 green:0.47 blue:1.0 alpha:1]; }
 static id SCPActionSymbolConfig(void)
 {
     static id cfg;
-    if (!cfg) cfg = [UIImageSymbolConfiguration configurationWithPointSize:24 weight:UIImageSymbolWeightMedium scale:UIImageSymbolScaleMedium];
+    if (!cfg) cfg = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightMedium scale:UIImageSymbolScaleMedium];
     return cfg;
 }
 
@@ -379,8 +380,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 {
     // Vien quanh app
     pane.containerView.layer.borderWidth = SCP_PANE_BORDER;
-    pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.7].CGColor;
-    pane.containerView.layer.cornerRadius = 14;
+    pane.containerView.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.35].CGColor;
+    pane.containerView.layer.cornerRadius = 8;
 
     // The (grabber) trang tron o giua mep tren, kieu iOS sheet: khong chu, khong cham
     UIView *h = [[SCPTabView alloc] initWithFrame:CGRectMake(0, 0, SCP_PANE_HANDLE_WIDTH, SCP_PANE_HANDLE_HEIGHT)];
@@ -690,7 +691,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     // 3 cham xep doc theo chieu dai num (⋮ khi chia trai/phai, ⋯ khi chia tren/duoi)
     for (NSInteger i = 0; i < 3; i++) {
         UIView *dot = [self.dividerPill viewWithTag:300 + i];
-        CGFloat off = (i - 1) * 9;
+        CGFloat off = (i - 1) * 6;
         dot.center = v ? CGPointMake(kw / 2 + off, kh / 2) : CGPointMake(kw / 2, kh / 2 + off);
     }
 }
@@ -1393,9 +1394,16 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     UIView *hostingContentView = getIvar(sceneView, @"_sceneContentContainerView");
     if (!hostingContentView) { SCPLog("chua co _sceneContentContainerView"); return; }
 
-    CGSize paneSize = pane.containerView.bounds.size;
-    if (paneSize.width < 1) return;
-    [pane.appViewController view].frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
+    CGSize boxSize = pane.containerView.bounds.size;
+    if (boxSize.width < 1) return;
+    // Tren xe: app ve o kich thuoc lon hon (ngan / ZOOM) roi thu nho bang transform -> giao dien iPhone khong bi to
+    CGFloat z = self.onMainScreen ? 1.0 : SCP_MIRROR_ZOOM;
+    CGSize paneSize = CGSizeMake(round(boxSize.width / z), round(boxSize.height / z));
+    UIView *appView = [pane.appViewController view];
+    appView.transform = CGAffineTransformIdentity;
+    appView.frame = CGRectMake(0, 0, paneSize.width, paneSize.height);
+    appView.transform = CGAffineTransformMakeScale(z, z);
+    appView.center = CGPointMake(boxSize.width / 2, boxSize.height / 2);
     hostingContentView.transform = CGAffineTransformIdentity;
 
     id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
@@ -1443,7 +1451,9 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 {
     id scene = objcInvoke(objcInvoke(pane.appViewController, @"sceneHandle"), @"sceneIfExists");
     if (!scene) return;
-    CGSize sz = pane.containerView.bounds.size;
+    CGFloat z = self.onMainScreen ? 1.0 : SCP_MIRROR_ZOOM;
+    CGSize box = pane.containerView.bounds.size;
+    CGSize sz = CGSizeMake(round(box.width / z), round(box.height / z));
     long long o = pane.requestedOrientation > 0 ? pane.requestedOrientation : pane.orientation;
     BOOL landscape = (o == UIInterfaceOrientationLandscapeLeft || o == UIInterfaceOrientationLandscapeRight);
     CGRect off = landscape ? CGRectMake(0, 0, sz.height, MAX(1, sz.width - 1)) : CGRectMake(0, 0, sz.width, MAX(1, sz.height - 1));
@@ -1690,10 +1700,10 @@ static UIWindow *sLauncherWindow = nil;
 
 + (void)tapped
 {
-    SCPLog("launcher tapped");
-    SCPSplitWindow *w = [SCPSplitWindow currentOrCreate];
-    if (!w) return;
-    [w showAppPickerForSlot:SCPSlotLeft];
+    // Mo/tat split CarPlay (bang chon app CarPlay; app CarPlay dang mo tu vao ngan trai)
+    SCPLog("launcher tapped -> split CarPlay");
+    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+        postNotificationName:SCP_NOTIF_NATIVE object:nil userInfo:@{@"action": @"picker"}];
 }
 
 @end

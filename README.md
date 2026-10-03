@@ -24,11 +24,23 @@ Cách CarBridge/carplay-cast đưa app thường lên CarPlay:
    `BKSDisplayServicesSetScreenBlanked`.
 3. **App process** (UIKit): nhận notification xoay màn hình, ép `UIWindow _setRotatableViewOrientation:...`.
 
-### Thiết kế CarDuo
-Cửa sổ SpringBoard trên màn xe chia làm 2 ngăn (trái/phải), mỗi ngăn host một
-`SBAppViewController` riêng, scale theo kích thước ngăn. App chạy ở hướng dọc (portrait)
-vì ngăn nửa màn 800x480 ~ 380x480 gần với tỉ lệ dọc của iPhone.
-Chọn app: long-press icon trên dashboard CarPlay -> lần 1 vào ngăn trái, lần 2 vào ngăn phải.
+### Thiết kế CarDuo (giao diện CarPlay thật)
+Mỗi ngăn hiện **giao diện CarPlay của app** (scene CarPlay / template), không chiếu giao diện iPhone.
+Toàn bộ split nằm trong process CarPlay (`DashBoard.framework`), code ở `src/SCPCarSplit.mm` + `src/hooks/CarPlay.xm`:
+1. Mở app vào ngăn = gửi đúng sự kiện DashBoard dùng khi chạm icon:
+   `[DBDashboard handleEvent:[DBEvent eventWithType:4 context:[DBApplicationLaunchInfo launchInfoForApplication:info]]]`
+   (lấy từ `-[DBDashboard _launchAppWithInfo:forURL:]`). DashBoard tự tạo `DBApplicationSceneViewController`;
+   app template được proxy qua `com.apple.CarPlayTemplateUIHost` (`initWithApplicationInfo:app proxyApplicationInfo:host`).
+2. Hook `-[DBDashboard sceneFrameForAppInfo:proxyAppInfo:]` / `safeAreaInsetsForAppInfo:proxyAppInfo:` trả kích thước ngăn
+   (`DBSceneUpdate._frame` gọi đúng hàm này), nên app tự bố cục giao diện CarPlay theo ngăn.
+3. Hook `-[DBDashboardRootViewController presentBaseViewController:...]`: đang split thì đưa view controller vào ngăn
+   thay vì hiện toàn màn. Hook `backgroundSceneWithCompletion:` / `deactivateSceneWithReasonMask:` giữ scene của ngăn foreground.
+4. Nút Home của CarPlay (`_handleHomeEvent:`) hoặc DashBoard về màn chính thì tắt split.
+Dock CarPlay vẫn hiện; chạm app trên dock khi đang split thì app vào ngăn vừa chạm.
+App không có CarPlay chỉ mở được khi bật "Cho phép app không có CarPlay" (cửa sổ SpringBoard chiếu giao diện iPhone, cách cũ).
+
+Dò ngược DashBoard trên Windows: `ipsw class-dump <dsc_test> DashBoard --re -V` cho địa chỉ method,
+rồi disassemble bằng capstone (Python) đọc thẳng các subcache theo bảng mapping (ipsw disass hỏng vì linkedit giả).
 
 ### Đã đối chiếu với iOS 16.5 (class-dump từ IPSW 20F66, thư mục `headers/` local)
 - Code SpringBoard nằm trong `SpringBoard.framework` (binary SpringBoard chỉ là stub).

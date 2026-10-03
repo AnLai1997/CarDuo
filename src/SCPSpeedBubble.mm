@@ -1,5 +1,8 @@
 #import "SCPSpeedBubble.h"
 #import "SCPSplitWindow.h"
+#import "SCPCarSplit.h"
+
+static NSSet<NSString *> *sNativeVisible;   // app dang hien trong ngan split CarPlay
 #import "SCPPrefs.h"
 
 #define SCP_SPEED_STALE 5.0   // giay khong co du lieu moi -> an bong bong
@@ -59,6 +62,12 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 - (CGAffineTransform)baseTransform { return CGAffineTransformMakeScale(self.scale, self.scale); }
 - (CGAffineTransform)baseScaled:(CGFloat)k { return CGAffineTransformMakeScale(self.scale * k, self.scale * k); }
 
+- (void)setNativeVisibleBundles:(NSArray<NSString *> *)bundles
+{
+    sNativeVisible = [NSSet setWithArray:bundles ?: @[]];
+    [self refresh];
+}
+
 - (void)updateSpeed:(int)speed limit:(int)limit
 {
     self.speed = speed; self.limit = limit;
@@ -76,6 +85,7 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 // Vietmap dang hien trong 1 ngan nhin thay duoc? (ngan khong bi an boi fullscreen ngan khac, co kich thuoc)
 - (BOOL)appVisibleInSplit
 {
+    if ([sNativeVisible containsObject:SCP_SPEED_APP]) return YES;   // dang hien trong ngan split CarPlay
     SCPAppPane *p = [self appPane];
     if (!p || p.containerView.hidden) return NO;
     CGSize s = p.containerView.bounds.size;
@@ -173,6 +183,10 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 {
     [self hideCloseButton];
     SCPLog("speed bubble: X -> tat han %@", SCP_SPEED_APP);
+    if (SCPGetCarPlayCADisplay()) {   // Vietmap co the dang nam trong ngan split CarPlay -> dong ngan do truoc
+        [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+            postNotificationName:SCP_NOTIF_NATIVE object:nil userInfo:@{@"action": @"closeApp", @"identifier": SCP_SPEED_APP}];
+    }
     SCPSplitWindow *w = [SCPSplitWindow current];
     SCPAppPane *p = [self appPane];
     if (w && p) {
@@ -312,9 +326,16 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
     [UIView animateWithDuration:0.1 animations:^{ self.card.transform = [self baseScaled:0.92]; }
                      completion:^(BOOL f) { [UIView animateWithDuration:0.15 animations:^{ self.card.transform = [self baseTransform]; }]; }];
     BOOL car = SCPGetCarPlayCADisplay() != nil;
+    SCPAppPane *p = [self appPane];
+    if (car && !p) {
+        // Tren xe: mo Vietmap bang giao dien CarPlay trong split CarPlay
+        SCPLog("speed bubble: cham -> mo Vietmap trong split CarPlay");
+        [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+            postNotificationName:SCP_NOTIF_NATIVE object:nil userInfo:@{@"action": @"open", @"identifier": SCP_SPEED_APP}];
+        return;
+    }
     SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:!car];
     if (!w) return;
-    SCPAppPane *p = [self appPane];
     if (p) {
         SCPLog("speed bubble: cham -> hien lai Vietmap");
         if (w.fullscreenSlot != SCPSlotAuto) [w toggleFullscreenForSlot:w.fullscreenSlot];   // bo toan man ngan kia

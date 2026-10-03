@@ -2,6 +2,7 @@
 #import "../SCPSplitWindow.h"
 #import "../SCPPrefs.h"
 #import "../SCPSpeedBubble.h"
+#import "../SCPCarSplit.h"
 #import <notify.h>
 
 #define SCP_DARWIN_TEST     "com.anpham.splitcarplay.test"      // nut "Mo split thu" trong Settings
@@ -12,11 +13,26 @@
 // Inject vao SpringBoard: nhan yeu cau tu CarPlay process / Settings / app URL, giu app song khi khoa may
 %group SPRINGBOARD
 
-// Mo cap app mac dinh (LeftApp/RightApp trong Settings) vao cua so split
+// Gui yeu cau sang process CarPlay: split hien giao dien CarPlay cua app (SCPCarSplit)
+static void SCPPostNative(NSDictionary *info)
+{
+    SCPLog("-> split CarPlay: %@", info);
+    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter] postNotificationName:SCP_NOTIF_NATIVE object:nil userInfo:info];
+}
+
+// Mo cap app mac dinh (LeftApp/RightApp trong Settings).
+// Tren xe: split CarPlay (giao dien CarPlay cua app). Che do thu tren iPhone: cua so chieu giao dien iPhone.
 static void SCPOpenConfiguredPair(BOOL onMainScreen)
 {
     NSString *left = [SCPPrefs leftApp], *right = [SCPPrefs rightApp];
     SCPLog("mo cap app mac dinh (mainScreen=%d): left=%@ right=%@", onMainScreen, left, right);
+    if (!onMainScreen) {
+        NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:@"pair" forKey:@"action"];
+        if (left) d[@"left"] = left;
+        if (right) d[@"right"] = right;
+        SCPPostNative(d);
+        return;
+    }
     @try {
         SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:onMainScreen];
         if (!w) { SCPLog("khong tao duoc cua so (CarPlay chua ket noi?)"); return; }
@@ -35,6 +51,23 @@ static void SCPHandlePendingRequest(void)
     NSString *action = req[@"action"];
     SCPLog("yeu cau tu URL: %@", req);
     BOOL car = SCPGetCarPlayCADisplay() != nil;
+    if (car) {   // tren xe: split CarPlay
+        if ([action isEqualToString:@"close"]) {
+            [[SCPSplitWindow current] dismiss];
+            SCPPostNative(@{@"action": @"close"});
+        } else if ([action hasPrefix:@"fav"]) {
+            SCPPostNative(@{@"action": @"fav", @"index": @([[action substringFromIndex:3] integerValue])});
+        } else {
+            NSString *l = req[@"left"], *r = req[@"right"];
+            if (l) [SCPPrefs setLeftApp:l];
+            if (r) [SCPPrefs setRightApp:r];
+            NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:@"pair" forKey:@"action"];
+            if (l ?: [SCPPrefs leftApp]) d[@"left"] = l ?: [SCPPrefs leftApp];
+            if (r ?: [SCPPrefs rightApp]) d[@"right"] = r ?: [SCPPrefs rightApp];
+            SCPPostNative(d);
+        }
+        return;
+    }
     @try {
         if ([action isEqualToString:@"close"]) { [[SCPSplitWindow current] dismiss]; return; }
         SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:!car];   // khong co xe -> thu tren iPhone
@@ -59,7 +92,7 @@ static void SCPHandlePendingRequest(void)
     %orig;
     SCPLog("SpringBoard ready, dang ky notification");
 
-    // CarPlay process -> mo 1 app vao 1 ngan (long-press icon tren dashboard)
+    // CarPlay process -> app KHONG co CarPlay (khi bat "Cho phep app iPhone"): chieu giao dien iPhone vao cua so rieng
     NSNotificationCenter *dnc = [objc_getClass("NSDistributedNotificationCenter") defaultCenter];
     [dnc addObserverForName:SCP_NOTIF_LAUNCH object:nil queue:[NSOperationQueue mainQueue]
                  usingBlock:^(NSNotification *note) {
@@ -74,6 +107,13 @@ static void SCPHandlePendingRequest(void)
         } @catch (NSException *e) {
             SCPLog("launch that bai: %@\n%@", e, e.callStackSymbols);
         }
+    }];
+
+    // Process CarPlay bao app nao dang hien trong ngan split CarPlay -> bong bong toc do
+    [dnc addObserverForName:SCP_NOTIF_NATIVE_STATE object:nil queue:[NSOperationQueue mainQueue]
+                 usingBlock:^(NSNotification *note) {
+        NSArray *bundles = note.userInfo[@"bundles"];
+        [[SCPSpeedBubble shared] setNativeVisibleBundles:[bundles isKindOfClass:[NSArray class]] ? bundles : @[]];
     }];
 
     // Dong log tu app nguoi dung (sandbox) -> ghi vao file chung
@@ -99,7 +139,11 @@ static void SCPHandlePendingRequest(void)
         [[SCPSplitWindow current] appOrientationChangedWithHash:hash orientation:code supportedMask:mask];
     });
     notify_register_dispatch(SCP_DARWIN_TEST,  &tok,      dispatch_get_main_queue(), ^(int t) { SCPOpenConfiguredPair(YES); });
-    notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) { [[SCPSplitWindow current] dismiss]; [[SCPSpeedBubble shared] refresh]; });
+    notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) {
+        [[SCPSplitWindow current] dismiss];
+        if (SCPGetCarPlayCADisplay()) SCPPostNative(@{@"action": @"close"});
+        [[SCPSpeedBubble shared] refresh];
+    });
     notify_register_dispatch(SCP_DARWIN_CLEARLOG, &tokClear, dispatch_get_main_queue(), ^(int t) { SCPLogClear(); SCPLog("log cleared"); });
     notify_register_dispatch(SCP_DARWIN_OPEN,  &tokOpen,  dispatch_get_main_queue(), ^(int t) { SCPHandlePendingRequest(); });
     if ([SCPPrefs testOnMainScreen]) {
