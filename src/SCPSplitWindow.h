@@ -13,6 +13,7 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) id application;        // SBApplication
 @property (nonatomic, strong) id appViewController;  // SBAppViewController
 @property (nonatomic, strong) id sceneMonitor;       // FBSceneMonitor
+@property (nonatomic, strong) id carScene;           // SCPPhoneCarScene: che do thu hien giao dien CarPlay cua app
 @property (nonatomic) int orientation;               // UIInterfaceOrientation, mac dinh portrait
 @property (nonatomic) int requestedOrientation;      // huong app tu xin (YouTube fullscreen -> ngang), 0 = theo `orientation`
 @property (nonatomic) int reportedDeviceOrientation; // huong "thiet bi" da bao cho app theo hinh dang ngan (3 = ngan rong, 1 = ngan cao)

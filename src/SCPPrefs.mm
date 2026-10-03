@@ -40,6 +40,7 @@ static NSString *str(NSString *key)
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
 + (BOOL)speedBubble        { id v = value(@"SpeedBubble");      return v ? [v boolValue] : YES; }
++ (BOOL)demoCarPlayUI      { id v = value(@"DemoCarPlayUI");    return v ? [v boolValue] : YES; }
 + (BOOL)allowPhoneApps     { id v = value(@"AllowPhoneApps");   return v ? [v boolValue] : NO; }
 
 + (NSDictionary *)favorite:(NSInteger)index
