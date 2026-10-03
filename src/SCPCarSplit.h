@@ -36,6 +36,8 @@
 - (void)sceneDestroyedForViewController:(id)vc;
 - (void)rootDidLayout;                  // DBDashboardRootViewController viewDidLayoutSubviews
 - (void)dashboardInvalidated;           // ngat xe
+- (void)refreshAppTabSoon;              // DashBoard vua mo / dong app toan man -> hien / an tab icon
+- (void)removeAppTab;
 @end
 
 #ifdef __cplusplus

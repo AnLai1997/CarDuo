@@ -219,6 +219,12 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 @property (nonatomic, strong) UIView *menu;
 @property (nonatomic, strong) NSTimer *menuTimer;
 @property (nonatomic) BOOL loggedArea;
+// Tab tren app CarPlay dang mo toan man (chua split): cham / vuot xuong -> hang icon app CarPlay
+@property (nonatomic, strong) UIView *appTab;
+@property (nonatomic, strong) UIView *tray;
+@property (nonatomic, strong) UIView *trayShield;
+@property (nonatomic, copy) NSString *tabBundle;
+@property (nonatomic, strong) NSTimer *trayTimer;
 @end
 
 @implementation SCPCarSplit
@@ -430,6 +436,7 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 
 - (void)rootDidLayout
 {
+    if (!self.active) { [self refreshAppTab]; return; }
     if (!self.active || !self.container.superview) return;
     CGRect f = [self appAreaInParent:self.container.superview];
     if (!CGRectEqualToRect(f, self.container.frame)) {
@@ -442,6 +449,7 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 - (BOOL)activate
 {
     if (![SCPPrefs enabled]) return NO;
+    [self removeAppTab];
     if (self.active && self.container.superview) { [self raise]; return YES; }
     UIViewController *root = SCPCRootVC();
     UIViewController *cur = objcInvoke(root, @"currentBaseViewController");
@@ -828,11 +836,13 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     [UIView animateWithDuration:0.2 animations:^{ c.alpha = 0; } completion:^(BOOL f) { [c removeFromSuperview]; }];
     [self postState];
     if (goHome) SCPCSendEvent(1, @"CarDuo: dong split");
+    [self refreshAppTabSoon];   // DashBoard co the dang mo 1 app toan man -> hien tab
 }
 
 // DashBoard bi huy (ngat xe): bo trang thai, khong goi gi vao scene nua
 - (void)dashboardInvalidated
 {
+    [self removeAppTab];
     if (!self.active) return;
     SCPLog("CarSplit: DashBoard invalidate -> bo split");
     self.active = NO;
@@ -1226,6 +1236,228 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 }
 
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+//  Tab tren app toan man: khi 1 app CarPlay dang mo toan man (chua split) -> tab nho o giua mep tren.
+//  Cham / vuot xuong tab -> hang icon cac app CarPlay khac; cham icon -> chia man:
+//  app dang mo sang ngan trai, app vua chon vao ngan phai.
+// ---------------------------------------------------------------------
+#define SCPC_TAB_W      64.0
+#define SCPC_TAB_H      20.0
+#define SCPC_TRAY_ICON  46.0
+#define SCPC_TRAY_CELL  66.0
+#define SCPC_TRAY_IDLE  8.0     // giay khong cham -> thu hang icon
+
+- (UIView *)tabParent
+{
+    UIViewController *root = SCPCRootVC();
+    UIView *base = objcInvoke(root, @"baseContainerView");
+    return base.superview ?: root.view;
+}
+
+// App CarPlay dang mo toan man (co the dua vao ngan), nil neu dang o man chinh / app khong ho tro
+- (NSString *)fullscreenAppBundle
+{
+    UIViewController *cur = objcInvoke(SCPCRootVC(), @"currentBaseViewController");
+    if (!cur || ![self isAdoptableViewController:cur]) return nil;
+    return SCPRealBundleForInfos(objcInvoke(cur, @"applicationInfo"), objcInvoke(cur, @"proxyApplicationInfo"));
+}
+
+// Dat view tren app/home nhung duoi Siri (stackedContainerView)
+- (BOOL)viewIsRaised:(UIView *)v
+{
+    UIView *parent = v.superview;
+    if (!parent) return NO;
+    UIView *stacked = objcInvoke(SCPCRootVC(), @"stackedContainerView");
+    NSArray *subs = parent.subviews;
+    if (stacked.superview != parent) return subs.lastObject == v;
+    NSUInteger i = [subs indexOfObjectIdenticalTo:v], si = [subs indexOfObjectIdenticalTo:stacked];
+    return i != NSNotFound && i + 1 == si;
+}
+
+- (void)raiseView:(UIView *)v
+{
+    UIView *parent = v.superview;
+    if (!parent || [self viewIsRaised:v]) return;   // da dung cho -> khong dong vao (tranh layout lai)
+    UIView *stacked = objcInvoke(SCPCRootVC(), @"stackedContainerView");
+    if (stacked.superview == parent) [parent insertSubview:v belowSubview:stacked];
+    else [parent bringSubviewToFront:v];
+}
+
+- (void)refreshAppTabSoon
+{
+    __weak SCPCarSplit *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf refreshAppTab];
+    });
+}
+
+- (void)refreshAppTab
+{
+    NSString *bid = (!self.active && [SCPPrefs enabled]) ? [self fullscreenAppBundle] : nil;
+    UIView *parent = bid ? [self tabParent] : nil;
+    if (!bid || !parent) { [self removeAppTab]; return; }
+
+    if (![bid isEqualToString:self.tabBundle]) {
+        [self collapseAppTray];
+        self.tabBundle = bid;
+        SCPLog("CarSplit: tab icon tren %@", bid);
+    }
+    if (!self.appTab) [self buildAppTab];
+    if (self.appTab.superview != parent) [parent addSubview:self.appTab];
+    CGRect area = [self appAreaInParent:parent];
+    self.appTab.center = CGPointMake(CGRectGetMidX(area), CGRectGetMinY(area) + SCPC_TAB_H / 2 + 3);
+    self.appTab.hidden = (self.tray != nil);
+    if (self.tray) {
+        if (![self viewIsRaised:self.tray]) { [self raiseView:self.trayShield]; [self raiseView:self.tray]; }
+    } else {
+        [self raiseView:self.appTab];
+    }
+}
+
+- (void)buildAppTab
+{
+    SCPCarTabView *t = [[SCPCarTabView alloc] initWithFrame:CGRectMake(0, 0, SCPC_TAB_W, SCPC_TAB_H)];
+    t.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.78];
+    t.layer.cornerRadius = SCPC_TAB_H / 2;
+    t.layer.borderWidth = 1;
+    t.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.22].CGColor;
+    t.layer.shadowColor = [UIColor blackColor].CGColor;
+    t.layer.shadowOpacity = 0.35; t.layer.shadowRadius = 4; t.layer.shadowOffset = CGSizeMake(0, 1);
+    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:11 weight:UIImageSymbolWeightBold];
+    UIImageView *iv = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"square.grid.2x2.fill" withConfiguration:cfg]];
+    UIImageView *ch = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"chevron.down" withConfiguration:cfg]];
+    iv.tintColor = [UIColor whiteColor]; ch.tintColor = [UIColor whiteColor];
+    iv.center = CGPointMake(SCPC_TAB_W / 2 - 9, SCPC_TAB_H / 2);
+    ch.center = CGPointMake(SCPC_TAB_W / 2 + 9, SCPC_TAB_H / 2);
+    [t addSubview:iv]; [t addSubview:ch];
+    [t addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(appTabTapped)]];
+    UISwipeGestureRecognizer *sw = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(appTabTapped)];
+    sw.direction = UISwipeGestureRecognizerDirectionDown;
+    [t addGestureRecognizer:sw];
+    self.appTab = t;
+}
+
+- (void)removeAppTab
+{
+    [self collapseAppTray];
+    [self.appTab removeFromSuperview];
+    self.appTab = nil;
+    self.tabBundle = nil;
+}
+
+- (void)appTabTapped
+{
+    if (self.tray) [self collapseAppTray]; else [self expandAppTray];
+}
+
+- (void)expandAppTray
+{
+    UIView *parent = self.appTab.superview;
+    NSString *cur = self.tabBundle;
+    if (!parent || !cur) return;
+
+    NSMutableArray<NSDictionary *> *apps = [NSMutableArray array];
+    for (NSDictionary *a in SCPCCarPlayApps()) if (![a[@"id"] isEqualToString:cur]) [apps addObject:a];
+    if (!apps.count) { [self toast:@"Không có app CarPlay khác"]; return; }
+
+    CGRect area = [self appAreaInParent:parent];
+    // Lop phu: cham ra ngoai hang icon -> thu lai
+    UIView *shield = [[UIView alloc] initWithFrame:parent.bounds];
+    shield.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    shield.backgroundColor = [UIColor colorWithWhite:0 alpha:0.25];
+    [shield addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(collapseAppTray)]];
+    [parent addSubview:shield];
+    self.trayShield = shield;
+
+    CGFloat padX = 10, h = SCPC_TRAY_ICON + 34;
+    CGFloat w = MIN(area.size.width - 16, padX * 2 + apps.count * SCPC_TRAY_CELL);
+    UIView *tray = [[UIView alloc] initWithFrame:CGRectMake(CGRectGetMidX(area) - w / 2, CGRectGetMinY(area) + 6, w, h)];
+    tray.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.96];
+    tray.layer.cornerRadius = 18;
+    tray.layer.borderWidth = 1;
+    tray.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.15].CGColor;
+    tray.layer.shadowColor = [UIColor blackColor].CGColor;
+    tray.layer.shadowOpacity = 0.5; tray.layer.shadowRadius = 10; tray.layer.shadowOffset = CGSizeMake(0, 3);
+
+    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:tray.bounds];
+    scroll.showsHorizontalScrollIndicator = NO;
+    scroll.alwaysBounceHorizontal = YES;
+    scroll.layer.cornerRadius = 18; scroll.clipsToBounds = YES;
+    scroll.delegate = (id<UIScrollViewDelegate>)self;
+    [tray addSubview:scroll];
+
+    NSMutableArray *cells = [NSMutableArray array];
+    NSInteger i = 0;
+    for (NSDictionary *app in apps) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+        b.frame = CGRectMake(padX + i * SCPC_TRAY_CELL, 0, SCPC_TRAY_CELL, h);
+        b.accessibilityIdentifier = app[@"id"];
+        [b addTarget:self action:@selector(trayAppTapped:) forControlEvents:UIControlEventTouchUpInside];
+        UIImageView *iv = [[UIImageView alloc] initWithFrame:CGRectMake((SCPC_TRAY_CELL - SCPC_TRAY_ICON) / 2, 8, SCPC_TRAY_ICON, SCPC_TRAY_ICON)];
+        iv.image = SCPCAppIcon(app[@"id"]);
+        iv.layer.cornerRadius = SCPC_TRAY_ICON * 0.225; iv.clipsToBounds = YES;
+        iv.backgroundColor = iv.image ? [UIColor clearColor] : [UIColor colorWithWhite:0.3 alpha:1];
+        iv.userInteractionEnabled = NO;
+        [b addSubview:iv];
+        UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(2, 8 + SCPC_TRAY_ICON + 3, SCPC_TRAY_CELL - 4, 14)];
+        l.text = app[@"name"];
+        l.textColor = [UIColor whiteColor];
+        l.font = [UIFont systemFontOfSize:10 weight:UIFontWeightMedium];
+        l.textAlignment = NSTextAlignmentCenter;
+        l.lineBreakMode = NSLineBreakByTruncatingTail;
+        l.userInteractionEnabled = NO;
+        [b addSubview:l];
+        [scroll addSubview:b];
+        [cells addObject:b];
+        i++;
+    }
+    scroll.contentSize = CGSizeMake(padX * 2 + i * SCPC_TRAY_CELL, h);
+
+    [parent addSubview:tray];
+    self.tray = tray;
+    self.appTab.hidden = YES;
+    [self raiseView:shield];
+    [self raiseView:tray];
+
+    shield.alpha = 0;
+    tray.alpha = 0; tray.transform = CGAffineTransformMakeTranslation(0, -h);
+    [UIView animateWithDuration:0.35 delay:0 usingSpringWithDamping:0.85 initialSpringVelocity:0.4 options:0
+                     animations:^{ shield.alpha = 1; tray.alpha = 1; tray.transform = CGAffineTransformIdentity; } completion:nil];
+    SCPCPopIn(cells.count > 8 ? [cells subarrayWithRange:NSMakeRange(0, 8)] : cells);
+    [self restartTrayTimer];
+    SCPLog("CarSplit: hang icon %ld app CarPlay tren %@", (long)i, cur);
+}
+
+- (void)restartTrayTimer
+{
+    [self.trayTimer invalidate];
+    __weak SCPCarSplit *weakSelf = self;
+    self.trayTimer = [NSTimer scheduledTimerWithTimeInterval:SCPC_TRAY_IDLE repeats:NO block:^(NSTimer *t) { [weakSelf collapseAppTray]; }];
+}
+
+// Dang vuot hang icon -> chua tu thu
+- (void)scrollViewDidScroll:(UIScrollView *)sv { if (sv.superview == self.tray) [self restartTrayTimer]; }
+
+- (void)collapseAppTray
+{
+    [self.trayTimer invalidate]; self.trayTimer = nil;
+    UIView *tray = self.tray, *shield = self.trayShield;
+    self.tray = nil; self.trayShield = nil;
+    self.appTab.hidden = NO;
+    if (!tray && !shield) return;
+    [UIView animateWithDuration:0.2 animations:^{
+        tray.alpha = 0; tray.transform = CGAffineTransformMakeTranslation(0, -20); shield.alpha = 0;
+    } completion:^(BOOL f) { [tray removeFromSuperview]; [shield removeFromSuperview]; }];
+}
+
+- (void)trayAppTapped:(UIButton *)b
+{
+    NSString *bid = b.accessibilityIdentifier, *cur = self.tabBundle;
+    SCPLog("CarSplit: hang icon: %@ (trai) + %@ (phai)", cur, bid);
+    [self removeAppTab];
+    [self openApp:bid slot:1];   // activate dua app dang mo toan man vao ngan trai
+}
+
 - (void)toast:(NSString *)msg
 {
     UIView *host = SCPCRootVC().view;
