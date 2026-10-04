@@ -26,6 +26,8 @@
 #define SCPC_KNOB_H       36.0
 #define SCPC_DIVIDER_HIT  26.0
 #define SCPC_PENDING_TTL  12.0    // giay: qua thoi gian ma DashBoard chua trinh bay app thi bo pending
+#define SCPC_HOME_SETTLE  0.5     // giay: cho DashBoard ve Home truoc khi mo app vao ngan
+#define SCPC_LAUNCH_GAP   1.2     // giay: khoang cach toi thieu giua 2 lan mo app
 
 @interface UIImage (SCPCarPrivate)
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bid format:(int)format scale:(double)scale;
@@ -219,6 +221,7 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 @property (nonatomic, strong) UIView *menu;
 @property (nonatomic, strong) NSTimer *menuTimer;
 @property (nonatomic) BOOL loggedArea;
+@property (nonatomic) CFAbsoluteTime nextLaunchAt;   // lan mo app ke tiep som nhat (DashBoard can xong lan truoc)
 // Tab tren app CarPlay dang mo toan man (chua split): cham / vuot xuong -> hang icon app CarPlay
 @property (nonatomic, strong) UIView *appTab;
 @property (nonatomic, strong) UIView *tray;
@@ -247,6 +250,13 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 }
 
 - (BOOL)isCarPlayApp:(NSString *)bundleID { return SCPCInfoIsCarPlayApp(SCPCAppInfo(bundleID)); }
+
+- (NSString *)displayNameFor:(NSString *)bid
+{
+    id info = SCPCAppInfo(bid);
+    NSString *n = info ? objcInvoke(info, @"displayName") : nil;
+    return n.length ? n : bid;
+}
 
 - (BOOL)vertical { return [SCPPrefs splitDirection] == 1; }
 
@@ -453,11 +463,15 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     if (self.active && self.container.superview) { [self raise]; return YES; }
     UIViewController *root = SCPCRootVC();
     UIViewController *cur = objcInvoke(root, @"currentBaseViewController");
-    BOOL adoptCurrent = cur && [self isAdoptableViewController:cur];
-    if (cur && !adoptCurrent) {
-        // Gui Home TRUOC khi bat split (hook _handleHomeEvent tat split neu split dang bat)
-        SCPLog("CarSplit: dang mo %@ (khong dua vao ngan duoc) -> ve man chinh truoc", cur);
+    // App dang mo toan man: KHONG nhet VC cua no vao ngan tai cho (DashBoard van tuong app dang toan man
+    // -> scene khong doi kich thuoc, nut Home ve man chinh bi ket). Ve Home truoc roi mo lai app do vao
+    // ngan trai qua duong mo app binh thuong.
+    NSString *reopen = (cur && [self isAdoptableViewController:cur])
+        ? SCPRealBundleForInfos(objcInvoke(cur, @"applicationInfo"), objcInvoke(cur, @"proxyApplicationInfo")) : nil;
+    if (cur) {
+        SCPLog("CarSplit: dang mo %@ toan man -> ve man chinh truoc%@", cur, reopen ? [NSString stringWithFormat:@", mo lai %@ vao ngan trai", reopen] : @"");
         SCPCSendEvent(1, @"CarDuo: mo split");
+        self.nextLaunchAt = CFAbsoluteTimeGetCurrent() + SCPC_HOME_SETTLE;   // cho DashBoard ve Home xong
     }
     if (![self ensureContainer]) return NO;
     self.active = YES;
@@ -467,16 +481,12 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     [self.pending removeAllObjects];
     SCPLog("CarSplit: bat split CarPlay");
 
-    // App CarPlay dang mo toan man -> dua luon vao ngan trai
-    if (adoptCurrent) {
-        objcInvoke_1(root, @"setCurrentBaseViewController:", (id)nil);
-        [self adopt:cur slot:0];
-    }
     [self relayoutAnimated:NO];
     self.container.alpha = 0;
     self.container.transform = CGAffineTransformMakeScale(0.97, 0.97);
     [UIView animateWithDuration:0.35 delay:0 usingSpringWithDamping:0.9 initialSpringVelocity:0.3 options:0
                      animations:^{ self.container.alpha = 1; self.container.transform = CGAffineTransformIdentity; } completion:nil];
+    if (reopen) [self openApp:reopen slot:0];
     return YES;
 }
 
@@ -515,23 +525,38 @@ static void SCPCPopIn(NSArray<UIView *> *views)
         return;
     }
 
+    // Dang cho chinh app nay vao dung ngan nay (vd activate vua mo lai app toan man) -> khong mo lan nua
+    if ([self pendingSlotForBundle:bid] == slot) { [self relayoutAnimated:YES]; return; }
+
     self.pending[bid] = @[@(slot), [NSDate date]];
     if (self.fullscreenSlot >= 0 && self.fullscreenSlot != slot) self.fullscreenSlot = -1;
-    // Vua mo split tu 1 app (giu icon / bong bong): nua con lai hien bang chon app CarPlay.
+    // Vua mo split tu 1 app (bong bong): nua con lai hien bang chon app CarPlay.
     // Dat bang chon TRUOC khi DashBoard tao scene de scene nhan ngay kich thuoc nua man.
     if (!wasActive && autoSlotRequested && ![self slotOccupied:1 - slot]) [self showPickerForSlot:1 - slot];
     [self relayoutAnimated:YES];
 
     id info = SCPCAppInfo(bid);
     id launchInfo = objcInvoke_1(objc_getClass("DBApplicationLaunchInfo"), @"launchInfoForApplication:", info);
-    SCPLog("CarSplit: mo %@ vao ngan %d (launchInfo=%@)", bid, slot, launchInfo);
-    if (!launchInfo) { [self.pending removeObjectForKey:bid]; return; }
-    SCPCSendEvent(4, launchInfo);
-
-    // App da la app chinh cua workspace (khong nam trong ngan) -> DashBoard khong trinh bay lai -> tu lay VC
+    // Gian cach cac lan mo: DashBoard phai xong phien doi workspace cua lan truoc (va lan ve Home)
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    double delay = MAX(0, self.nextLaunchAt - now);
+    self.nextLaunchAt = now + delay + SCPC_LAUNCH_GAP;
+    SCPLog("CarSplit: mo %@ vao ngan %d sau %.1fs (launchInfo=%@)", bid, slot, delay, launchInfo);
+    if (!launchInfo) {
+        [self.pending removeObjectForKey:bid];
+        [self relayoutAnimated:YES];
+        [self toast:[NSString stringWithFormat:@"Không mở được %@ trong ngăn", [self displayNameFor:bid]]];
+        return;
+    }
     __weak SCPCarSplit *weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [weakSelf recoverPending:bid];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        SCPCarSplit *me = weakSelf;
+        if (!me.active || [me pendingSlotForBundle:bid] < 0) return;
+        SCPCSendEvent(4, launchInfo);
+        // App da la app chinh cua workspace (khong nam trong ngan) -> DashBoard khong trinh bay lai -> tu lay VC
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf recoverPending:bid];
+        });
     });
 }
 
@@ -550,7 +575,15 @@ static void SCPCPopIn(NSArray<UIView *> *views)
         [self adoptViewController:vc];
         return;
     }
-    SCPLog("CarSplit: khong tim thay VC cua %@ sau khi mo", bid);
+    // Ghi lai cac VC DashBoard dang giu de biet vi sao app (vd YouTube qua tweak CarPlay khac) khong vao ngan
+    NSMutableArray *seen = [NSMutableArray array];
+    for (id vc in vcs) {
+        id info = [vc respondsToSelector:NSSelectorFromString(@"applicationInfo")] ? objcInvoke(vc, @"applicationInfo") : nil;
+        NSString *b = info ? SCPRealBundleForInfos(info, [vc respondsToSelector:NSSelectorFromString(@"proxyApplicationInfo")] ? objcInvoke(vc, @"proxyApplicationInfo") : nil) : nil;
+        [seen addObject:[NSString stringWithFormat:@"%@(%@ fullScreen=%d)", NSStringFromClass([vc class]), b ?: @"?", SCPCBool(info, @"presentsFullScreen")]];
+    }
+    SCPLog("CarSplit: khong tim thay VC cua %@ sau khi mo; DashBoard dang giu: %@", bid, [seen componentsJoinedByString:@", "]);
+    [self toast:[NSString stringWithFormat:@"%@ chưa chia màn hình được", [self displayNameFor:bid]]];
     [self.pending removeObjectForKey:bid];
     [self relayoutAnimated:YES];
 }
@@ -726,6 +759,30 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     if (push) [self pushSceneSizes];
 }
 
+// FBScene cua 1 DBApplicationSceneViewController (thu vai ten thuoc tinh), nil neu khong lay duoc
+static id SCPCSceneOf(UIViewController *vc)
+{
+    for (NSString *k in @[@"scene", @"_scene"]) {
+        @try { id s = [vc valueForKey:k]; if (s) return s; } @catch (NSException *e) {}
+    }
+    @try {
+        id h = [vc valueForKey:@"sceneHandle"];
+        id s = h ? [h valueForKey:@"scene"] : nil;
+        if (s) return s;
+    } @catch (NSException *e) {}
+    return nil;
+}
+
+// Kich thuoc scene dang dung (settings.frame); CGSizeZero neu khong doc duoc
+static CGSize SCPCSceneSize(UIViewController *vc)
+{
+    id scene = SCPCSceneOf(vc);
+    id st = nil;
+    @try { st = [scene respondsToSelector:NSSelectorFromString(@"settings")] ? objcInvoke(scene, @"settings") : nil; } @catch (NSException *e) {}
+    if (![st respondsToSelector:NSSelectorFromString(@"frame")]) return CGSizeZero;
+    return ((CGRect (*)(id, SEL))objc_msgSend)(st, NSSelectorFromString(@"frame")).size;
+}
+
 // Bao kich thuoc moi cho scene cua tung ngan: DashBoard tao DBSceneUpdate, lay frame qua hook sceneFrameForAppInfo
 - (void)pushSceneSizes
 {
@@ -739,6 +796,7 @@ static void SCPCPopIn(NSArray<UIView *> *views)
             ((void (*)(id, SEL, id, id))objc_msgSend)(p.vc, NSSelectorFromString(@"foregroundSceneWithSettings:completion:"), nil, ^{});
         } @catch (NSException *e) { SCPLog("CarSplit: foregroundScene loi %@", e); }
         UIViewController *vc = p.vc;
+        __weak SCPCarSplit *weakSelf = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             UIView *h = nil;
             @try { h = objcInvoke(vc, @"sceneHostView"); } @catch (NSException *e) {}
@@ -747,7 +805,40 @@ static void SCPCPopIn(NSArray<UIView *> *views)
                 h.frame = vc.view.bounds;
             }
         });
+        // Kiem tra scene da doi kich thuoc that chua; chua thi dua scene ve nen roi len lai 1 lan
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf verifySceneOfPane:p expected:s retry:YES];
+        });
     }
+}
+
+- (void)verifySceneOfPane:(SCPCarPane *)p expected:(CGSize)s retry:(BOOL)retry
+{
+    if (!self.active || !p.vc || !CGSizeEqualToSize(p.sceneSize, s)) return;   // da doi tiep / da dong
+    CGSize cur = SCPCSceneSize(p.vc);
+    if (CGSizeEqualToSize(cur, CGSizeZero)) { SCPLog("CarSplit: khong doc duoc kich thuoc scene %@", p.bundleID); return; }
+    BOOL ok = (fabs(cur.width - s.width) < 2 && fabs(cur.height - s.height) < 2)
+           || (fabs(cur.width - s.height) < 2 && fabs(cur.height - s.width) < 2);   // co the bi dao chieu
+    SCPLog("CarSplit: scene %@ that = %@ (can %@)%@", p.bundleID, NSStringFromCGSize(cur), NSStringFromCGSize(s),
+           ok ? @"" : (retry ? @" -> ve nen roi len lai" : @" -> van sai"));
+    if (ok || !retry) return;
+    UIViewController *vc = p.vc;
+    self.allowBackground++;
+    @try {
+        ((void (*)(id, SEL, id))objc_msgSend)(vc, NSSelectorFromString(@"backgroundSceneWithCompletion:"), ^{});
+    } @catch (NSException *e) { SCPLog("CarSplit: background loi %@", e); }
+    self.allowBackground--;
+    __weak SCPCarSplit *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        SCPCarSplit *me = weakSelf;
+        if (!me.active || p.vc != vc) return;
+        @try {
+            ((void (*)(id, SEL, id, id))objc_msgSend)(vc, NSSelectorFromString(@"foregroundSceneWithSettings:completion:"), nil, ^{});
+        } @catch (NSException *e) { SCPLog("CarSplit: foregroundScene loi %@", e); }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf verifySceneOfPane:p expected:s retry:NO];
+        });
+    });
 }
 
 - (void)applyPairRatio
@@ -1455,7 +1546,8 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     NSString *bid = b.accessibilityIdentifier, *cur = self.tabBundle;
     SCPLog("CarSplit: hang icon: %@ (trai) + %@ (phai)", cur, bid);
     [self removeAppTab];
-    [self openApp:bid slot:1];   // activate dua app dang mo toan man vao ngan trai
+    // Ve Home roi mo ca 2 app vao ngan (activate tu mo lai app dang toan man vao ngan trai)
+    [self openPairLeft:cur right:bid];
 }
 
 - (void)toast:(NSString *)msg
