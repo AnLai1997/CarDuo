@@ -11,6 +11,39 @@
 #define SCP_DARWIN_OPEN     "com.anlai97.carduo.open"      // tu app URL scheme (Shortcuts / Siri)
 #define SCP_DARWIN_BUBBLE   "com.anlai97.carduo.bubbledemo" // Cai dat: xem thu bong bong toc do
 
+// Dat CBWindow cua CarBridge (SpringBoard) = khung ngan split CarPlay. w = 0 -> an cua so (ngan dang an).
+static void SCPApplyCarBridgeFrame(CGRect r, NSString *bid, int attempt)
+{
+    Class mc = objc_getClass("CBBridgeManager");
+    id mgr = (mc && [mc respondsToSelector:@selector(sharedInstance)]) ? objcInvoke(mc, @"sharedInstance") : nil;
+    id win = nil;
+    @try { win = mgr ? objcInvoke(mgr, @"window") : nil; } @catch (NSException *e) {}
+    if (!win) {
+        if (attempt < 8) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                SCPApplyCarBridgeFrame(r, bid, attempt + 1);
+            });
+        } else {
+            SCPLog("CarBridge: khong thay CBWindow de dat khung %@ (%@)", NSStringFromCGRect(r), bid);
+        }
+        return;
+    }
+    UIWindow *root = nil;
+    @try { root = objcInvoke(win, @"rootWindow"); } @catch (NSException *e) {}
+    if (r.size.width < 2 || r.size.height < 2) {
+        root.hidden = YES;
+        SCPLog("CarBridge: ngan dang an -> an CBWindow");
+        return;
+    }
+    @try {
+        ((void (*)(id, SEL, CGRect))objc_msgSend)(win, NSSelectorFromString(@"setAppFrame:"), r);
+        @try { [mgr setValue:[NSValue valueWithCGRect:r] forKey:@"appFrame"]; } @catch (NSException *e) {}
+        objcInvoke(win, @"resizeWindows");
+    } @catch (NSException *e) { SCPLog("CarBridge: dat khung loi %@", e); return; }
+    root.hidden = NO;
+    SCPLog("CarBridge: CBWindow %@ -> %@ (rootWindow %@)", bid, NSStringFromCGRect(r), root ? NSStringFromCGRect(root.frame) : @"nil");
+}
+
 // Inject vao SpringBoard: nhan yeu cau tu CarPlay process / Settings / app URL, giu app song khi khoa may
 %group SPRINGBOARD
 
@@ -115,6 +148,15 @@ static void SCPHandlePendingRequest(void)
                  usingBlock:^(NSNotification *note) {
         NSArray *bundles = note.userInfo[@"bundles"];
         [[SCPSpeedBubble shared] setNativeVisibleBundles:[bundles isKindOfClass:[NSArray class]] ? bundles : @[]];
+    }];
+
+    // Process CarPlay: dat cua so CarBridge (CBWindow) dung khung ngan split. CBWindow chi co khi CarBridge
+    // dang chieu -> thu lai vai lan neu chua co.
+    [dnc addObserverForName:SCP_NOTIF_CBFRAME object:nil queue:[NSOperationQueue mainQueue]
+                 usingBlock:^(NSNotification *note) {
+        NSDictionary *u = note.userInfo;
+        CGRect r = CGRectMake([u[@"x"] doubleValue], [u[@"y"] doubleValue], [u[@"w"] doubleValue], [u[@"h"] doubleValue]);
+        SCPApplyCarBridgeFrame(r, u[@"identifier"], 0);
     }];
 
     // Dong log tu app nguoi dung (sandbox) -> ghi vao file chung
@@ -262,11 +304,6 @@ static int hook_BKSDisplayServicesSetScreenBlanked(int blanked)
 {
     if (![[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.springboard"]) return;
     SCPLog("loaded into SpringBoard");
-    // Chan doan CarBridge phia SpringBoard (cua so CBWindow ve app len man xe): chay nen, chi ghi log
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(12 * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        SCPDiagHooks(@"carbridge");
-        SCPDiagClasses(@[@"CBBridgeManager", @"CBWindow", @"CBBridgedUIApp", @"CBBridgedUIAppView", @"CBBridgeRequest", @"CBShared"]);
-    });
     %init(SPRINGBOARD);
     void *fn = dlsym(RTLD_DEFAULT, "BKSDisplayServicesSetScreenBlanked");
     if (fn) {

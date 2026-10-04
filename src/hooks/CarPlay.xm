@@ -34,7 +34,8 @@
 - (void)_handleHomeEvent:(id)event
 {
     SCPCarSplit *sp = [SCPCarSplit shared];
-    if (sp.active) [sp closeGoingHome:NO];
+    if (sp.active && sp.bridgeStarting) SCPLog("CarSplit: Home trong luc CarBridge khoi dong -> giu split");
+    else if (sp.active) [sp closeGoingHome:NO];
     %orig;
 }
 
@@ -82,7 +83,7 @@
 {
     SCPCarSplit *sp = [SCPCarSplit shared];
     // Dang split thi currentBaseViewController = nil; workspace ve man chinh -> tat split
-    if (sp.active && !objcInvoke(self, @"currentBaseViewController")) {
+    if (sp.active && !sp.bridgeStarting && !objcInvoke(self, @"currentBaseViewController")) {
         SCPLog("CarSplit: DashBoard ve man chinh -> tat split");
         [sp closeGoingHome:NO];
     }
@@ -131,16 +132,50 @@
 
 %end // CARPLAY
 
+// ---- CarBridge (app iPhone tren CarPlay): chieu vao ngan thay vi toan man ----
+%group CARBRIDGE
+%hook CBBridgeManagerDashboard
+
+// Khung CBWindow: dang chieu vao ngan -> khung ngan
+- (CGRect)getAppFrame
+{
+    CGRect r = [[SCPCarSplit shared] bridgeFrame];
+    if (r.size.width > 1 && r.size.height > 1) return r;
+    return %orig;
+}
+
+// Truoc khi chieu CarBridge dua CarPlay ve man chinh -> dang split thi bo qua (se dong split)
+- (void)prepareHomeScreenForBridge:(id)completion
+{
+    if ([SCPCarSplit shared].active) {
+        SCPLog("CarBridge: dang split -> bo qua ve man chinh");
+        if (completion) ((void (^)(void))completion)();
+        return;
+    }
+    %orig;
+}
+
+// CarBridge dong app CarPlay dang mo (vd Vietmap o ngan kia) -> dang split thi giu lai
+- (void)closeOfficialTopApp:(id)arg
+{
+    if ([SCPCarSplit shared].active) {
+        SCPLog("CarBridge: dang split -> giu app CarPlay o ngan kia");
+        if (arg && [arg isKindOfClass:NSClassFromString(@"NSBlock")]) ((void (^)(void))arg)();
+        return;
+    }
+    %orig;
+}
+
+%end
+%end // CARBRIDGE
+
 %ctor
 {
     if (![[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.CarPlayApp"]) return;
     SCPLog("loaded into CarPlay");
-    // Chan doan CarBridge: chay nen (quet nhieu lop), chi ghi log
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        SCPDiagHooks(@"carbridge");
-        SCPDiagClasses(@[@"CBBridgeManagerDashboard", @"CBDashboardShared", @"CBBridgeManagerCarPlay", @"CBShared"]);
-    });
     %init(CARPLAY);
+    if (objc_getClass("CBBridgeManagerDashboard")) { %init(CARBRIDGE); SCPLog("CarBridge: da noi vao CarBridge"); }
+    else SCPLog("CarBridge: khong co (bo qua)");
 
     // SpringBoard / Settings / URL scheme -> mo split CarPlay
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]

@@ -16,10 +16,14 @@
 #define SCP_NOTIF_NATIVE        @"com.anlai97.carduo.native"
 // CarPlay process -> SpringBoard: danh sach app dang hien trong ngan CarPlay (cho bong bong toc do)
 #define SCP_NOTIF_NATIVE_STATE  @"com.anlai97.carduo.nativestate"
+// CarPlay process -> SpringBoard: dat khung CBWindow cua CarBridge = khung ngan (identifier, x, y, w, h; w=0 -> an)
+#define SCP_NOTIF_CBFRAME       @"com.anlai97.carduo.cbframe"
 
 @interface SCPCarSplit : NSObject
 + (instancetype)shared;
 @property (nonatomic, readonly) BOOL active;
+@property (nonatomic, readonly) BOOL bridgeStarting;   // CarBridge dang khoi dong chieu app vao ngan
+- (CGRect)bridgeFrame;                                   // khung chieu CarBridge (toa do man xe), Zero neu khong co
 
 - (void)openApp:(NSString *)bundleID slot:(int)slot;          // slot -1 = tu chon (ngan trong / ngan dang chon)
 - (void)openPairLeft:(NSString *)left right:(NSString *)right;

@@ -207,6 +207,8 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 @implementation SCPCarPane
 @end
 
+static BOOL SCPCIsBridgedApp(NSString *bid);
+
 @interface SCPCarSplit ()
 @property (nonatomic, readwrite) BOOL active;
 @property (nonatomic, strong) SCPCarSplitView *container;
@@ -222,6 +224,9 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 @property (nonatomic, strong) NSTimer *menuTimer;
 @property (nonatomic) BOOL loggedArea;
 @property (nonatomic) CFAbsoluteTime nextLaunchAt;   // lan mo app ke tiep som nhat (DashBoard can xong lan truoc)
+@property (nonatomic, copy) NSString *bridgedBundle;  // app CarBridge dang duoc chieu vao ngan
+@property (nonatomic, readwrite) BOOL bridgeStarting; // CarBridge dang khoi dong chieu (bo qua Home / dismiss cua no)
+@property (nonatomic) CGRect lastBridgeFrame;
 // Tab tren app CarPlay dang mo toan man (chua split): cham / vuot xuong -> hang icon app CarPlay
 @property (nonatomic, strong) UIView *appTab;
 @property (nonatomic, strong) UIView *tray;
@@ -686,6 +691,15 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     [self raise];
     [self relayoutAnimated:YES];
     [self postState];
+    // App iPhone qua CarBridge: scene DashBoard rong -> nho CarBridge chieu app vao dung ngan nay
+    if (SCPCIsBridgedApp(bid)) {
+        __weak SCPCarSplit *weakSelf = self;
+        __weak SCPCarPane *weakPane = p;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            SCPCarPane *pp = weakPane;
+            if (weakSelf.active && [pp.bundleID isEqualToString:bid]) [weakSelf startBridgeForPane:pp];
+        });
+    }
 }
 
 - (void)detachVC:(UIViewController *)vc background:(BOOL)background
@@ -769,6 +783,7 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     for (SCPCarPane *p in self.slots) p.view.userInteractionEnabled = (p.view.alpha > 0);
     self.divider.userInteractionEnabled = both;
     if (push) [self pushSceneSizes];
+    [self pushBridgeFrameSoon];   // CBWindow cua CarBridge theo khung ngan moi
 }
 
 // FBScene cua 1 DBApplicationSceneViewController (thu vai ten thuoc tinh), nil neu khong lay duoc
@@ -884,6 +899,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     if (!self.active) return;
     SCPCarPane *p = self.slots[slot];
     NSString *bid = p.bundleID;
+    if (bid && [bid isEqualToString:self.bridgedBundle]) [self stopBridge];
     [self removePickerFromPane:p];
     if (p.vc) [self detachVC:p.vc background:background];
     p.vc = nil; p.bundleID = nil; p.sceneSize = CGSizeZero;
@@ -917,6 +933,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 {
     if (!self.active) return;
     SCPLog("CarSplit: tat split (goHome=%d)", goHome);
+    [self stopBridge];
     for (SCPCarPane *p in self.slots) {
         [p.barTimer invalidate]; p.barTimer = nil;
         if (p.vc) [self detachVC:p.vc background:YES];
@@ -940,6 +957,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     [self removeAppTab];
     if (!self.active) return;
     SCPLog("CarSplit: DashBoard invalidate -> bo split");
+    self.bridgedBundle = nil; self.bridgeStarting = NO;   // CarBridge tu xu ly ngat xe
     self.active = NO;
     [self.pending removeAllObjects];
     for (SCPCarPane *p in self.slots) [p.barTimer invalidate];
@@ -1027,6 +1045,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
         UIView *bar = p.bar;
         [UIView animateWithDuration:0.16 animations:^{ bar.alpha = 0; } completion:^(BOOL f) { bar.hidden = YES; bar.alpha = 1; }];
     }
+    if (p.bundleID && [p.bundleID isEqualToString:self.bridgedBundle]) [self pushBridgeFrameSoon];   // nhuong cho thanh nut
 }
 
 - (void)handleTapped:(UITapGestureRecognizer *)g
@@ -1552,6 +1571,109 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     [self removeAppTab];
     // Ve Home roi mo ca 2 app vao ngan (activate tu mo lai app dang toan man vao ngan trai)
     [self openPairLeft:cur right:bid];
+}
+
+// ---------------------------------------------------------------------
+//  CarBridge (YouTube, TikTok... app iPhone tren CarPlay): DashBoard chi tao scene rong (ngan trang),
+//  CarBridge tu ve app bang cua so rieng CBWindow (SpringBoard) khi duoc kich hoat tu cham icon.
+//  App CarBridge vao ngan -> goi CBBridgeManagerDashboard startBridging:, khung chieu = khung ngan
+//  (hook getAppFrame + bao SpringBoard dat lai CBWindow moi khi ngan doi).
+// ---------------------------------------------------------------------
+#define SCPC_BRIDGE_TOP   16.0    // chua mep tren ngan (thanh "...") khong bi CBWindow che
+
+static id SCPCBridgeManager(void)
+{
+    Class c = objc_getClass("CBBridgeManagerDashboard");
+    return (c && [c respondsToSelector:@selector(sharedInstance)]) ? objcInvoke(c, @"sharedInstance") : nil;
+}
+
+static BOOL SCPCIsBridgedApp(NSString *bid)
+{
+    Class c = objc_getClass("CBBridgeManagerDashboard");
+    SEL s = NSSelectorFromString(@"isBridgedApp:");
+    if (!c || !bid || ![c respondsToSelector:s]) return NO;
+    return ((BOOL (*)(id, SEL, id))objc_msgSend)(c, s, bid);
+}
+
+- (SCPCarPane *)bridgedPane
+{
+    if (!self.bridgedBundle) return nil;
+    for (SCPCarPane *p in self.slots) if ([p.bundleID isEqualToString:self.bridgedBundle]) return p;
+    return nil;
+}
+
+// Khung CBWindow (toa do man xe) cho app CarBridge dang o trong ngan; CGRectZero neu ngan dang an
+- (CGRect)bridgeFrame
+{
+    SCPCarPane *p = [self bridgedPane];
+    if (!self.active || !p || p.view.alpha < 0.5 || p.view.bounds.size.width < 20 || !p.view.window) return CGRectZero;
+    // Thanh nut cua ngan dang hien -> day khung chieu xuong duoi thanh nut de bam duoc
+    CGFloat top = p.bar.hidden ? SCPC_BRIDGE_TOP : SCPC_HANDLE_H + 10 + SCPC_BTN + 6;
+    CGRect b = p.view.bounds;
+    CGRect r = CGRectMake(0, top, b.size.width, MAX(0, b.size.height - top));
+    return [p.view convertRect:r toView:nil];
+}
+
+- (void)startBridgeForPane:(SCPCarPane *)p
+{
+    id mgr = SCPCBridgeManager();
+    if (!mgr || !p.bundleID) return;
+    if (self.bridgedBundle && ![self.bridgedBundle isEqualToString:p.bundleID]) {
+        SCPLog("CarBridge: chi chieu duoc 1 app, thay %@ bang %@", self.bridgedBundle, p.bundleID);
+    }
+    self.bridgedBundle = p.bundleID;
+    self.lastBridgeFrame = CGRectNull;
+    self.bridgeStarting = YES;
+    SCPLog("CarBridge: chieu %@ vao ngan %d, khung %@", p.bundleID, p.slot, NSStringFromCGRect([self bridgeFrame]));
+    NSString *bid = p.bundleID;
+    __weak SCPCarSplit *weakSelf = self;
+    @try {
+        void (^done)(void) = ^{
+            SCPLog("CarBridge: da chieu %@", bid);
+            [weakSelf pushBridgeFrame];
+        };
+        ((void (*)(id, SEL, id, id))objc_msgSend)(mgr, NSSelectorFromString(@"startBridging:withCompletion:"), bid, done);
+    } @catch (NSException *e) { SCPLog("CarBridge: startBridging loi %@", e); }
+    // Cho CarBridge tao xong CBWindow roi dat khung (vai lan cho chac), het giai doan khoi dong sau 4s
+    for (NSNumber *d in @[@1.0, @2.5, @4.0]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(d.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            SCPCarSplit *me = weakSelf;
+            if (d.doubleValue >= 4.0) me.bridgeStarting = NO;
+            [me pushBridgeFrame];
+        });
+    }
+}
+
+- (void)stopBridge
+{
+    if (!self.bridgedBundle) return;
+    SCPLog("CarBridge: dung chieu %@", self.bridgedBundle);
+    self.bridgedBundle = nil;
+    self.bridgeStarting = NO;
+    @try { objcInvoke(SCPCBridgeManager(), @"stopBridging"); } @catch (NSException *e) { SCPLog("CarBridge: stopBridging loi %@", e); }
+}
+
+// Bao SpringBoard dat CBWindow dung khung ngan (CBWindow nam trong SpringBoard)
+- (void)pushBridgeFrame
+{
+    if (!self.bridgedBundle) return;
+    if (!self.active || ![self bridgedPane]) { [self stopBridge]; return; }
+    CGRect r = [self bridgeFrame];
+    if (CGRectEqualToRect(r, self.lastBridgeFrame)) return;
+    self.lastBridgeFrame = r;
+    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+        postNotificationName:SCP_NOTIF_CBFRAME object:nil
+                    userInfo:@{@"identifier": self.bridgedBundle, @"x": @(r.origin.x), @"y": @(r.origin.y),
+                               @"w": @(r.size.width), @"h": @(r.size.height)}];
+}
+
+- (void)pushBridgeFrameSoon
+{
+    if (!self.bridgedBundle) return;
+    __weak SCPCarSplit *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf pushBridgeFrame];
+    });
 }
 
 - (void)toast:(NSString *)msg
