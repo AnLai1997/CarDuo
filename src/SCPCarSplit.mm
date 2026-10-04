@@ -477,7 +477,7 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     self.active = YES;
     self.fullscreenSlot = -1;
     self.focusedSlot = 0;
-    self.ratio = [SCPPrefs splitRatio];
+    self.ratio = 0.5;   // moi lan chia luon bat dau 50/50 (keo vach chia van doi duoc)
     [self.pending removeAllObjects];
     SCPLog("CarSplit: bat split CarPlay");
 
@@ -602,8 +602,6 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     SCPLog("CarSplit: mo cap left=%@ right=%@", left, right);
     if (!left && !right) { [self showPickerForSlot:0]; return; }
     if (![self activate]) return;
-    CGFloat r = [SCPPrefs ratioForPairLeft:left right:right];
-    if (r > 0) self.ratio = r;
     if (left) [self openApp:left slot:0];
     if (right) {
         // Doi DashBoard xong phien doi workspace cua app trai roi moi mo app phai
@@ -680,7 +678,6 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     self.focusedSlot = slot;
     SCPLog("CarSplit: dua %@ (%@) vao ngan %d", bid, NSStringFromClass([vc class]), slot);
     [self raise];
-    [self applyPairRatio];
     [self relayoutAnimated:YES];
     [self postState];
 }
@@ -848,14 +845,6 @@ static CGSize SCPCSceneSize(UIViewController *vc)
             [weakSelf verifySceneOfPane:p expected:s retry:NO];
         });
     });
-}
-
-- (void)applyPairRatio
-{
-    NSString *l = self.slots[0].bundleID, *r = self.slots[1].bundleID;
-    if (!l || !r) return;
-    CGFloat ratio = [SCPPrefs ratioForPairLeft:l right:r];
-    if (ratio > 0) self.ratio = ratio;
 }
 
 - (void)swapPanes

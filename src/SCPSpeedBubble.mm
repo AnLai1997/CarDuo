@@ -257,9 +257,9 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
         }
         track.strokeColor = [UIColor colorWithWhite:1 alpha:0.15].CGColor;
         self.gaugeTrack = track; self.gaugeArc = arc;
-        self.speedLabel = [self labelWithSize:30 weight:UIFontWeightHeavy color:[UIColor whiteColor] mono:YES];
+        self.speedLabel = [self labelWithSize:26 weight:UIFontWeightHeavy color:[UIColor whiteColor] mono:YES];
         self.unitLabel = [self labelWithSize:10 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:0.7 alpha:1] mono:NO];
-        self.limitRing = [self limitSignWithDiameter:38 border:4.5 fontSize:17];
+        self.limitRing = [self limitSignWithDiameter:42 border:5 fontSize:19];   // bien to hon, mat dong ho nho hon
         [card addSubview:self.speedLabel]; [card addSubview:self.unitLabel]; [card addSubview:self.limitRing];
         break;
     }
@@ -380,7 +380,7 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
         break;
     }
     case 3: {   // Dong ho
-        CGFloat d = 112;
+        CGFloat d = 96;    // truoc 112: qua to
         size = CGSizeMake(d, d);
         CGPoint mid = CGPointMake(d / 2, d / 2);
         UIBezierPath *path = [UIBezierPath bezierPathWithArcCenter:mid radius:d / 2 - 10
@@ -392,9 +392,10 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
         self.gaugeArc.strokeEnd = MIN(1.0, MAX(0.0, self.speed / maxV));
         self.gaugeArc.strokeColor = sc.CGColor;
         [CATransaction commit];
-        self.speedLabel.frame = CGRectMake(14, d / 2 - 30, d - 28, 34);
-        self.unitLabel.frame = CGRectMake(14, d / 2 + 2, d - 28, 12);
-        self.limitRing.center = CGPointMake(d / 2, d - 22);
+        // Co bien gioi han: so day len tren nhuong cho bien o khe duoi; khong co bien thi so o giua
+        self.speedLabel.frame = CGRectMake(12, hasLimit ? 14 : d / 2 - 22, d - 24, 30);
+        self.unitLabel.frame = CGRectMake(12, hasLimit ? 42 : d / 2 + 8, d - 24, 11);
+        self.limitRing.center = CGPointMake(d / 2, d - 21);   // nam o khe duoi cua cung
         self.card.layer.cornerRadius = d / 2;
         break;
     }
@@ -499,8 +500,8 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
 - (void)closeTapped
 {
     [self hideCloseButton];
-    SCPLog("speed bubble: X -> tat han %@", SCP_SPEED_APP);
-    if (SCPGetCarPlayCADisplay()) {   // Vietmap co the dang nam trong ngan split CarPlay -> dong ngan do truoc
+    SCPLog("speed bubble: X -> tat han %@ ngay", SCP_SPEED_APP);
+    if (SCPGetCarPlayCADisplay()) {   // Vietmap co the dang nam trong ngan split CarPlay -> dong ngan do
         [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
             postNotificationName:SCP_NOTIF_NATIVE object:nil userInfo:@{@"action": @"closeApp", @"identifier": SCP_SPEED_APP}];
     }
@@ -508,12 +509,13 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
     SCPAppPane *p = [self appPane];
     if (w && p) {
         SCPSlot slot = (p == w.leftPane) ? SCPSlotLeft : SCPSlotRight;
-        [w closeSlot:slot terminate:YES];
+        [w closeSlot:slot terminate:NO];
         if (w.panes.count == 0) { if (w.onMainScreen) [w showAppPickerForSlot:SCPSlotLeft]; else [w dismiss]; }
-    } else {
-        SCPTerminateApp(SCP_SPEED_APP);
     }
+    // Luon tat han process ngay (khong bo qua ke ca khi Vietmap dang o tren cung)
+    SCPKillApp(SCP_SPEED_APP);
     self.speed = -1; self.limit = -1;
+    self.lastUpdate = 0;
     [self hide];
 }
 

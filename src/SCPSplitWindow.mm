@@ -189,7 +189,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (CGRect)paneArea;
 - (BOOL)vertical;
 - (void)saveRatio;
-- (void)applyPairRatioIfAny;
 - (void)updatePaneActionStates;
 - (void)layoutBarContentForPane:(SCPAppPane *)pane;
 - (void)nudgePane:(SCPAppPane *)pane;
@@ -223,7 +222,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 {
     if (!(self = [super init])) return nil;
     self.onMainScreen = mainScreen;
-    self.ratio = [SCPPrefs splitRatio];
+    self.ratio = 0.5;   // moi lan chia luon bat dau 50/50
     self.fullscreenSlot = SCPSlotAuto;
     self.pipSlot = SCPSlotAuto;
     self.pendingSlot = SCPSlotAuto;
@@ -1003,17 +1002,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     SCPLog("ti le ngan trai = %.2f (da luu)", self.ratio);
 }
 
-- (void)applyPairRatioIfAny
-{
-    if (!self.leftPane || !self.rightPane) return;
-    CGFloat r = [SCPPrefs ratioForPairLeft:self.leftPane.bundleIdentifier right:self.rightPane.bundleIdentifier];
-    if (r > 0 && fabs(r - self.ratio) > 0.01) {
-        self.ratio = r;
-        [self animateLayout:^{ [self relayoutPanesLive:NO]; } completion:nil];
-        SCPLog("ap ti le rieng cua cap: %.2f", r);
-    }
-}
-
 - (void)relayoutPanes
 {
     [self relayoutPanesLive:NO];
@@ -1415,7 +1403,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         [pane.containerView addGestureRecognizer:sr];
     }
     [self relayoutPanes];
-    [self applyPairRatioIfAny];
     if (self.pickerView) [self.rootWindow bringSubviewToFront:self.pickerView];
     // Ngan moi: hien len bang fade + phong nhe tu 94% (lo xo)
     pane.containerView.alpha = 0; pane.containerView.transform = CGAffineTransformMakeScale(0.94, 0.94);
@@ -1708,6 +1695,8 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 }
 
 // Tat han process cua app (khi nguoi dung bam X). Bo qua neu app do dang mo tren man iPhone.
+static void SCPTerminateNow(NSString *bid);
+
 void SCPTerminateApp(NSString *bid)
 {
     if (!bid) return;
@@ -1716,6 +1705,16 @@ void SCPTerminateApp(NSString *bid)
         SCPLog("%@ dang mo tren iPhone, khong kill", bid);
         return;
     }
+    SCPTerminateNow(bid);
+}
+
+void SCPKillApp(NSString *bid)
+{
+    if (bid) SCPTerminateNow(bid);
+}
+
+static void SCPTerminateNow(NSString *bid)
+{
     id svc = objcInvoke(objc_getClass("FBSSystemService"), @"sharedService");
     SEL sel = NSSelectorFromString(@"terminateApplication:forReason:andReport:withDescription:");
     if (svc && [svc respondsToSelector:sel]) {
