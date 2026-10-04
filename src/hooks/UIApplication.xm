@@ -679,13 +679,64 @@ static NSArray<UIWindow *> *SCPAllWindows(void)
     return out;
 }
 
+// View gioi han / toc do cua plugin dan duong Vietmap (vd vietmap_live_navigation_plugin.SpeedLimitView2,
+// ...CurrentSpeedView). Giu tham chieu yeu de doc tiep ca khi Vietmap chay nen (luc bong bong dang hien).
+static __weak UIView *sLimitView, *sSpeedView;
+
+// To tien gan nhat (toi da 6 cap) co ten lop chua `part`
+static UIView *SCPAncestorNamed(UIView *v, NSString *part)
+{
+    int depth = 0;
+    for (UIView *x = v.superview; x && depth < 6; x = x.superview, depth++) {
+        if ([NSStringFromClass([x class]) rangeOfString:part options:NSCaseInsensitiveSearch].location != NSNotFound) return x;
+    }
+    return nil;
+}
+
+// Nhan chu so co co chu lon nhat trong cay view (khong xet view co tren man hinh hay khong)
+static void SCPBestNumberLabel(UIView *v, UILabel **best, int depth)
+{
+    if (depth > 6 || v.hidden || v.alpha < 0.05) return;
+    if ([v isKindOfClass:[UILabel class]]) {
+        UILabel *l = (UILabel *)v;
+        NSString *t = [l.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (SCPIsNumeric(t) && (!*best || l.font.pointSize > (*best).font.pointSize)) *best = l;
+    }
+    for (UIView *c in v.subviews) SCPBestNumberLabel(c, best, depth + 1);
+}
+
+// So trong 1 view, KHONG can view nam tren man hinh; -1 neu view an / khong co so
+static int SCPNumberInView(UIView *root)
+{
+    if (!root) return -1;
+    UILabel *best = nil;
+    SCPBestNumberLabel(root, &best, 0);
+    return best ? [best.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]].intValue : -1;
+}
+
+// Doc truc tiep 2 view da gap. Tra ve NO neu khong con view nao (Vietmap da huy) -> quet lai tu dau.
+static BOOL SCPReadCachedViews(BOOL doLog)
+{
+    UIView *lv = sLimitView, *cv = sSpeedView;
+    if (!lv && !cv) return NO;
+    int limit = lv ? SCPNumberInView(lv) : -1, speed = cv ? SCPNumberInView(cv) : -1;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    if (lv) { sScanLimit = (limit >= 5 && limit <= 200) ? limit : -1; sScanLimitAt = now; }   // view an = duong khong co bien
+    if (speed >= 0 && speed <= 300) { sScanSpeed = speed; sScanSpeedAt = now; }
+    if (doLog) SCPLog("speed scan (view Vietmap, %@): toc do=%d gioi han=%d", lv.window ? @"tren man hinh" : @"chay nen", speed, limit);
+    return YES;
+}
+
 static void SCPScanSpeed(BOOL doLog)
 {
     NSArray<UIWindow *> *wins = SCPAllWindows();
-    if (!wins.count) return;
     UIWindow *win = wins.firstObject;
     NSMutableArray<UILabel *> *labels = [NSMutableArray array];
-    SCPCollectLabels(win, labels, 0);
+    if (win) SCPCollectLabels(win, labels, 0);
+
+    // Khong thay nhan nao tren man hinh (Vietmap chay nen / dang o man khac): doc view da gap truoc do
+    if (labels.count == 0 && SCPReadCachedViews(doLog)) return;
+    if (!win) return;
 
     // App Flutter (khong co UILabel): doc cay accessibility, thu lan luot tung cua so (iPhone roi CarPlay)
     if (labels.count == 0) {
@@ -703,22 +754,28 @@ static void SCPScanSpeed(BOOL doLog)
         return;
     }
 
-    // Vietmap Live: 2 vong tron canh nhau - vien DO = gioi han, vien XANH (+ "km/h") = toc do hien tai
+    // Vietmap Live: uu tien theo ten lop view cua plugin (SpeedLimitView / CurrentSpeedView);
+    // khong co thi theo vong tron: vien DO = gioi han, vien XANH (+ "km/h") = toc do hien tai
     UILabel *speedL = nil, *limitL = nil, *bigPlain = nil;
+    UIView *limitView = nil, *speedView = nil;
     NSMutableString *desc = [NSMutableString string];
     for (UILabel *l in labels) {
+        UIView *lv = SCPAncestorNamed(l, @"SpeedLimit");
+        UIView *cv = lv ? nil : SCPAncestorNamed(l, @"CurrentSpeed");
         UIView *circle = SCPCircleAround(l);
-        int kind = 0;
-        if (circle) {
+        int kind = lv ? 1 : (cv ? 2 : 0);
+        if (!kind && circle) {
             kind = SCPClassifyRing(SCPRingColor(circle, 0));
             if (kind == 0 && SCPHasUnitLabel(circle)) kind = 2;
         }
         [desc appendFormat:@" %@(f%.0f %@%@)", l.text, l.font.pointSize, NSStringFromClass([l.superview class]),
-             circle ? (kind == 1 ? @" vong-do" : (kind == 2 ? @" vong-xanh" : @" vong")) : @""];
-        if (kind == 1)      { if (!limitL || l.font.pointSize > limitL.font.pointSize) limitL = l; }
-        else if (kind == 2) { if (!speedL || l.font.pointSize > speedL.font.pointSize) speedL = l; }
+             kind == 1 ? @" gioi-han" : (kind == 2 ? @" toc-do" : (circle ? @" vong" : @""))];
+        if (kind == 1)      { if (!limitL || l.font.pointSize > limitL.font.pointSize) { limitL = l; limitView = lv; } }
+        else if (kind == 2) { if (!speedL || l.font.pointSize > speedL.font.pointSize) { speedL = l; speedView = cv; } }
         else if (!circle)   { if (!bigPlain || l.font.pointSize > bigPlain.font.pointSize) bigPlain = l; }
     }
+    if (limitView) sLimitView = limitView;
+    if (speedView) sSpeedView = speedView;
     if (!speedL) speedL = bigPlain;   // du phong: khong nhan ra vong xanh -> so to nhat ngoai vong tron
     int speed = speedL ? speedL.text.intValue : -1;
     int limit = limitL ? limitL.text.intValue : -1;
@@ -726,6 +783,8 @@ static void SCPScanSpeed(BOOL doLog)
     if (limit > 200 || limit < 5) limit = -1;
 
     SCPNoteScan(speed, limit);
+    // Da tung thay view gioi han ma lan nay khong thay so -> duong hien tai khong co bien
+    if (limit < 0 && sLimitView && !limitL) { sScanLimit = -1; sScanLimitAt = CFAbsoluteTimeGetCurrent(); }
     if (doLog) SCPLog("speed scan: toc do=%d gioi han=%d; ung vien:%@", speed, limit, desc);
 }
 

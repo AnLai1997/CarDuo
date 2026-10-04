@@ -555,12 +555,13 @@ static void SCPCPopIn(NSArray<UIView *> *views)
         SCPCSendEvent(4, launchInfo);
         // App da la app chinh cua workspace (khong nam trong ngan) -> DashBoard khong trinh bay lai -> tu lay VC
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [weakSelf recoverPending:bid];
+            [weakSelf recoverPending:bid attempt:1];
         });
     });
 }
 
-- (void)recoverPending:(NSString *)bid
+// App mo cham (TikTok, YouTube qua tweak CarPlay khac mat ~4s): thu lai o giay 2, 4, 6 roi moi bao loi
+- (void)recoverPending:(NSString *)bid attempt:(int)attempt
 {
     if (!self.active || [self pendingSlotForBundle:bid] < 0) return;
     id owner = objcInvoke(SCPCDashboard(), @"workspaceOwner");
@@ -573,6 +574,14 @@ static void SCPCPopIn(NSArray<UIView *> *views)
         if (![b isEqualToString:bid]) continue;
         SCPLog("CarSplit: DashBoard khong trinh bay %@ -> lay VC co san", bid);
         [self adoptViewController:vc];
+        return;
+    }
+    if (attempt < 3) {
+        SCPLog("CarSplit: %@ chua toi sau %ds, doi them", bid, attempt * 2);
+        __weak SCPCarSplit *weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf recoverPending:bid attempt:attempt + 1];
+        });
         return;
     }
     // Ghi lai cac VC DashBoard dang giu de biet vi sao app (vd YouTube qua tweak CarPlay khac) khong vao ngan
