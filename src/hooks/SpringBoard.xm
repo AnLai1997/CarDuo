@@ -262,6 +262,11 @@ static int hook_BKSDisplayServicesSetScreenBlanked(int blanked)
 {
     if (![[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.springboard"]) return;
     SCPLog("loaded into SpringBoard");
+    // Chan doan CarBridge phia SpringBoard (cua so CBWindow ve app len man xe): chay nen, chi ghi log
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(12 * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        SCPDiagHooks(@"carbridge");
+        SCPDiagClasses(@[@"CBBridgeManager", @"CBWindow", @"CBBridgedUIApp", @"CBBridgedUIAppView", @"CBBridgeRequest", @"CBShared"]);
+    });
     %init(SPRINGBOARD);
     void *fn = dlsym(RTLD_DEFAULT, "BKSDisplayServicesSetScreenBlanked");
     if (fn) {

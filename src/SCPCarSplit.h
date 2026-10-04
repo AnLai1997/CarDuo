@@ -45,7 +45,6 @@ extern "C" {
 #endif
 NSString *SCPRealBundleForInfos(id info, id proxyInfo);   // bo qua CarPlayTemplateUIHost, tra ve bundle that cua app
 void SCPCDumpVC(UIViewController *vc, NSString *why);     // chan doan: ghi cay view cua app (CarBridge)
-void SCPCDumpCarBridge(void);                             // chan doan: ghi lop cua CarBridge trong CarPlay
 #ifdef __cplusplus
 }
 #endif

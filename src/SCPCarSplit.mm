@@ -1,5 +1,4 @@
 #import "SCPCarSplit.h"
-#import <mach-o/dyld.h>
 #import "SCPPrefs.h"
 
 // =====================================================================
@@ -1608,31 +1607,3 @@ void SCPCDumpVC(UIViewController *vc, NSString *why)
            childs.count ? [childs componentsJoinedByString:@","] : @"-", [lines componentsJoinedByString:@"\n"]);
 }
 
-// Lop + phuong thuc cua cac dylib tweak co ten chua "carbridge" dang nap trong CarPlay
-void SCPCDumpCarBridge(void)
-{
-    uint32_t n = _dyld_image_count();
-    NSMutableArray *tweaks = [NSMutableArray array];
-    for (uint32_t i = 0; i < n; i++) {
-        const char *path = _dyld_get_image_name(i);
-        if (!path) continue;
-        NSString *p = @(path);
-        if ([p containsString:@"/DynamicLibraries/"] || [p containsString:@"TweakInject"]) [tweaks addObject:p.lastPathComponent];
-        if ([p rangeOfString:@"carbridge" options:NSCaseInsensitiveSearch].location == NSNotFound) continue;
-        unsigned int count = 0;
-        const char **names = objc_copyClassNamesForImage(path, &count);
-        NSMutableArray *desc = [NSMutableArray array];
-        for (unsigned int k = 0; k < count && k < 40; k++) {
-            Class cls = objc_getClass(names[k]);
-            unsigned int mc = 0;
-            Method *ms = cls ? class_copyMethodList(cls, &mc) : NULL;
-            NSMutableArray *sels = [NSMutableArray array];
-            for (unsigned int m = 0; m < mc && m < 30; m++) [sels addObject:NSStringFromSelector(method_getName(ms[m]))];
-            if (ms) free(ms);
-            [desc addObject:[NSString stringWithFormat:@"%s: %@", names[k], [sels componentsJoinedByString:@" "]]];
-        }
-        if (names) free(names);
-        SCPLog("DIAG CarBridge %@ (%u lop):\n%@", p, count, [desc componentsJoinedByString:@"\n"]);
-    }
-    SCPLog("DIAG tweak trong CarPlay: %@", [tweaks componentsJoinedByString:@", "]);
-}

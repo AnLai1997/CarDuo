@@ -135,7 +135,11 @@
 {
     if (![[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.CarPlayApp"]) return;
     SCPLog("loaded into CarPlay");
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ SCPCDumpCarBridge(); });
+    // Chan doan CarBridge: chay nen (quet nhieu lop), chi ghi log
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        SCPDiagHooks(@"carbridge");
+        SCPDiagClasses(@[@"CBBridgeManagerDashboard", @"CBDashboardShared", @"CBBridgeManagerCarPlay", @"CBShared"]);
+    });
     %init(CARPLAY);
 
     // SpringBoard / Settings / URL scheme -> mo split CarPlay
