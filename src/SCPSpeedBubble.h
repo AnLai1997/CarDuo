@@ -6,6 +6,7 @@
 @interface SCPSpeedBubble : NSObject
 + (instancetype)shared;
 - (void)updateSpeed:(int)speed limit:(int)limit;   // speed/limit < 0 = khong co
+- (void)updateSpeed:(int)speed limit:(int)limit appForeground:(BOOL)fg;   // fg: Vietmap dang hien (iPhone / CarPlay) -> an
 - (void)refresh;                                    // tinh lai hien/an (goi khi bo cuc split doi)
 - (void)hide;
 - (void)runDemo;                                    // Cai dat > Xem thu: toc do gia 10 giay

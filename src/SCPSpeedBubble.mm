@@ -6,6 +6,10 @@ static NSSet<NSString *> *sNativeVisible;   // app dang hien trong ngan split Ca
 #import "SCPPrefs.h"
 
 #define SCP_SPEED_STALE 5.0   // giay khong co du lieu moi -> an bong bong
+#define SCP_SCALE_DEFAULT 0.7 // co mac dinh (truoc la 1.0, qua to)
+#define SCP_SCALE_MIN   0.45
+#define SCP_SCALE_MAX   1.6
+#define SCP_SCALE_KEY   @"CarDuoBubbleScale"
 #define SCP_RING        56.0  // duong kinh moi vong
 #define SCP_RING_GAP    10.0
 #define SCP_PAD         8.0
@@ -43,7 +47,8 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 @property (nonatomic) int speed, limit;
 @property (nonatomic) CFAbsoluteTime lastUpdate;
 @property (nonatomic) BOOL onPhone;
-@property (nonatomic) CGFloat scale;                 // phong to/thu nho bang 2 ngon (0.6 .. 2.2)
+@property (nonatomic) CGFloat scale;                 // phong to/thu nho bang 2 ngon (SCP_SCALE_MIN .. SCP_SCALE_MAX), luu lai
+@property (nonatomic) BOOL appForeground;            // Vietmap dang hien tren iPhone hoac CarPlay -> an bong bong
 @property (nonatomic, strong) UIButton *closeButton; // X do: giu bong bong de hien, bam de tat han Vietmap
 @property (nonatomic, strong) NSTimer *closeTimer;
 @property (nonatomic) NSInteger builtStyle;          // kieu dang ve trong the (-1 = chua ve)
@@ -61,7 +66,9 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 {
     static SCPSpeedBubble *s; static dispatch_once_t once;
     dispatch_once(&once, ^{
-        s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; s.scale = 1; s.builtStyle = -1;
+        s = [SCPSpeedBubble new]; s.speed = -1; s.limit = -1; s.builtStyle = -1;
+        double saved = [[NSUserDefaults standardUserDefaults] doubleForKey:SCP_SCALE_KEY];
+        s.scale = (saved >= SCP_SCALE_MIN && saved <= SCP_SCALE_MAX) ? saved : SCP_SCALE_DEFAULT;
         s.phoneFraction = CGPointMake(-1, -1); s.carFraction = CGPointMake(-1, -1);
         [s startOrientationTracking];
     });
@@ -80,7 +87,13 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 
 - (void)updateSpeed:(int)speed limit:(int)limit
 {
-    self.speed = speed; self.limit = limit;
+    [self updateSpeed:speed limit:limit appForeground:NO];
+}
+
+- (void)updateSpeed:(int)speed limit:(int)limit appForeground:(BOOL)fg
+{
+    if (fg != self.appForeground) SCPLog("speed bubble: Vietmap %@", fg ? @"dang hien -> an bong bong" : @"chay nen -> hien bong bong");
+    self.speed = speed; self.limit = limit; self.appForeground = fg;
     self.lastUpdate = CFAbsoluteTimeGetCurrent();
     [self refresh];
 }
@@ -105,7 +118,8 @@ static void SCPMakeWindowPassThrough(UIWindow *w)
 - (void)refresh
 {
     BOOL fresh = (CFAbsoluteTimeGetCurrent() - self.lastUpdate) < SCP_SPEED_STALE && self.speed >= 0;
-    BOOL show = fresh && [SCPPrefs speedBubble] && ![self appVisibleInSplit];
+    // Chi hien khi Vietmap chay nen: Vietmap dang hien (toan man / trong ngan) thi an
+    BOOL show = fresh && [SCPPrefs speedBubble] && !self.appForeground && ![self appVisibleInSplit];
     if (!show) { [self hide]; return; }
     [self ensureWindow];
     if (!self.window) return;
@@ -503,17 +517,20 @@ static UIColor *SCPGreen(void)  { return [UIColor colorWithRed:0.18 green:0.72 b
     [self hide];
 }
 
-// 2 ngon: phong to / thu nho the (0.6x .. 2.2x)
+// 2 ngon: phong to / thu nho the (SCP_SCALE_MIN .. SCP_SCALE_MAX), nho lai co da chon
 - (void)pinched:(UIPinchGestureRecognizer *)g
 {
     static CGFloat startScale = 1;
     if (g.state == UIGestureRecognizerStateBegan) { startScale = self.scale; [self hideCloseButton]; }
     if (g.state == UIGestureRecognizerStateBegan || g.state == UIGestureRecognizerStateChanged) {
-        self.scale = MIN(2.2, MAX(0.6, startScale * g.scale));
+        self.scale = MIN(SCP_SCALE_MAX, MAX(SCP_SCALE_MIN, startScale * g.scale));
         self.card.transform = [self baseTransform];
         [self clampCard];
     }
-    if (g.state == UIGestureRecognizerStateEnded) [self saveCardPosition];
+    if (g.state == UIGestureRecognizerStateEnded) {
+        [self saveCardPosition];
+        [[NSUserDefaults standardUserDefaults] setDouble:self.scale forKey:SCP_SCALE_KEY];
+    }
 }
 
 - (UIView *)ringWithColor:(UIColor *)color

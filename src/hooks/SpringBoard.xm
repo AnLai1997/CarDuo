@@ -134,7 +134,7 @@ static void SCPHandlePendingRequest(void)
     notify_register_dispatch(SCP_DARWIN_SPEED, &tokSpeed, dispatch_get_main_queue(), ^(int t) {
         uint64_t state = 0; notify_get_state(t, &state);
         int flags = (int)((state >> 16) & 0xFF), speed = (int)((state >> 8) & 0xFF), limit = (int)(state & 0xFF);
-        [[SCPSpeedBubble shared] updateSpeed:((flags & 1) ? speed : -1) limit:((flags & 2) ? limit : -1)];
+        [[SCPSpeedBubble shared] updateSpeed:((flags & 1) ? speed : -1) limit:((flags & 2) ? limit : -1) appForeground:(flags & 4) != 0];
     });
     // App dang host vua doi yeu cau xoay (YouTube fullscreen) -> lay lai scene settings cua ngan do
     notify_register_dispatch(SCP_DARWIN_APP_ORIENT, &tokOrient, dispatch_get_main_queue(), ^(int t) {

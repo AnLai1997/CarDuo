@@ -259,14 +259,45 @@ static BOOL SCPIsCircle(UIView *v)
     return v.layer.cornerRadius >= MIN(s.width, s.height) / 2 - 2;
 }
 
+// Vietmap dang hien (scene iPhone hoac CarPlay dang o tren cung) -> SpringBoard an bong bong
+static BOOL SCPAppForeground(void)
+{
+    if (![NSThread isMainThread]) return NO;
+    for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
+        if (sc.activationState == UISceneActivationStateForegroundActive) return YES;
+    }
+    return NO;
+}
+
+static int sLastSentSpeed = -1, sLastSentLimit = -1;
+
 // Gui toc do/gioi han sang SpringBoard (Darwin notify + state)
+// state: bit 16 = co toc do, bit 17 = co gioi han, bit 18 = Vietmap dang hien; bit 8..15 toc do; bit 0..7 gioi han
 static void SCPSendSpeed(int speed, int limit)
 {
     static int token = 0;
     if (!token) notify_register_check(SCP_DARWIN_SPEED, &token);
-    uint64_t flags = (speed >= 0 ? 1 : 0) | (limit >= 0 ? 2 : 0);
-    uint64_t state = (flags << 16) | ((uint64_t)(speed < 0 ? 0 : speed) << 8) | (uint64_t)(limit < 0 ? 0 : limit);
+    sLastSentSpeed = speed; sLastSentLimit = limit;
+    uint64_t flags = (speed >= 0 ? 1 : 0) | (limit >= 0 ? 2 : 0) | (SCPAppForeground() ? 4 : 0);
+    uint64_t state = (flags << 16) | ((uint64_t)(speed < 0 ? 0 : MIN(speed, 255)) << 8) | (uint64_t)(limit < 0 ? 0 : MIN(limit, 255));
     notify_set_state(token, state); notify_post(SCP_DARWIN_SPEED);
+}
+
+// Vietmap len tren / xuong nen (iPhone hoac CarPlay) -> bao ngay, khong cho ban tin GPS ke tiep
+static void SCPWatchForeground(void)
+{
+    void (^resend)(NSNotification *) = ^(NSNotification *n) {
+        if (sLastSentSpeed >= 0) SCPSendSpeed(sLastSentSpeed, sLastSentLimit);
+    };
+    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+    for (NSNotificationName name in @[UISceneDidActivateNotification, UISceneWillDeactivateNotification,
+                                      UISceneDidEnterBackgroundNotification, UISceneWillEnterForegroundNotification]) {
+        [nc addObserverForName:name object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *n) {
+            // WillDeactivate: trang thai chua doi -> gui sau 1 nhip va lan nua khi chuyen canh xong
+            dispatch_async(dispatch_get_main_queue(), ^{ resend(n); });
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ resend(n); });
+        }];
+    }
 }
 
 static void SCPCollectLabels(UIView *v, NSMutableArray<UILabel *> *out, int depth)
@@ -795,6 +826,6 @@ static void SCPInstallCrashLogger(void)
     NSString *bid  = [[NSBundle mainBundle] bundleIdentifier];
     if ([path containsString:@".app"] && bid && ![bid hasPrefix:@"com.apple."]) {
         %init(APPS);
-        if ([bid isEqualToString:SCP_SPEED_APP]) { SCPInstallCrashLogger(); %init(SPEEDGPS); SCPEnableFlutterSemantics(); SCPStartSpeedScanner(); }
+        if ([bid isEqualToString:SCP_SPEED_APP]) { SCPInstallCrashLogger(); %init(SPEEDGPS); SCPEnableFlutterSemantics(); SCPStartSpeedScanner(); SCPWatchForeground(); }
     }
 }
