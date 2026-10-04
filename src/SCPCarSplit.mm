@@ -1,4 +1,5 @@
 #import "SCPCarSplit.h"
+#import <mach-o/dyld.h>
 #import "SCPPrefs.h"
 
 // =====================================================================
@@ -677,6 +678,12 @@ static void SCPCPopIn(NSArray<UIView *> *views)
     if (self.fullscreenSlot >= 0 && self.fullscreenSlot != slot) self.fullscreenSlot = -1;
     self.focusedSlot = slot;
     SCPLog("CarSplit: dua %@ (%@) vao ngan %d", bid, NSStringFromClass([vc class]), slot);
+    // Chan doan CarBridge: cay view cua app trong ngan, 1 lan moi app
+    static NSMutableSet *dumpedPane; if (!dumpedPane) dumpedPane = [NSMutableSet set];
+    if (bid && ![bid hasPrefix:@"com.apple."] && ![dumpedPane containsObject:bid]) {
+        [dumpedPane addObject:bid];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ SCPCDumpVC(vc, @"trong ngan"); });
+    }
     [self raise];
     [self relayoutAnimated:YES];
     [self postState];
@@ -1570,3 +1577,62 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 }
 
 @end
+
+// ---------------------------------------------------------------------
+//  Chan doan CarBridge (YouTube / TikTok trang trong ngan): ghi lop cua CarBridge va cay view cua app
+//  khi mo toan man (chay dung) va khi nam trong ngan (trang) de so sanh.
+// ---------------------------------------------------------------------
+static void SCPCDumpViewInto(UIView *v, int depth, NSMutableArray<NSString *> *out)
+{
+    if (!v || depth > 9 || out.count >= 90) return;
+    CGAffineTransform t = v.transform;
+    NSString *pad = [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0];
+    [out addObject:[NSString stringWithFormat:@"%@%@ %@%@%@%@ layer=%@%@", pad, NSStringFromClass([v class]),
+                    NSStringFromCGRect(v.frame),
+                    CGAffineTransformIsIdentity(t) ? @"" : [NSString stringWithFormat:@" t=(%.2f,%.2f,%.2f,%.2f)", t.a, t.b, t.c, t.d],
+                    v.hidden ? @" HIDDEN" : @"", v.alpha < 1 ? [NSString stringWithFormat:@" a=%.2f", v.alpha] : @"",
+                    NSStringFromClass([v.layer class]),
+                    v.layer.sublayers.count && !v.subviews.count ? [NSString stringWithFormat:@" sublayers=%lu", (unsigned long)v.layer.sublayers.count] : @""]];
+    for (UIView *c in v.subviews) SCPCDumpViewInto(c, depth + 1, out);
+}
+
+void SCPCDumpVC(UIViewController *vc, NSString *why)
+{
+    if (!vc) return;
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    SCPCDumpViewInto(vc.view, 0, lines);
+    NSString *bid = SCPRealBundleForInfos(objcInvoke(vc, @"applicationInfo"), objcInvoke(vc, @"proxyApplicationInfo"));
+    NSMutableArray *childs = [NSMutableArray array];
+    for (UIViewController *c in vc.childViewControllers) [childs addObject:NSStringFromClass([c class])];
+    SCPLog("DIAG %@ %@ (%@, con: %@):\n%@", why, bid, NSStringFromClass([vc class]),
+           childs.count ? [childs componentsJoinedByString:@","] : @"-", [lines componentsJoinedByString:@"\n"]);
+}
+
+// Lop + phuong thuc cua cac dylib tweak co ten chua "carbridge" dang nap trong CarPlay
+void SCPCDumpCarBridge(void)
+{
+    uint32_t n = _dyld_image_count();
+    NSMutableArray *tweaks = [NSMutableArray array];
+    for (uint32_t i = 0; i < n; i++) {
+        const char *path = _dyld_get_image_name(i);
+        if (!path) continue;
+        NSString *p = @(path);
+        if ([p containsString:@"/DynamicLibraries/"] || [p containsString:@"TweakInject"]) [tweaks addObject:p.lastPathComponent];
+        if ([p rangeOfString:@"carbridge" options:NSCaseInsensitiveSearch].location == NSNotFound) continue;
+        unsigned int count = 0;
+        const char **names = objc_copyClassNamesForImage(path, &count);
+        NSMutableArray *desc = [NSMutableArray array];
+        for (unsigned int k = 0; k < count && k < 40; k++) {
+            Class cls = objc_getClass(names[k]);
+            unsigned int mc = 0;
+            Method *ms = cls ? class_copyMethodList(cls, &mc) : NULL;
+            NSMutableArray *sels = [NSMutableArray array];
+            for (unsigned int m = 0; m < mc && m < 30; m++) [sels addObject:NSStringFromSelector(method_getName(ms[m]))];
+            if (ms) free(ms);
+            [desc addObject:[NSString stringWithFormat:@"%s: %@", names[k], [sels componentsJoinedByString:@" "]]];
+        }
+        if (names) free(names);
+        SCPLog("DIAG CarBridge %@ (%u lop):\n%@", p, count, [desc componentsJoinedByString:@"\n"]);
+    }
+    SCPLog("DIAG tweak trong CarPlay: %@", [tweaks componentsJoinedByString:@", "]);
+}

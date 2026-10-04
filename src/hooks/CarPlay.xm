@@ -67,6 +67,15 @@
     }
     %orig;
     [sp refreshAppTabSoon];   // app vua mo toan man -> tab icon o mep tren
+    // Chan doan CarBridge: cay view cua app (khong phai Apple) khi mo toan man, 1 lan moi app
+    if ([vc isKindOfClass:objc_getClass("DBApplicationSceneViewController")]) {
+        NSString *b = SCPRealBundleForInfos(objcInvoke(vc, @"applicationInfo"), objcInvoke(vc, @"proxyApplicationInfo"));
+        static NSMutableSet *dumped; if (!dumped) dumped = [NSMutableSet set];
+        if (b && ![b hasPrefix:@"com.apple."] && ![dumped containsObject:b]) {
+            [dumped addObject:b];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ SCPCDumpVC(vc, @"toan man"); });
+        }
+    }
 }
 
 - (void)dismissBaseViewControllerAnimated:(BOOL)animated completion:(id)completion
@@ -126,6 +135,7 @@
 {
     if (![[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.CarPlayApp"]) return;
     SCPLog("loaded into CarPlay");
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ SCPCDumpCarBridge(); });
     %init(CARPLAY);
 
     // SpringBoard / Settings / URL scheme -> mo split CarPlay
