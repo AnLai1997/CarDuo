@@ -40,6 +40,7 @@
 - (void)dashboardInvalidated;           // ngat xe
 - (void)refreshAppTabSoon;              // DashBoard vua mo / dong app toan man -> hien / an tab icon
 - (void)removeAppTab;
+- (void)publishCarPlayApps;          // ghi danh sach app CarPlay (ca CarBridge) cho Settings loc app
 @end
 
 #ifdef __cplusplus
