@@ -16,8 +16,9 @@
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
 + (BOOL)bootVideo;             // phat video khoi dong khi CarPlay mo (mac dinh bat)
-+ (CGFloat)bootDuration;        // so giay phat video khoi dong
++ (CGFloat)bootDuration;        // so giay phat video khoi dong (0 = het video)
 + (BOOL)bootSound;             // video khoi dong co tieng (mac dinh bat)
++ (NSString *)customBootVideo;  // duong dan video khoi dong tu chon (nil = video mac dinh)
 + (NSArray<NSString *> *)carPlayApps;   // app CarPlay hien duoc (CarPlay process ghi lai)
 + (void)setCarPlayApps:(NSArray<NSString *> *)ids;
 + (void)setCarBridgeApps:(NSArray<NSString *> *)ids;   // app CarBridge dang bat (CarPlay process ghi lai)

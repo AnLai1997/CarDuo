@@ -55,8 +55,9 @@ static NSString *str(NSString *key)
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
 + (BOOL)bootVideo          { id v = value(@"BootVideo");        return v ? [v boolValue] : YES; }
-+ (CGFloat)bootDuration    { id v = value(@"BootDuration");     return v ? MIN(15, MAX(1, [v doubleValue])) : 4; }
++ (CGFloat)bootDuration    { id v = value(@"BootDuration");     return v ? ([v doubleValue] <= 0 ? 0 : MIN(15, MAX(1, [v doubleValue]))) : 4; }
 + (BOOL)bootSound          { id v = value(@"BootSound");        return v ? [v boolValue] : YES; }
++ (NSString *)customBootVideo { return str(@"BootVideoPath"); }
 + (NSArray<NSString *> *)carPlayApps { id v = value(@"CarPlayApps"); return [v isKindOfClass:[NSArray class]] ? v : nil; }
 + (void)setCarPlayApps:(NSArray<NSString *> *)ids
 {

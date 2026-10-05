@@ -7,7 +7,7 @@ include $(THEOS)/makefiles/common.mk
 BUNDLE_NAME = SplitCarPlayPrefs
 SplitCarPlayPrefs_FILES = SCPRootListController.m SCPPreviewCell.m SCPHeaderCell.m SCPAppPicker.m
 SplitCarPlayPrefs_INSTALL_PATH = /Library/PreferenceBundles
-SplitCarPlayPrefs_FRAMEWORKS = UIKit CoreFoundation QuartzCore AVFoundation AVKit
+SplitCarPlayPrefs_FRAMEWORKS = UIKit CoreFoundation QuartzCore AVFoundation AVKit PhotosUI UniformTypeIdentifiers
 SplitCarPlayPrefs_PRIVATE_FRAMEWORKS = Preferences
 SplitCarPlayPrefs_CFLAGS = -fobjc-arc
 

@@ -3,6 +3,8 @@
 #import <notify.h>
 #import <AVKit/AVKit.h>
 #import <AVFoundation/AVFoundation.h>
+#import <PhotosUI/PhotosUI.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "SCPLang.h"
 
 // Co san luc chay nhung header Theos khong khai bao
@@ -79,6 +81,7 @@ static NSDictionary *iconMap(void)
             @"BootVideo":        @[@"play.rectangle.fill", orange],
             @"BootSound":        @[@"speaker.wave.2.fill", indigo],
             @"previewBootVideo": @[@"eye.fill", indigo],
+            @"chooseBootVideo":  @[@"film.fill", orange],
             @"MirrorRight":      @[@"rectangle.on.rectangle", pink],
             @"TestOnMainScreen": @[@"arrow.clockwise", gray],
             @"runTest":          @[@"play.fill", green],
@@ -89,7 +92,47 @@ static NSDictionary *iconMap(void)
     return m;
 }
 
-@interface SCPRootListController : PSListController
+// ---- Video khoi dong: mac dinh (cai kem goi) hoac video tu chon ----
+static NSString *SCPDefaultBootVideo(void)
+{
+    for (NSString *p in @[@"/var/jb/Library/Application Support/CarDuo/boot.mp4", @"/Library/Application Support/CarDuo/boot.mp4"]) {
+        if ([[NSFileManager defaultManager] fileExistsAtPath:p]) return p;
+    }
+    return nil;
+}
+
+static NSString *SCPCurrentBootVideo(void)
+{
+    NSString *custom = SCPPrefValue(@"BootVideoPath");
+    if ([custom isKindOfClass:[NSString class]] && [[NSFileManager defaultManager] fileExistsAtPath:custom]) return custom;
+    return SCPDefaultBootVideo();
+}
+
+// Thu muc process CarPlay doc duoc (trong jbroot), Settings (mobile) ghi duoc
+static NSString *SCPBootVideoDir(void)
+{
+    BOOL rootless = [[NSFileManager defaultManager] fileExistsAtPath:@"/var/jb"];
+    return rootless ? @"/var/jb/var/mobile/Library/CarDuo" : @"/var/mobile/Library/CarDuo";
+}
+
+// Chep video vua chon vao thu muc CarDuo, xoa video tu chon cu. Tra ve duong dan moi (nil neu loi)
+static NSString *SCPInstallBootVideo(NSURL *src, NSError **err)
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *dir = SCPBootVideoDir();
+    [fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    for (NSString *f in [fm contentsOfDirectoryAtPath:dir error:nil]) {
+        if ([f hasPrefix:@"boot-custom"]) [fm removeItemAtPath:[dir stringByAppendingPathComponent:f] error:nil];
+    }
+    NSString *ext = src.pathExtension.length ? src.pathExtension.lowercaseString : @"mov";
+    // ten moi moi lan -> AVPlayer khong dung ban cu trong cache
+    NSString *dst = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"boot-custom-%ld.%@", (long)time(NULL), ext]];
+    if (![fm copyItemAtPath:src.path toPath:dst error:err]) return nil;
+    [fm setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:dst error:nil];
+    return dst;
+}
+
+@interface SCPRootListController : PSListController <PHPickerViewControllerDelegate, UIDocumentPickerDelegate>
 @end
 
 @implementation SCPRootListController
@@ -210,16 +253,9 @@ static NSDictionary *iconMap(void)
 // Xem thu video khoi dong ngay tren iPhone
 - (void)previewBootVideo
 {
-    NSString *path = nil;
-    for (NSString *p in @[@"/var/jb/Library/Application Support/CarDuo/boot.mp4", @"/Library/Application Support/CarDuo/boot.mp4"]) {
-        if ([[NSFileManager defaultManager] fileExistsAtPath:p]) { path = p; break; }
-    }
+    NSString *path = SCPCurrentBootVideo();
     if (!path) {
-        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"CarDuo"
-                                                                   message:SCPL(@"Không tìm thấy video khởi động.", @"Startup video not found.")
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-        [self presentViewController:a animated:YES completion:nil];
+        [self showMessage:SCPL(@"Không tìm thấy video khởi động.", @"Startup video not found.")];
         return;
     }
     // phat co tieng ca khi gat im lang
@@ -227,6 +263,90 @@ static NSDictionary *iconMap(void)
     AVPlayerViewController *pv = [AVPlayerViewController new];
     pv.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
     [self presentViewController:pv animated:YES completion:^{ [pv.player play]; }];
+}
+
+- (void)showMessage:(NSString *)msg
+{
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"CarDuo" message:msg preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+// Chon video khoi dong: tu Anh, tu Tep, hoac ve video mac dinh
+- (void)chooseBootVideo
+{
+    UIAlertController *s = [UIAlertController alertControllerWithTitle:SCPL(@"Video khởi động", @"Startup video")
+                                                               message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    [s addAction:[UIAlertAction actionWithTitle:SCPL(@"Chọn từ Ảnh", @"Choose from Photos") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        PHPickerConfiguration *cfg = [PHPickerConfiguration new];
+        cfg.filter = [PHPickerFilter videosFilter];
+        cfg.selectionLimit = 1;
+        cfg.preferredAssetRepresentationMode = PHPickerConfigurationAssetRepresentationModeCompatible;
+        PHPickerViewController *p = [[PHPickerViewController alloc] initWithConfiguration:cfg];
+        p.delegate = self;
+        [self presentViewController:p animated:YES completion:nil];
+    }]];
+    [s addAction:[UIAlertAction actionWithTitle:SCPL(@"Chọn từ Tệp", @"Choose from Files") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        UIDocumentPickerViewController *d = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeMovie] asCopy:YES];
+        d.delegate = self;
+        [self presentViewController:d animated:YES completion:nil];
+    }]];
+    if ([SCPPrefValue(@"BootVideoPath") isKindOfClass:[NSString class]]) {
+        [s addAction:[UIAlertAction actionWithTitle:SCPL(@"Dùng video mặc định", @"Use default video") style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
+            NSString *old = SCPPrefValue(@"BootVideoPath");
+            [[NSFileManager defaultManager] removeItemAtPath:old error:nil];
+            CFPreferencesSetAppValue(CFSTR("BootVideoPath"), NULL, (__bridge CFStringRef)SCP_DOMAIN);
+            CFPreferencesAppSynchronize((__bridge CFStringRef)SCP_DOMAIN);
+            notify_post("com.anlai97.carduo.prefschanged");
+            [self showMessage:SCPL(@"Đã quay về video mặc định.", @"Back to the default video.")];
+        }]];
+    }
+    [s addAction:[UIAlertAction actionWithTitle:SCPL(@"Huỷ", @"Cancel") style:UIAlertActionStyleCancel handler:nil]];
+    s.popoverPresentationController.sourceView = self.view;
+    s.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
+    [self presentViewController:s animated:YES completion:nil];
+}
+
+- (void)useBootVideoAt:(NSURL *)url
+{
+    NSError *err = nil;
+    NSString *dst = url ? SCPInstallBootVideo(url, &err) : nil;
+    if (!dst) {
+        [self showMessage:[NSString stringWithFormat:@"%@\n%@", SCPL(@"Không lưu được video.", @"Could not save the video."),
+                           err.localizedDescription ?: @""]];
+        return;
+    }
+    SCPSetPrefValue(@"BootVideoPath", dst);
+    notify_post("com.anlai97.carduo.prefschanged");
+    [self showMessage:SCPL(@"Đã đặt video khởi động mới. Lần cắm xe tới sẽ phát video này.",
+                           @"New startup video set. It will play the next time you connect.")];
+}
+
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results
+{
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    NSItemProvider *ip = results.firstObject.itemProvider;
+    if (!ip) return;
+    __weak SCPRootListController *weakSelf = self;
+    [ip loadFileRepresentationForTypeIdentifier:UTTypeMovie.identifier completionHandler:^(NSURL *url, NSError *error) {
+        // url chi ton tai trong block -> chep ra file tam truoc khi ve main thread
+        NSURL *tmp = nil;
+        if (url) {
+            tmp = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:
+                                          [NSString stringWithFormat:@"carduo-pick.%@", url.pathExtension.length ? url.pathExtension : @"mov"]]];
+            [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
+            if (![[NSFileManager defaultManager] copyItemAtURL:url toURL:tmp error:nil]) tmp = nil;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf useBootVideoAt:tmp];
+            if (tmp) [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
+        });
+    }];
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
+{
+    [self useBootVideoAt:urls.firstObject];
 }
 
 // Gui Darwin notification sang SpringBoard

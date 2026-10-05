@@ -16,6 +16,10 @@ static BOOL sBootAudio;   // da lay audio session -> phai tra lai
 
 NSString *SCPBootVideoPath(void)
 {
+    // Video tu chon trong Settings (chep vao /var/jb/var/mobile/Library/CarDuo)
+    NSString *custom = [SCPPrefs customBootVideo];
+    if (custom && [[NSFileManager defaultManager] fileExistsAtPath:custom]) return custom;
+    if (custom) SCPLog("Boot: khong doc duoc video tu chon %@ -> dung video mac dinh", custom);
     for (NSString *p in @[@"/var/jb/Library/Application Support/CarDuo/boot.mp4",
                           @"/Library/Application Support/CarDuo/boot.mp4"]) {
         if ([[NSFileManager defaultManager] fileExistsAtPath:p]) return p;
@@ -102,6 +106,7 @@ void SCPBootShowIfNeeded(UIViewController *root)
     [sBootPlayer play];
 
     CGFloat dur = [SCPPrefs bootDuration];
+    if (dur <= 0) dur = 30;   // "Het video": dung khi video ket thuc, toi da 30s
     SCPLog("Boot: phat video khoi dong %.0fs", dur);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(dur * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ SCPBootFinish(); });
     // video ngan hon thoi luong -> xong som
