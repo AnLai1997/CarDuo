@@ -35,17 +35,18 @@
 
     _screenView = [[UIView alloc] init];
     _screenView.backgroundColor = [UIColor blackColor];
-    _screenView.layer.cornerRadius = 10;
+    _screenView.layer.cornerRadius = 16;
+    _screenView.layer.cornerCurve = kCACornerCurveContinuous;
     _screenView.layer.borderWidth = 3;
-    _screenView.layer.borderColor = [UIColor colorWithWhite:0.25 alpha:1].CGColor;
+    _screenView.layer.borderColor = [UIColor colorWithWhite:0.16 alpha:1].CGColor;
     _screenView.clipsToBounds = YES;
     [self addSubview:_screenView];
 
     // Hinh nen kieu CarPlay (gradient toi)
     _wallpaper = [[UIView alloc] init];
     CAGradientLayer *g = [CAGradientLayer layer];
-    g.colors = @[(id)[UIColor colorWithRed:0.10 green:0.12 blue:0.22 alpha:1].CGColor,
-                 (id)[UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1].CGColor];
+    g.colors = @[(id)[UIColor colorWithRed:0.08 green:0.16 blue:0.38 alpha:1].CGColor,
+                 (id)[UIColor colorWithRed:0.01 green:0.03 blue:0.10 alpha:1].CGColor];
     g.startPoint = CGPointMake(0, 0); g.endPoint = CGPointMake(1, 1);
     [_wallpaper.layer addSublayer:g];
     [_screenView addSubview:_wallpaper];
@@ -58,9 +59,11 @@
     _divider.backgroundColor = [UIColor clearColor];   // khong co khe, chi co gach keo o giua
     [_screenView addSubview:_divider];
     _grip = [[UIView alloc] init];
-    _grip.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.9];
-    _grip.layer.borderWidth = 0.5;
-    _grip.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.55].CGColor;
+    _grip.backgroundColor = [UIColor whiteColor];
+    _grip.layer.shadowColor = [UIColor blackColor].CGColor;
+    _grip.layer.shadowOpacity = 0.4;
+    _grip.layer.shadowRadius = 2;
+    _grip.layer.shadowOffset = CGSizeZero;
     [_screenView addSubview:_grip];
 
     _leftPhone  = [self makePhoneIn:_leftPane];
@@ -73,8 +76,12 @@
     _rightDots  = [self makeDotsIn:_rightPane];
 
     _infoLabel = [[UILabel alloc] init];
-    _infoLabel.font = [UIFont systemFontOfSize:12];
-    _infoLabel.textColor = [UIColor secondaryLabelColor];
+    _infoLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
+    _infoLabel.textColor = [UIColor colorWithRed:0.04 green:0.35 blue:0.97 alpha:1];
+    _infoLabel.backgroundColor = [[UIColor colorWithRed:0.04 green:0.35 blue:0.97 alpha:1] colorWithAlphaComponent:0.10];
+    _infoLabel.adjustsFontSizeToFitWidth = YES;
+    _infoLabel.minimumScaleFactor = 0.75;
+    _infoLabel.clipsToBounds = YES;
     _infoLabel.textAlignment = NSTextAlignmentCenter;
     [self addSubview:_infoLabel];
 
@@ -93,8 +100,9 @@
     v.clipsToBounds = YES;
     // Vien quanh app nhu tren xe
     v.layer.borderWidth = 1;
-    v.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.35].CGColor;
-    v.layer.cornerRadius = 4;
+    v.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.18].CGColor;
+    v.layer.cornerRadius = 10;
+    v.layer.cornerCurve = kCACornerCurveContinuous;
     [_screenView addSubview:v];
     return v;
 }
@@ -126,8 +134,9 @@
 - (UIView *)makePhoneIn:(UIView *)pane
 {
     UIView *v = [[UIView alloc] init];
-    v.backgroundColor = [UIColor colorWithWhite:0.14 alpha:1];
-    v.layer.cornerRadius = 3;
+    v.backgroundColor = [UIColor colorWithRed:0.10 green:0.12 blue:0.18 alpha:1];
+    v.layer.cornerRadius = 10;
+    v.layer.cornerCurve = kCACornerCurveContinuous;
     [pane addSubview:v];
     return v;
 }
@@ -136,7 +145,8 @@
 {
     UIImageView *iv = [[UIImageView alloc] init];
     iv.contentMode = UIViewContentModeScaleAspectFit;
-    iv.layer.cornerRadius = 7;
+    iv.layer.cornerRadius = 9;
+    iv.layer.cornerCurve = kCACornerCurveContinuous;
     iv.clipsToBounds = YES;
     [pane addSubview:iv];
     return iv;
@@ -241,9 +251,11 @@ static UIImage *appIcon(NSString *bid)
         [pane bringSubviewToFront:d];
     }
 
-    _infoLabel.frame = CGRectMake(0, CGRectGetMaxY(_screenView.frame) + 4, self.bounds.size.width, 18);
     _infoLabel.text = [NSString stringWithFormat:@"Trái %.0f%% · App %@ · Kéo dấu ... của ngăn xuống để hiện option",
                        ratio * 100, orient == 3 ? @"ngang" : @"dọc"];
+    CGFloat iw = MIN(self.bounds.size.width - 24, [_infoLabel sizeThatFits:CGSizeMake(CGFLOAT_MAX, 20)].width + 20);
+    _infoLabel.frame = CGRectMake((self.bounds.size.width - iw) / 2, CGRectGetMaxY(_screenView.frame) + 6, iw, 20);
+    _infoLabel.layer.cornerRadius = 10;
 }
 
 - (void)layoutPane:(UIView *)pane phone:(UIView *)phone icon:(UIImageView *)icon label:(UILabel *)label

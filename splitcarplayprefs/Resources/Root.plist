@@ -9,6 +9,16 @@
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTableCell</string>
+			<key>cellClass</key><string>SCPHeaderCell</string>
+			<key>height</key><integer>132</integer>
+			<key>id</key><string>header</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>XEM TRƯỚC BỐ CỤC TRÊN MÀN XE</string>
 			<key>footerText</key><string>Mô phỏng màn xe. Thay đổi bên dưới sẽ cập nhật ngay. Trên xe, tweak tự dùng độ phân giải thật của màn.</string>
 		</dict>
@@ -270,16 +280,19 @@ splitcarplay://close</string>
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Mở split thử trên màn iPhone</string>
 			<key>action</key><string>runTest</string>
+			<key>scpKey</key><string>runTest</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Đóng split thử</string>
 			<key>action</key><string>closeSplit</string>
+			<key>scpKey</key><string>closeSplit</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Xoá file log</string>
 			<key>action</key><string>clearLog</string>
+			<key>scpKey</key><string>clearLog</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
