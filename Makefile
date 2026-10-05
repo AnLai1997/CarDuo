@@ -11,7 +11,7 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = SplitCarPlay
 SplitCarPlay_FILES = $(wildcard src/hooks/*.xm) $(wildcard src/*.mm)
 SplitCarPlay_CFLAGS = -fobjc-arc -Isrc
-SplitCarPlay_FRAMEWORKS = UIKit QuartzCore
+SplitCarPlay_FRAMEWORKS = UIKit QuartzCore AVFoundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 

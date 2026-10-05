@@ -17,189 +17,57 @@
 			<key>id</key><string>header</string>
 		</dict>
 
+		<!-- Cong tac chinh: tren cung -->
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>XEM TRƯỚC BỐ CỤC TRÊN MÀN XE</string>
-			<key>footerText</key><string>Mô phỏng màn xe. Thay đổi bên dưới sẽ cập nhật ngay. Trên xe, tweak tự dùng độ phân giải thật của màn.</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSTableCell</string>
-			<key>cellClass</key><string>SCPPreviewCell</string>
-			<key>height</key><integer>230</integer>
-			<key>id</key><string>preview</string>
-		</dict>
-
-		<dict>
-			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>CHUNG</string>
-			<key>footerText</key><string>Mỗi ngăn hiện đúng giao diện CarPlay của app (như khi mở app trên CarPlay), không chiếu giao diện iPhone. Nút tròn ở góc trên phải màn CarPlay mở split: app CarPlay đang mở vào ngăn trái, ngăn còn lại là bảng chọn app CarPlay. Giữ icon app 1 giây trên màn chính CarPlay cũng mở app đó vào một ngăn. Đang split mà chạm app trên dock thì app đó vào ngăn vừa chạm. Thẻ trắng ở giữa mép trên mỗi ngăn: chạm để Đổi app / Toàn màn / Đóng. Nút Home của CarPlay tắt split.</string>
+			<key>footerText</key><string>Tắt để dùng CarPlay như bình thường.</string>
+			<key>footerEN</key><string>Turn off to use CarPlay as usual.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Bật CarDuo</string>
+			<key>labelEN</key><string>Enable CarDuo</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>Enabled</string>
 			<key>default</key><true/>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
-		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Cho phép app không có CarPlay</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>AllowPhoneApps</string>
-			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-		</dict>
+
+		<!-- Xem truoc + thao tac chinh ngay ben duoi -->
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>footerText</key><string>Tắt (mặc định): chỉ mở được app có hỗ trợ CarPlay. Bật: app không có CarPlay (ví dụ YouTube) sẽ được chiếu nguyên giao diện iPhone vào một cửa sổ riêng như bản cũ.</string>
+			<key>label</key><string>Xem trước trên màn xe</string>
+			<key>labelEN</key><string>Car screen preview</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSTableCell</string>
+			<key>cellClass</key><string>SCPPreviewCell</string>
+			<key>height</key><integer>250</integer>
+			<key>id</key><string>preview</string>
 		</dict>
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>APP MẶC ĐỊNH</string>
-			<key>footerText</key><string>Cặp app tự mở khi cắm xe. Nên chọn app có CarPlay (Vietmap, Google Maps, Spotify, Nhạc...).</string>
+			<key>label</key><string>Bố cục</string>
+			<key>labelEN</key><string>Layout</string>
+			<key>footerText</key><string>Mọi thay đổi hiện ngay ở khung xem trước. Chỉ chọn được app có trên màn CarPlay (app CarPlay và app CarBridge).</string>
+			<key>footerEN</key><string>Every change shows in the preview right away. Only apps on the CarPlay screen (CarPlay and CarBridge apps) can be picked.</string>
 		</dict>
 		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
 			<key>label</key><string>Ngăn trái</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>labelEN</key><string>Left pane</string>
 			<key>key</key><string>LeftApp</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key>
-			<array>
-				<dict><key>sectionType</key><string>User</string></dict>
-				<dict><key>sectionType</key><string>System</string></dict>
-			</array>
-			<key>useSearchBar</key><true/>
-			<key>showIdentifiersAsSubtitle</key><true/>
 		</dict>
 		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
 			<key>label</key><string>Ngăn phải</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>labelEN</key><string>Right pane</string>
 			<key>key</key><string>RightApp</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key>
-			<array>
-				<dict><key>sectionType</key><string>User</string></dict>
-				<dict><key>sectionType</key><string>System</string></dict>
-			</array>
-			<key>useSearchBar</key><true/>
-			<key>showIdentifiersAsSubtitle</key><true/>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Tự mở split khi cắm xe</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>AutoLaunch</string>
-			<key>default</key><false/>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-		</dict>
-
-		<dict>
-			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>CẶP APP YÊU THÍCH</string>
-			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trong dấu "..." của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSEditTextCell</string>
-			<key>label</key><string>Tên cặp 1</string>
-			<key>placeholder</key><string>Đi làm</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav1Name</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
-			<key>label</key><string>Cặp 1: ngăn trái</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav1Left</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
-			<key>useSearchBar</key><true/>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
-			<key>label</key><string>Cặp 1: ngăn phải</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav1Right</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
-			<key>useSearchBar</key><true/>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSEditTextCell</string>
-			<key>label</key><string>Tên cặp 2</string>
-			<key>placeholder</key><string>Đi chơi</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav2Name</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
-			<key>label</key><string>Cặp 2: ngăn trái</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav2Left</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
-			<key>useSearchBar</key><true/>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
-			<key>label</key><string>Cặp 2: ngăn phải</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav2Right</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
-			<key>useSearchBar</key><true/>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSEditTextCell</string>
-			<key>label</key><string>Tên cặp 3</string>
-			<key>placeholder</key><string>Đi xa</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav3Name</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
-			<key>label</key><string>Cặp 3: ngăn trái</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav3Left</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
-			<key>useSearchBar</key><true/>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>ATLApplicationListSelectionController</string>
-			<key>cellClass</key><string>ATLApplicationSelectionCell</string>
-			<key>label</key><string>Cặp 3: ngăn phải</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>Fav3Right</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>sections</key><array><dict><key>sectionType</key><string>User</string></dict><dict><key>sectionType</key><string>System</string></dict></array>
-			<key>useSearchBar</key><true/>
-		</dict>
-
-		<dict>
-			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>GIAO DIỆN</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
@@ -209,6 +77,7 @@
 			<key>default</key><integer>0</integer>
 			<key>validValues</key><array><integer>0</integer><integer>1</integer></array>
 			<key>validTitles</key><array><string>Trái / phải</string><string>Trên / dưới</string></array>
+			<key>titlesEN</key><array><string>Left / right</string><string>Top / bottom</string></array>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
@@ -218,23 +87,28 @@
 			<key>key</key><string>PaneOrientation</string>
 			<key>default</key><integer>1</integer>
 			<key>validValues</key><array><integer>1</integer><integer>3</integer></array>
-			<key>validTitles</key><array><string>Dọc (portrait)</string><string>Ngang (landscape)</string></array>
+			<key>validTitles</key><array><string>Dọc</string><string>Ngang</string></array>
+			<key>titlesEN</key><array><string>Portrait</string><string>Landscape</string></array>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSegmentCell</string>
-			<key>label</key><string>Tỉ lệ màn xe (chỉ cho xem trước)</string>
+			<key>label</key><string>Tỉ lệ màn xe</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>ScreenAspect</string>
 			<key>default</key><string>16:9</string>
 			<key>validValues</key><array><string>16:9</string><string>5:3</string><string>8:3</string></array>
-			<key>validTitles</key><array><string>16:9</string><string>5:3 (800x480)</string><string>8:3 (siêu rộng)</string></array>
+			<key>validTitles</key><array><string>16:9</string><string>5:3</string><string>8:3 siêu rộng</string></array>
+			<key>titlesEN</key><array><string>16:9</string><string>5:3</string><string>8:3 ultrawide</string></array>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
+
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>TỈ LỆ NGĂN TRÁI</string>
+			<key>label</key><string>Tỉ lệ ngăn trái</string>
+			<key>labelEN</key><string>Left pane ratio</string>
 			<key>footerText</key><string>0.5 là chia đều. Kéo thanh phân cách trên màn xe cũng đổi được, và tỉ lệ được nhớ riêng cho từng cặp app.</string>
+			<key>footerEN</key><string>0.5 splits evenly. Dragging the divider on the car screen also changes it, and the ratio is remembered per app pair.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSliderCell</string>
@@ -248,14 +122,153 @@
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 
+		<!-- Khoi dong CarPlay -->
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>TÍNH NĂNG THÊM</string>
+			<key>label</key><string>Khởi động CarPlay</string>
+			<key>labelEN</key><string>CarPlay startup</string>
+			<key>footerText</key><string>Khi cắm xe, video khởi động phát trên màn xe trong số giây đã chọn (không có tiếng) rồi mới vào màn hình chính.</string>
+			<key>footerEN</key><string>When you connect, the startup video plays on the car screen (muted) for the chosen time before the home screen appears.</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Video khởi động</string>
+			<key>labelEN</key><string>Startup video</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>key</key><string>BootVideo</string>
+			<key>default</key><true/>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>label</key><string>Thời lượng</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>key</key><string>BootDuration</string>
+			<key>default</key><integer>4</integer>
+			<key>validValues</key><array><integer>2</integer><integer>4</integer><integer>6</integer><integer>8</integer></array>
+			<key>validTitles</key><array><string>2 giây</string><string>4 giây</string><string>6 giây</string><string>8 giây</string></array>
+			<key>titlesEN</key><array><string>2 s</string><string>4 s</string><string>6 s</string><string>8 s</string></array>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSButtonCell</string>
+			<key>label</key><string>Xem thử video khởi động</string>
+			<key>labelEN</key><string>Preview startup video</string>
+			<key>action</key><string>previewBootVideo</string>
+			<key>scpKey</key><string>previewBootVideo</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Tự mở split khi cắm xe</string>
+			<key>labelEN</key><string>Open split on connect</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>key</key><string>AutoLaunch</string>
+			<key>default</key><false/>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>Cách dùng trên xe</string>
+			<key>labelEN</key><string>Using it in the car</string>
+			<key>footerText</key><string>Nút tròn ở góc trên phải màn CarPlay mở split: app CarPlay đang mở vào ngăn trái, ngăn còn lại là bảng chọn app. Giữ icon app 1 giây trên màn chính CarPlay cũng mở app đó vào một ngăn. Đang split mà chạm app trên dock thì app đó vào ngăn vừa chạm. Thẻ trắng ở giữa mép trên mỗi ngăn: chạm để Đổi app / Toàn màn / Đóng. Nút Home của CarPlay tắt split.</string>
+			<key>footerEN</key><string>The round button at the top right of the CarPlay screen opens the split: the current CarPlay app goes to the left pane, the other pane shows an app picker. Holding an app icon for 1 second on the CarPlay home screen also opens it in a pane. While split, tapping an app in the dock opens it in the last touched pane. The white tab at the top of each pane: tap for Change app / Full screen / Close. The CarPlay Home button closes the split.</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>Cặp app yêu thích</string>
+			<key>labelEN</key><string>Favorite pairs</string>
+			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trong dấu "..." của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
+			<key>footerEN</key><string>Shown as buttons 1, 2, 3 in each pane's "..." menu. One tap swaps both panes. Siri/Shortcuts: splitcarplay://fav?n=1</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSEditTextCell</string>
+			<key>label</key><string>Tên cặp 1</string>
+			<key>labelEN</key><string>Pair 1 name</string>
+			<key>placeholder</key><string>Đi làm</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>key</key><string>Fav1Name</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>Cặp 1: ngăn trái</string>
+			<key>labelEN</key><string>Pair 1: left</string>
+			<key>key</key><string>Fav1Left</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>Cặp 1: ngăn phải</string>
+			<key>labelEN</key><string>Pair 1: right</string>
+			<key>key</key><string>Fav1Right</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSEditTextCell</string>
+			<key>label</key><string>Tên cặp 2</string>
+			<key>labelEN</key><string>Pair 2 name</string>
+			<key>placeholder</key><string>Đi chơi</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>key</key><string>Fav2Name</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>Cặp 2: ngăn trái</string>
+			<key>labelEN</key><string>Pair 2: left</string>
+			<key>key</key><string>Fav2Left</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>Cặp 2: ngăn phải</string>
+			<key>labelEN</key><string>Pair 2: right</string>
+			<key>key</key><string>Fav2Right</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSEditTextCell</string>
+			<key>label</key><string>Tên cặp 3</string>
+			<key>labelEN</key><string>Pair 3 name</string>
+			<key>placeholder</key><string>Đi xa</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>key</key><string>Fav3Name</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>Cặp 3: ngăn trái</string>
+			<key>labelEN</key><string>Pair 3: left</string>
+			<key>key</key><string>Fav3Left</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>Cặp 3: ngăn phải</string>
+			<key>labelEN</key><string>Pair 3: right</string>
+			<key>key</key><string>Fav3Right</string>
+		</dict>
+
+		<dict>
+			<key>cell</key><string>PSGroupCell</string>
+			<key>label</key><string>Tính năng thêm</string>
+			<key>labelEN</key><string>Extras</string>
 			<key>footerText</key><string>PiP: option trong dấu "..." của ngăn thu ngăn đó thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).</string>
+			<key>footerEN</key><string>PiP: the option in a pane's "..." menu shrinks it into a small floating, draggable tile. Swipe with 2 fingers on the right pane to switch between apps opened there. Mirror: shows the right pane app on the iPhone so a passenger can use it (experimental).</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Mirror ngăn phải lên iPhone (thử)</string>
+			<key>labelEN</key><string>Mirror right pane to iPhone (beta)</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>MirrorRight</string>
 			<key>default</key><false/>
@@ -264,39 +277,49 @@
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>SIRI / SHORTCUTS</string>
+			<key>label</key><string>Siri / Shortcuts</string>
 			<key>footerText</key><string>Tạo Shortcut với hành động "Open URL" rồi gọi bằng Siri:
-splitcarplay://open?left=com.apple.Maps&amp;right=com.google.ios.youtube
+splitcarplay://open?left=com.apple.Maps&amp;right=com.spotify.client
+splitcarplay://fav?n=1
+splitcarplay://close</string>
+			<key>footerEN</key><string>Create a Shortcut with the "Open URL" action and run it with Siri:
+splitcarplay://open?left=com.apple.Maps&amp;right=com.spotify.client
 splitcarplay://fav?n=1
 splitcarplay://close</string>
 		</dict>
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>GỠ LỖI (DÀNH CHO DEV)</string>
-			<key>footerText</key><string>Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm "Đóng split thử" ở đây (hoặc splitcarplay://close). Trong chế độ thử, app luôn hiện giao diện iPhone; giao diện CarPlay của app chỉ có khi cắm xe. Trên xe, tweak tự dùng màn CarPlay. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.</string>
+			<key>label</key><string>Gỡ lỗi (dành cho dev)</string>
+			<key>labelEN</key><string>Debug (for developers)</string>
+			<key>footerText</key><string>Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm "Đóng split thử" ở đây (hoặc splitcarplay://close). Trong chế độ thử, app luôn hiện giao diện iPhone. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.</string>
+			<key>footerEN</key><string>Only for testing without a car: opens the split window on the iPhone screen. The test window does NOT close by itself; tap "Close test split" here (or splitcarplay://close). In test mode apps always show their iPhone UI. Log: /var/mobile/Documents/SplitCarPlay.log.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Mở split thử trên màn iPhone</string>
+			<key>labelEN</key><string>Open test split on iPhone</string>
 			<key>action</key><string>runTest</string>
 			<key>scpKey</key><string>runTest</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Đóng split thử</string>
+			<key>labelEN</key><string>Close test split</string>
 			<key>action</key><string>closeSplit</string>
 			<key>scpKey</key><string>closeSplit</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSButtonCell</string>
 			<key>label</key><string>Xoá file log</string>
+			<key>labelEN</key><string>Clear log file</string>
 			<key>action</key><string>clearLog</string>
 			<key>scpKey</key><string>clearLog</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
 			<key>label</key><string>Mở split thử 1 lần sau respring kế tiếp</string>
+			<key>labelEN</key><string>Open test split once after next respring</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>TestOnMainScreen</string>
 			<key>default</key><false/>
@@ -306,6 +329,7 @@ splitcarplay://close</string>
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>footerText</key><string>CarDuo 0.3 by AnLai97 - personal build. Cơ chế host app dựa trên carplay-cast (Ethan Arbuckle).</string>
+			<key>footerEN</key><string>CarDuo 0.3 by AnLai97 - personal build. App hosting is based on carplay-cast (Ethan Arbuckle).</string>
 		</dict>
 	</array>
 </dict>

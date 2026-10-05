@@ -54,7 +54,15 @@ static NSString *str(NSString *key)
 + (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
-+ (BOOL)allowPhoneApps     { id v = value(@"AllowPhoneApps");   return v ? [v boolValue] : NO; }
++ (BOOL)bootVideo          { id v = value(@"BootVideo");        return v ? [v boolValue] : YES; }
++ (CGFloat)bootDuration    { id v = value(@"BootDuration");     return v ? MIN(15, MAX(1, [v doubleValue])) : 4; }
++ (NSArray<NSString *> *)carPlayApps { id v = value(@"CarPlayApps"); return [v isKindOfClass:[NSArray class]] ? v : nil; }
++ (void)setCarPlayApps:(NSArray<NSString *> *)ids
+{
+    if ([[self carPlayApps] isEqualToArray:ids]) return;
+    [defaults() setObject:ids forKey:@"CarPlayApps"];
+    [defaults() synchronize];
+}
 
 + (NSDictionary *)favorite:(NSInteger)index
 {

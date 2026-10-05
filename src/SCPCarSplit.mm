@@ -636,14 +636,8 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
 {
     if (!bid.length) return;
     if (![self isCarPlayApp:bid]) {
-        if ([SCPPrefs allowPhoneApps]) {
-            SCPLog("CarSplit: %@ khong co giao dien CarPlay -> chieu giao dien iPhone (SpringBoard)", bid);
-            [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-                postNotificationName:SCP_NOTIF_LAUNCH object:nil userInfo:@{@"identifier": bid, @"slot": @(slot)}];
-        } else {
-            SCPLog("CarSplit: %@ khong co giao dien CarPlay -> bo qua", bid);
-            [self toast:@"App này không hỗ trợ CarPlay"];
-        }
+        SCPLog("CarSplit: %@ khong co giao dien CarPlay -> bo qua", bid);
+        [self toast:@"App này không hỗ trợ CarPlay"];
         return;
     }
     BOOL wasActive = self.active;
@@ -1079,6 +1073,16 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     [UIView animateWithDuration:0.2 animations:^{ c.alpha = 0; } completion:^(BOOL f) { [c removeFromSuperview]; }];
     if (goHome) SCPCSendEvent(1, @"CarDuo: dong split");
     [self refreshAppTabSoon];   // DashBoard co the dang mo 1 app toan man -> hien tab
+}
+
+// Settings chi cho chon app ma CarPlay hien duoc (app CarPlay that va app CarBridge)
+- (void)publishCarPlayApps
+{
+    NSMutableArray *ids = [NSMutableArray array];
+    for (NSDictionary *a in SCPCCarPlayApps()) [ids addObject:a[@"id"]];
+    if (!ids.count) return;
+    [SCPPrefs setCarPlayApps:ids];
+    SCPLog("CarSplit: %lu app CarPlay cho Settings", (unsigned long)ids.count);
 }
 
 // DashBoard bi huy (ngat xe): bo trang thai, khong goi gi vao scene nua

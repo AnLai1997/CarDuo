@@ -2,8 +2,7 @@
 #import <Preferences/PSSpecifier.h>
 #import <UIKit/UIKit.h>
 #import <notify.h>
-
-#define SCP_DOMAIN @"com.anlai97.carduo"
+#import "SCPLang.h"
 
 // ---------------------------------------------------------------------
 //  SCPHeaderCell: the gradient card at the top of the settings page
@@ -75,7 +74,6 @@
     [_clip addSubview:_titleLabel2];
 
     _subtitleLabel = [[UILabel alloc] init];
-    _subtitleLabel.text = @"Hai app CarPlay trên một màn xe";
     _subtitleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     _subtitleLabel.textColor = [UIColor colorWithWhite:1 alpha:0.85];
     _subtitleLabel.adjustsFontSizeToFitWidth = YES;
@@ -131,7 +129,8 @@
     CFPropertyListRef v = CFPreferencesCopyAppValue(CFSTR("Enabled"), (__bridge CFStringRef)SCP_DOMAIN);
     id en = v ? CFBridgingRelease(v) : nil;
     BOOL on = en ? [en boolValue] : YES;
-    _statusLabel.text = on ? @"Đang bật · v0.3" : @"Đang tắt · v0.3";
+    _subtitleLabel.text = SCPL(@"Hai app CarPlay trên một màn xe", @"Two CarPlay apps on one car screen");
+    _statusLabel.text = on ? SCPL(@"Đang bật · v0.3", @"On · v0.3") : SCPL(@"Đang tắt · v0.3", @"Off · v0.3");
     _statusDot.backgroundColor = on ? [UIColor colorWithRed:0.45 green:0.95 blue:0.55 alpha:1]
                                     : [UIColor colorWithRed:1.00 green:0.55 blue:0.45 alpha:1];
     CGSize ts = [_statusLabel sizeThatFits:CGSizeMake(200, 22)];

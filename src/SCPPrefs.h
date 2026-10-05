@@ -15,7 +15,10 @@
 + (BOOL)testOnMainScreen;
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
-+ (BOOL)allowPhoneApps;        // app khong co CarPlay: cho chieu giao dien iPhone (mac dinh tat)
++ (BOOL)bootVideo;             // phat video khoi dong khi CarPlay mo (mac dinh bat)
++ (CGFloat)bootDuration;        // so giay phat video khoi dong
++ (NSArray<NSString *> *)carPlayApps;   // app CarPlay hien duoc (CarPlay process ghi lai)
++ (void)setCarPlayApps:(NSArray<NSString *> *)ids;
 
 // Cap app yeu thich 1..3: @{ @"name", @"left", @"right" } (nil neu chua dat)
 + (NSDictionary *)favorite:(NSInteger)index;

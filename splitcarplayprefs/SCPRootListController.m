@@ -1,7 +1,9 @@
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
 #import <notify.h>
-#import <dlfcn.h>
+#import <AVKit/AVKit.h>
+#import <AVFoundation/AVFoundation.h>
+#import "SCPLang.h"
 
 // Mau chu dao HarmonyOS
 #define SCP_ACCENT [UIColor colorWithRed:0.04 green:0.35 blue:0.97 alpha:1]
@@ -53,11 +55,10 @@ static NSDictionary *iconMap(void)
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         UIColor *blue = rgb(0x0A59F7), *green = rgb(0x41BA41), *orange = rgb(0xF97316), *red = rgb(0xE84026),
-                *teal = rgb(0x00B3C7), *indigo = rgb(0x5B5BF0), *purple = rgb(0xA855F7), *amber = rgb(0xF5A623),
+                *teal = rgb(0x00B3C7), *indigo = rgb(0x5B5BF0), *amber = rgb(0xF5A623),
                 *gray = rgb(0x8E8E93), *pink = rgb(0xEC4899);
         m = @{
             @"Enabled":          @[@"power", blue],
-            @"AllowPhoneApps":   @[@"iphone", orange],
             @"LeftApp":          @[@"rectangle.lefthalf.filled", teal],
             @"RightApp":         @[@"rectangle.righthalf.filled", indigo],
             @"AutoLaunch":       @[@"car.fill", green],
@@ -70,9 +71,8 @@ static NSDictionary *iconMap(void)
             @"Fav1Right":        @[@"rectangle.righthalf.filled", amber],
             @"Fav2Right":        @[@"rectangle.righthalf.filled", amber],
             @"Fav3Right":        @[@"rectangle.righthalf.filled", amber],
-            @"SplitDirection":   @[@"rectangle.split.2x1.fill", purple],
-            @"PaneOrientation":  @[@"rotate.right.fill", teal],
-            @"ScreenAspect":     @[@"aspectratio.fill", gray],
+            @"BootVideo":        @[@"play.rectangle.fill", orange],
+            @"previewBootVideo": @[@"eye.fill", indigo],
             @"MirrorRight":      @[@"rectangle.on.rectangle", pink],
             @"TestOnMainScreen": @[@"arrow.clockwise", gray],
             @"runTest":          @[@"play.fill", green],
@@ -88,25 +88,56 @@ static NSDictionary *iconMap(void)
 
 @implementation SCPRootListController
 
-// AltList cung cap ATLApplicationListSelectionController (chon app). Nap dong de khong can link luc build.
-+ (void)initialize
-{
-    if (self != [SCPRootListController class]) return;
-    if (!dlopen("/var/jb/Library/Frameworks/AltList.framework/AltList", RTLD_NOW)) {
-        dlopen("/Library/Frameworks/AltList.framework/AltList", RTLD_NOW);
-    }
-}
-
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     self.view.tintColor = SCP_ACCENT;
+    [self updateLanguageButton];
 }
 
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
     self.navigationController.navigationBar.tintColor = SCP_ACCENT;
+    // quay ve tu man chon app -> cap nhat ten app o cac dong chon app
+    for (PSSpecifier *sp in _specifiers) {
+        if ([[sp propertyForKey:@"cellClass"] isEqualToString:@"SCPAppLinkCell"]) [self reloadSpecifier:sp];
+    }
+}
+
+// ---- Ngon ngu: nut o goc trai (canh nut Back) ----
+- (void)updateLanguageButton
+{
+    BOOL en = SCPLangIsEN();
+    __weak SCPRootListController *weakSelf = self;
+    UIAction *vi = [UIAction actionWithTitle:@"Tiếng Việt" image:nil identifier:nil handler:^(UIAction *a) { [weakSelf setLanguage:@"vi"]; }];
+    UIAction *enA = [UIAction actionWithTitle:@"English" image:nil identifier:nil handler:^(UIAction *a) { [weakSelf setLanguage:@"en"]; }];
+    vi.state = en ? UIMenuElementStateOff : UIMenuElementStateOn;
+    enA.state = en ? UIMenuElementStateOn : UIMenuElementStateOff;
+    UIMenu *menu = [UIMenu menuWithTitle:SCPL(@"Ngôn ngữ", @"Language") children:@[vi, enA]];
+    // vien pill nhat: qua cau + "VI" / "EN", cham la hien menu
+    UIButtonConfiguration *cfg = [UIButtonConfiguration tintedButtonConfiguration];
+    cfg.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+    cfg.image = [UIImage systemImageNamed:@"globe" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIImageSymbolWeightSemibold]];
+    cfg.imagePadding = 4;
+    cfg.contentInsets = NSDirectionalEdgeInsetsMake(4, 10, 4, 10);
+    cfg.attributedTitle = [[NSAttributedString alloc] initWithString:en ? @"EN" : @"VI"
+                                                          attributes:@{NSFontAttributeName: [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold]}];
+    UIButton *b = [UIButton buttonWithConfiguration:cfg primaryAction:nil];
+    b.menu = menu;
+    b.showsMenuAsPrimaryAction = YES;
+    UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithCustomView:b];
+    self.navigationItem.leftItemsSupplementBackButton = YES;
+    self.navigationItem.leftBarButtonItem = item;
+}
+
+- (void)setLanguage:(NSString *)lang
+{
+    SCPSetPrefValue(@"Language", lang);
+    notify_post("com.anlai97.carduo.prefschanged");   // header / xem truoc ve lai chu
+    [self updateLanguageButton];
+    _specifiers = nil;
+    [self reloadSpecifiers];
 }
 
 // Cell co key "height" trong Root.plist (khung xem truoc, header)
@@ -147,7 +178,18 @@ static NSDictionary *iconMap(void)
 {
     if (!_specifiers) {
         _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+        BOOL en = SCPLangIsEN();
         for (PSSpecifier *sp in _specifiers) {
+            if (en) {
+                // Chuoi tieng Anh nam ngay trong Root.plist (labelEN / footerEN / titlesEN)
+                NSString *l = [sp propertyForKey:@"labelEN"];
+                if (l) sp.name = l;
+                NSString *f = [sp propertyForKey:@"footerEN"];
+                if (f) [sp setProperty:f forKey:@"footerText"];
+                NSArray *t = [sp propertyForKey:@"titlesEN"];
+                NSArray *v = [sp propertyForKey:@"validValues"];
+                if (t && v.count == t.count) [sp setValues:v titles:t];
+            }
             NSString *k = [sp propertyForKey:@"key"];
             if (!k) k = [sp propertyForKey:@"scpKey"];
             NSArray *ic = k ? iconMap()[k] : nil;
@@ -155,6 +197,26 @@ static NSDictionary *iconMap(void)
         }
     }
     return _specifiers;
+}
+
+// Xem thu video khoi dong ngay tren iPhone
+- (void)previewBootVideo
+{
+    NSString *path = nil;
+    for (NSString *p in @[@"/var/jb/Library/Application Support/CarDuo/boot.mp4", @"/Library/Application Support/CarDuo/boot.mp4"]) {
+        if ([[NSFileManager defaultManager] fileExistsAtPath:p]) { path = p; break; }
+    }
+    if (!path) {
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"CarDuo"
+                                                                   message:SCPL(@"Không tìm thấy video khởi động.", @"Startup video not found.")
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:a animated:YES completion:nil];
+        return;
+    }
+    AVPlayerViewController *pv = [AVPlayerViewController new];
+    pv.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
+    [self presentViewController:pv animated:YES completion:^{ [pv.player play]; }];
 }
 
 // Gui Darwin notification sang SpringBoard

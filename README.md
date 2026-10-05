@@ -72,7 +72,7 @@ rồi disassemble bằng capstone (Python) đọc thẳng các subcache theo b�
 - Hoặc cài WSL Ubuntu + Theos: `make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless`.
 
 ## Cài đặt trong app Settings
-Vào Cài đặt > CarDuo: bật/tắt, chọn app ngăn trái/phải (AltList), tự mở khi cắm xe,
+Vào Cài đặt > CarDuo: bật/tắt, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), video khởi động, tự mở khi cắm xe,
 kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
@@ -83,7 +83,7 @@ theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
 - Khi chỉ còn 1 app chiếm hết màn, hàng nút của tab "..." có thêm nút "chia đôi": app hiện tại về nửa trái,
   nửa phải hiện bảng chọn app để ghép cặp (Huỷ thì về lại toàn màn).
 Mục "Gỡ lỗi" có nút mở/đóng split ngay trên màn iPhone.
-Cần package `PreferenceLoader` và `AltList` (Sileo tự cài theo Depends).
+Cần package `PreferenceLoader` (Sileo tự cài theo Depends).
 
 ## Test ngay trên màn iPhone (chưa có xe, cách cũ qua SSH)
 Tạo file prefs qua SSH (đổi bundle id tuỳ ý, nên dùng app bên thứ ba):
