@@ -106,7 +106,10 @@ static NSDictionary *iconMap(void)
     self.navigationController.navigationBar.tintColor = SCP_ACCENT;
     // quay ve tu man chon app -> cap nhat ten app o cac dong chon app
     for (PSSpecifier *sp in _specifiers) {
-        if ([[sp propertyForKey:@"cellClass"] isEqualToString:@"SCPAppLinkCell"]) [self reloadSpecifier:sp];
+        // cellClass sau khi nap plist la Class (khong phai chuoi) -> so bang ten
+        id cc = [sp propertyForKey:@"cellClass"];
+        NSString *name = [cc isKindOfClass:[NSString class]] ? cc : (cc ? NSStringFromClass(cc) : nil);
+        if ([name isEqualToString:@"SCPAppLinkCell"]) [self reloadSpecifier:sp];
     }
 }
 

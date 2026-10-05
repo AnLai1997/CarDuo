@@ -15,12 +15,14 @@ static inline NSString *SCPL(NSString *vi, NSString *en) { return SCPLangIsEN() 
 
 static inline id SCPPrefValue(NSString *key)
 {
+    if (![key isKindOfClass:[NSString class]]) return nil;
     CFPropertyListRef v = CFPreferencesCopyAppValue((__bridge CFStringRef)key, (__bridge CFStringRef)SCP_DOMAIN);
     return v ? CFBridgingRelease(v) : nil;
 }
 
 static inline void SCPSetPrefValue(NSString *key, id value)
 {
+    if (![key isKindOfClass:[NSString class]]) return;
     CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)value, (__bridge CFStringRef)SCP_DOMAIN);
     CFPreferencesAppSynchronize((__bridge CFStringRef)SCP_DOMAIN);
 }
