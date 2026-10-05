@@ -15,8 +15,6 @@
 + (BOOL)testOnMainScreen;
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
-+ (NSInteger)speedBubbleStyle;  // 0 Vietmap, 1 Toi gian, 2 Bien bao, 3 Dong ho, 4 HUD, 5 Mau toc do
-+ (BOOL)speedBubble;           // bong bong toc do tu Vietmap Live khi app khong hien
 + (BOOL)allowPhoneApps;        // app khong co CarPlay: cho chieu giao dien iPhone (mac dinh tat)
 
 // Cap app yeu thich 1..3: @{ @"name", @"left", @"right" } (nil neu chua dat)

@@ -1,5 +1,4 @@
 #import "SCPSplitWindow.h"
-#import "SCPSpeedBubble.h"
 #import "SCPPrefs.h"
 #import "SCPCarSplit.h"
 
@@ -1025,7 +1024,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
     if (self.demoDock) { [self.rootWindow bringSubviewToFront:self.demoDock]; if (!live) [self updateDemoDock]; }
     if (self.demoExitButton.superview == self.rootWindow) [self.rootWindow bringSubviewToFront:self.demoExitButton];
-    if (!live) [[SCPSpeedBubble shared] refresh];   // Vietmap vua hien/an trong ngan -> an/hien bong bong
     [self updatePaneActionStates];
 }
 

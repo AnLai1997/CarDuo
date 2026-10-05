@@ -690,7 +690,6 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     }
     [self raise];
     [self relayoutAnimated:YES];
-    [self postState];
     // App iPhone qua CarBridge: scene DashBoard rong -> nho CarBridge chieu app vao dung ngan nay
     if (SCPCIsBridgedApp(bid)) {
         __weak SCPCarSplit *weakSelf = self;
@@ -888,7 +887,6 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 {
     self.fullscreenSlot = (self.fullscreenSlot == slot) ? -1 : slot;
     [self relayoutAnimated:YES];
-    [self postState];
 }
 
 // ---------------------------------------------------------------------
@@ -908,7 +906,6 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     if (!other.vc && !other.picker) { [self closeGoingHome:YES]; return; }
     SCPLog("CarSplit: dong ngan %d (%@)", slot, bid);
     [self relayoutAnimated:YES];
-    [self postState];
 
     // Workspace cua DashBoard van coi app vua dong la app chinh -> chuyen sang app con lai cho khop
     NSString *activeBase = objcInvoke(objcInvoke(SCPCDashboard(), @"workspaceOwner"), @"activeBaseApplicationBundleID");
@@ -946,7 +943,6 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     UIView *c = self.container;
     self.container = nil; self.slots = nil; self.divider = nil; self.knob = nil;
     [UIView animateWithDuration:0.2 animations:^{ c.alpha = 0; } completion:^(BOOL f) { [c removeFromSuperview]; }];
-    [self postState];
     if (goHome) SCPCSendEvent(1, @"CarDuo: dong split");
     [self refreshAppTabSoon];   // DashBoard co the dang mo 1 app toan man -> hien tab
 }
@@ -964,20 +960,6 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     [self.menuTimer invalidate]; self.menuTimer = nil;
     [self.container removeFromSuperview];
     self.container = nil; self.slots = nil; self.divider = nil; self.knob = nil; self.menu = nil;
-    [self postState];
-}
-
-// Bao SpringBoard app nao dang hien trong ngan CarPlay (bong bong toc do tu an khi Vietmap dang hien)
-- (void)postState
-{
-    NSMutableArray *visible = [NSMutableArray array];
-    for (SCPCarPane *p in self.slots) {
-        if (!self.active || !p.vc || !p.bundleID) continue;
-        if (self.fullscreenSlot >= 0 && self.fullscreenSlot != p.slot) continue;
-        [visible addObject:p.bundleID];
-    }
-    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
-        postNotificationName:SCP_NOTIF_NATIVE_STATE object:nil userInfo:@{@"bundles": visible}];
 }
 
 // ---------------------------------------------------------------------

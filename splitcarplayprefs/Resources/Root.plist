@@ -93,50 +93,6 @@
 
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>BONG BÓNG TỐC ĐỘ</string>
-			<key>footerText</key><string>Khi Vietmap Live đang chạy nhưng không hiện trong ngăn nào (bị che hoặc đã đóng ngăn mà app vẫn chạy ngầm), hiện bong bóng nhỏ trên màn xe với tốc độ hiện tại và biển giới hạn. Kéo được. Tự ẩn khi Vietmap hiện lại hoặc không có dữ liệu.</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>Bong bóng tốc độ (Vietmap Live)</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>SpeedBubble</string>
-			<key>default</key><true/>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSLinkListCell</string>
-			<key>detail</key><string>PSListItemsController</string>
-			<key>label</key><string>Kiểu hiển thị</string>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>key</key><string>SpeedBubbleStyle</string>
-			<key>default</key><integer>0</integer>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-			<key>validValues</key>
-			<array><integer>0</integer><integer>1</integer><integer>2</integer><integer>3</integer><integer>4</integer><integer>5</integer></array>
-			<key>validTitles</key>
-			<array>
-				<string>Vietmap (2 vòng tròn)</string>
-				<string>Tối giản (số lớn + biển nhỏ)</string>
-				<string>Biển báo (biển lớn, tốc độ ở góc)</string>
-				<string>Đồng hồ (vòng cung)</string>
-				<string>Thanh HUD (thanh ngang)</string>
-				<string>Màu theo tốc độ (xanh / cam / đỏ)</string>
-			</array>
-			<key>shortTitles</key>
-			<array>
-				<string>Vietmap</string><string>Tối giản</string><string>Biển báo</string>
-				<string>Đồng hồ</string><string>Thanh HUD</string><string>Màu tốc độ</string>
-			</array>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSButtonCell</string>
-			<key>label</key><string>Xem thử bong bóng (10 giây)</string>
-			<key>action</key><string>bubbleDemo</string>
-		</dict>
-
-		<dict>
-			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>CẶP APP YÊU THÍCH</string>
 			<key>footerText</key><string>Hiện thành nút 1, 2, 3 trong dấu "..." của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1</string>
 		</dict>

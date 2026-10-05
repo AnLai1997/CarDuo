@@ -40,11 +40,6 @@
     notify_post("com.anlai97.carduo.test");
 }
 
-- (void)bubbleDemo
-{
-    notify_post("com.anlai97.carduo.bubbledemo");
-}
-
 - (void)closeSplit
 {
     notify_post("com.anlai97.carduo.close");

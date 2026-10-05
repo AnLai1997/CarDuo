@@ -1,7 +1,6 @@
 #import "../common.h"
 #import "../SCPSplitWindow.h"
 #import "../SCPPrefs.h"
-#import "../SCPSpeedBubble.h"
 #import "../SCPCarSplit.h"
 #import <notify.h>
 
@@ -9,7 +8,6 @@
 #define SCP_DARWIN_CLOSE    "com.anlai97.carduo.close"     // nut "Dong split"
 #define SCP_DARWIN_CLEARLOG "com.anlai97.carduo.clearlog"
 #define SCP_DARWIN_OPEN     "com.anlai97.carduo.open"      // tu app URL scheme (Shortcuts / Siri)
-#define SCP_DARWIN_BUBBLE   "com.anlai97.carduo.bubbledemo" // Cai dat: xem thu bong bong toc do
 
 // Dat CBWindow cua CarBridge (SpringBoard) = khung ngan split CarPlay. w = 0 -> an cua so (ngan dang an).
 static void SCPApplyCarBridgeFrame(CGRect r, NSString *bid, int attempt)
@@ -143,13 +141,6 @@ static void SCPHandlePendingRequest(void)
         }
     }];
 
-    // Process CarPlay bao app nao dang hien trong ngan split CarPlay -> bong bong toc do
-    [dnc addObserverForName:SCP_NOTIF_NATIVE_STATE object:nil queue:[NSOperationQueue mainQueue]
-                 usingBlock:^(NSNotification *note) {
-        NSArray *bundles = note.userInfo[@"bundles"];
-        [[SCPSpeedBubble shared] setNativeVisibleBundles:[bundles isKindOfClass:[NSArray class]] ? bundles : @[]];
-    }];
-
     // Process CarPlay: dat cua so CarBridge (CBWindow) dung khung ngan split. CBWindow chi co khi CarBridge
     // dang chieu -> thu lai vai lan neu chua co.
     [dnc addObserverForName:SCP_NOTIF_CBFRAME object:nil queue:[NSOperationQueue mainQueue]
@@ -167,17 +158,7 @@ static void SCPHandlePendingRequest(void)
     }];
 
     // Settings / app URL -> Darwin notification
-    int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0, tokOrient = 0, tokSpeed = 0, tokBubble = 0;
-    notify_register_dispatch(SCP_DARWIN_BUBBLE, &tokBubble, dispatch_get_main_queue(), ^(int t) { [[SCPSpeedBubble shared] runDemo]; });
-    // Doi kieu bong bong trong Cai dat -> ve lai ngay
-    int tokPrefs = 0;
-    notify_register_dispatch("com.anlai97.carduo.prefschanged", &tokPrefs, dispatch_get_main_queue(), ^(int t) { [[SCPSpeedBubble shared] refresh]; });
-    // Vietmap Live gui toc do + gioi han -> bong bong
-    notify_register_dispatch(SCP_DARWIN_SPEED, &tokSpeed, dispatch_get_main_queue(), ^(int t) {
-        uint64_t state = 0; notify_get_state(t, &state);
-        int flags = (int)((state >> 16) & 0xFF), speed = (int)((state >> 8) & 0xFF), limit = (int)(state & 0xFF);
-        [[SCPSpeedBubble shared] updateSpeed:((flags & 1) ? speed : -1) limit:((flags & 2) ? limit : -1) appForeground:(flags & 4) != 0];
-    });
+    int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0, tokOrient = 0;
     // App dang host vua doi yeu cau xoay (YouTube fullscreen) -> lay lai scene settings cua ngan do
     notify_register_dispatch(SCP_DARWIN_APP_ORIENT, &tokOrient, dispatch_get_main_queue(), ^(int t) {
         uint64_t state = 0; notify_get_state(t, &state);
@@ -189,7 +170,6 @@ static void SCPHandlePendingRequest(void)
     notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) {
         [[SCPSplitWindow current] dismiss];
         if (SCPGetCarPlayCADisplay()) SCPPostNative(@{@"action": @"close"});
-        [[SCPSpeedBubble shared] refresh];
     });
     notify_register_dispatch(SCP_DARWIN_CLEARLOG, &tokClear, dispatch_get_main_queue(), ^(int t) { SCPLogClear(); SCPLog("log cleared"); });
     notify_register_dispatch(SCP_DARWIN_OPEN,  &tokOpen,  dispatch_get_main_queue(), ^(int t) { SCPHandlePendingRequest(); });

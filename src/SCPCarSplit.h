@@ -14,8 +14,6 @@
 // SpringBoard / Settings -> CarPlay process: mo split CarPlay
 // userInfo: action = open | pair | picker | close | fav ; identifier, slot, left, right, index
 #define SCP_NOTIF_NATIVE        @"com.anlai97.carduo.native"
-// CarPlay process -> SpringBoard: danh sach app dang hien trong ngan CarPlay (cho bong bong toc do)
-#define SCP_NOTIF_NATIVE_STATE  @"com.anlai97.carduo.nativestate"
 // CarPlay process -> SpringBoard: dat khung CBWindow cua CarBridge = khung ngan (identifier, x, y, w, h; w=0 -> an)
 #define SCP_NOTIF_CBFRAME       @"com.anlai97.carduo.cbframe"
 
