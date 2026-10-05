@@ -5,6 +5,11 @@
 #import <AVFoundation/AVFoundation.h>
 #import "SCPLang.h"
 
+// Co san luc chay nhung header Theos khong khai bao
+@interface PSSpecifier (SCPPrivate)
+- (void)setValues:(NSArray *)values titles:(NSArray *)titles;
+@end
+
 // Mau chu dao HarmonyOS
 #define SCP_ACCENT [UIColor colorWithRed:0.04 green:0.35 blue:0.97 alpha:1]
 
@@ -188,7 +193,7 @@ static NSDictionary *iconMap(void)
                 if (f) [sp setProperty:f forKey:@"footerText"];
                 NSArray *t = [sp propertyForKey:@"titlesEN"];
                 NSArray *v = [sp propertyForKey:@"validValues"];
-                if (t && v.count == t.count) [sp setValues:v titles:t];
+                if (t && v.count == t.count && [sp respondsToSelector:@selector(setValues:titles:)]) [sp setValues:v titles:t];
             }
             NSString *k = [sp propertyForKey:@"key"];
             if (!k) k = [sp propertyForKey:@"scpKey"];

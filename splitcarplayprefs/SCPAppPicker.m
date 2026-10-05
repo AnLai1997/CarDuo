@@ -8,6 +8,10 @@
 #import <notify.h>
 #import "SCPLang.h"
 
+@interface PSViewController (SCPPicker)
+- (PSSpecifier *)specifier;
+@end
+
 @interface UIImage (SCPPickerPrivate)
 + (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bid format:(int)format scale:(double)scale;
 @end
