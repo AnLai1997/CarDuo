@@ -77,6 +77,7 @@ static NSDictionary *iconMap(void)
             @"Fav2Right":        @[@"rectangle.righthalf.filled", amber],
             @"Fav3Right":        @[@"rectangle.righthalf.filled", amber],
             @"BootVideo":        @[@"play.rectangle.fill", orange],
+            @"BootSound":        @[@"speaker.wave.2.fill", indigo],
             @"previewBootVideo": @[@"eye.fill", indigo],
             @"MirrorRight":      @[@"rectangle.on.rectangle", pink],
             @"TestOnMainScreen": @[@"arrow.clockwise", gray],
@@ -113,7 +114,7 @@ static NSDictionary *iconMap(void)
     }
 }
 
-// ---- Ngon ngu: nut o goc trai (canh nut Back) ----
+// ---- Ngon ngu: nut o goc phai thanh dieu huong ----
 - (void)updateLanguageButton
 {
     BOOL en = SCPLangIsEN();
@@ -135,8 +136,7 @@ static NSDictionary *iconMap(void)
     b.menu = menu;
     b.showsMenuAsPrimaryAction = YES;
     UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithCustomView:b];
-    self.navigationItem.leftItemsSupplementBackButton = YES;
-    self.navigationItem.leftBarButtonItem = item;
+    self.navigationItem.rightBarButtonItem = item;
 }
 
 - (void)setLanguage:(NSString *)lang
@@ -222,6 +222,8 @@ static NSDictionary *iconMap(void)
         [self presentViewController:a animated:YES completion:nil];
         return;
     }
+    // phat co tieng ca khi gat im lang
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
     AVPlayerViewController *pv = [AVPlayerViewController new];
     pv.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
     [self presentViewController:pv animated:YES completion:^{ [pv.player play]; }];

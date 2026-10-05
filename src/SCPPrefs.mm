@@ -56,11 +56,19 @@ static NSString *str(NSString *key)
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
 + (BOOL)bootVideo          { id v = value(@"BootVideo");        return v ? [v boolValue] : YES; }
 + (CGFloat)bootDuration    { id v = value(@"BootDuration");     return v ? MIN(15, MAX(1, [v doubleValue])) : 4; }
++ (BOOL)bootSound          { id v = value(@"BootSound");        return v ? [v boolValue] : YES; }
 + (NSArray<NSString *> *)carPlayApps { id v = value(@"CarPlayApps"); return [v isKindOfClass:[NSArray class]] ? v : nil; }
 + (void)setCarPlayApps:(NSArray<NSString *> *)ids
 {
     if ([[self carPlayApps] isEqualToArray:ids]) return;
     [defaults() setObject:ids forKey:@"CarPlayApps"];
+    [defaults() synchronize];
+}
++ (void)setCarBridgeApps:(NSArray<NSString *> *)ids
+{
+    id old = value(@"CarBridgeApps");
+    if ([old isKindOfClass:[NSArray class]] && [old isEqualToArray:ids]) return;
+    [defaults() setObject:ids forKey:@"CarBridgeApps"];
     [defaults() synchronize];
 }
 

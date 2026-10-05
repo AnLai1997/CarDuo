@@ -55,6 +55,55 @@ static NSArray<NSString *> *SCPGuessCarPlayApps(void)
     return out;
 }
 
+// App bat trong CarBridge: CarBridge luu cau hinh trong 1 file plist co "carbridge" trong ten.
+// Khong biet chinh xac dinh dang -> lay moi chuoi la bundle id cua app da cai (khoa co gia tri bat, hoac phan tu mang).
+static void SCPCollectBundleIDs(id obj, NSSet *installed, NSMutableOrderedSet *out, int depth)
+{
+    if (depth > 6 || !obj) return;
+    if ([obj isKindOfClass:[NSString class]]) {
+        if ([installed containsObject:obj]) [out addObject:obj];
+    } else if ([obj isKindOfClass:[NSArray class]]) {
+        for (id o in obj) SCPCollectBundleIDs(o, installed, out, depth + 1);
+    } else if ([obj isKindOfClass:[NSDictionary class]]) {
+        [obj enumerateKeysAndObjectsUsingBlock:^(id k, id v, BOOL *stop) {
+            BOOL off = [v isKindOfClass:[NSNumber class]] && ![v boolValue];
+            if (!off) SCPCollectBundleIDs(k, installed, out, depth + 1);
+            SCPCollectBundleIDs(v, installed, out, depth + 1);
+        }];
+    }
+}
+
+static NSArray<NSString *> *SCPCarBridgeApps(void)
+{
+    NSMutableSet *installed = [NSMutableSet set];
+    Class WS = objc_getClass("LSApplicationWorkspace");
+    id ws = WS ? ((id (*)(id, SEL))objc_msgSend)(WS, NSSelectorFromString(@"defaultWorkspace")) : nil;
+    NSArray *all = ws ? ((id (*)(id, SEL))objc_msgSend)(ws, NSSelectorFromString(@"allInstalledApplications")) : nil;
+    for (id proxy in all) {
+        NSString *bid = ((id (*)(id, SEL))objc_msgSend)(proxy, NSSelectorFromString(@"bundleIdentifier"));
+        if (bid.length) [installed addObject:bid];
+    }
+    NSMutableOrderedSet *out = [NSMutableOrderedSet orderedSet];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *dir in @[@"/var/mobile/Library/Preferences", @"/var/jb/var/mobile/Library/Preferences"]) {
+        for (NSString *f in [fm contentsOfDirectoryAtPath:dir error:nil]) {
+            if (![f.lowercaseString containsString:@"carbridge"] || ![f hasSuffix:@".plist"]) continue;
+            NSDictionary *d = [NSDictionary dictionaryWithContentsOfFile:[dir stringByAppendingPathComponent:f]];
+            if (!d) {
+                // cfprefsd co the chua ghi file -> doc qua CFPreferences theo ten domain
+                NSString *dom = [f stringByDeletingPathExtension];
+                CFArrayRef keys = CFPreferencesCopyKeyList((__bridge CFStringRef)dom, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+                if (keys) {
+                    d = CFBridgingRelease(CFPreferencesCopyMultiple(keys, (__bridge CFStringRef)dom, kCFPreferencesCurrentUser, kCFPreferencesAnyHost));
+                    CFRelease(keys);
+                }
+            }
+            SCPCollectBundleIDs(d, installed, out, 0);
+        }
+    }
+    return out.array;
+}
+
 // ---------------------------------------------------------------------
 //  SCPAppLinkCell: dong "Ngan trai: Vietmap >" (ten app dang chon o ben phai)
 // ---------------------------------------------------------------------
@@ -84,8 +133,8 @@ static NSArray<NSString *> *SCPGuessCarPlayApps(void)
 // ---------------------------------------------------------------------
 @interface SCPAppPickerController : PSViewController <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) UITableView *table;
-@property (nonatomic, strong) NSArray<NSDictionary *> *apps;   // @{id, name}
-@property (nonatomic, readwrite) BOOL fromCar;                // danh sach do CarPlay ghi (co ca CarBridge)
+@property (nonatomic, strong) NSArray<NSDictionary *> *carPlayApps, *bridgeApps;   // @{id, name}
+@property (nonatomic, readwrite) BOOL fromCar;   // da co danh sach do CarPlay ghi lai (da cam xe)
 @end
 
 @implementation SCPAppPickerController
@@ -99,24 +148,37 @@ static NSArray<NSString *> *SCPGuessCarPlayApps(void)
     self.view = _table;
 }
 
+static NSArray<NSDictionary *> *SCPAppRows(NSArray *ids, NSMutableSet *seen)
+{
+    NSMutableArray *rows = [NSMutableArray array];
+    for (NSString *bid in ids) {
+        if (![bid isKindOfClass:[NSString class]] || [seen containsObject:bid]) continue;
+        [seen addObject:bid];
+        [rows addObject:@{@"id": bid, @"name": SCPAppName(bid)}];
+    }
+    [rows sortUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES selector:@selector(localizedCaseInsensitiveCompare:)]]];
+    return rows;
+}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     self.title = self.specifier.name;
     self.view.tintColor = [UIColor colorWithRed:0.04 green:0.35 blue:0.97 alpha:1];
 
-    NSArray *ids = SCPPrefValue(@"CarPlayApps");
-    _fromCar = [ids isKindOfClass:[NSArray class]] && ids.count;
-    if (!_fromCar) ids = SCPGuessCarPlayApps();
-    NSMutableArray *apps = [NSMutableArray array];
+    // CarBridge: danh sach CarPlay ghi lai (chinh xac) + doc thang cau hinh CarBridge (chua cam xe van co)
+    NSArray *carIDs = SCPPrefValue(@"CarPlayApps"), *carBridge = SCPPrefValue(@"CarBridgeApps");
+    _fromCar = [carIDs isKindOfClass:[NSArray class]] && carIDs.count;
+    NSMutableArray *bridge = [NSMutableArray array];
+    if ([carBridge isKindOfClass:[NSArray class]]) [bridge addObjectsFromArray:carBridge];
+    [bridge addObjectsFromArray:SCPCarBridgeApps()];
     NSMutableSet *seen = [NSMutableSet set];
-    for (NSString *bid in ids) {
-        if (![bid isKindOfClass:[NSString class]] || [seen containsObject:bid]) continue;
-        [seen addObject:bid];
-        [apps addObject:@{@"id": bid, @"name": SCPAppName(bid)}];
-    }
-    [apps sortUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES selector:@selector(localizedCaseInsensitiveCompare:)]]];
-    _apps = apps;
+    _bridgeApps = SCPAppRows(bridge, seen);
+
+    NSMutableArray *native = [NSMutableArray array];
+    if (_fromCar) [native addObjectsFromArray:carIDs];
+    [native addObjectsFromArray:SCPGuessCarPlayApps()];
+    _carPlayApps = SCPAppRows(native, seen);
 }
 
 - (NSString *)currentValue
@@ -125,26 +187,33 @@ static NSArray<NSString *> *SCPGuessCarPlayApps(void)
     return [v isKindOfClass:[NSString class]] ? v : nil;
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 2; }
+- (NSArray<NSDictionary *> *)rowsInSection:(NSInteger)s { return s == 1 ? _carPlayApps : _bridgeApps; }
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 3; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? 1 : _apps.count;
+    return section == 0 ? 1 : [self rowsInSection:section].count;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section
 {
-    return section == 1 ? SCPL(@"APP TRÊN CARPLAY", @"APPS ON CARPLAY") : nil;
+    if (section == 1) return SCPL(@"APP CARPLAY", @"CARPLAY APPS");
+    if (section == 2) return SCPL(@"APP CARBRIDGE", @"CARBRIDGE APPS");
+    return nil;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section
 {
-    if (section != 1) return nil;
-    return _fromCar
-        ? SCPL(@"Chỉ hiện app có trên màn CarPlay (app CarPlay và app CarBridge). Danh sách cập nhật mỗi lần cắm xe.",
-               @"Only apps shown on the CarPlay screen (CarPlay apps and CarBridge apps). The list refreshes each time you connect.")
-        : SCPL(@"Chưa cắm xe lần nào: đang tạm liệt kê app có hỗ trợ CarPlay. Sau lần cắm xe đầu tiên sẽ có thêm app CarBridge.",
-               @"Not connected to a car yet: showing apps with CarPlay support. CarBridge apps appear after the first connection.");
+    if (section == 1 && !_fromCar)
+        return SCPL(@"Chưa cắm xe lần nào: đang liệt kê app có hỗ trợ CarPlay. Danh sách chính xác cập nhật mỗi lần cắm xe.",
+                    @"Not connected to a car yet: showing apps with CarPlay support. The exact list refreshes each time you connect.");
+    if (section == 2)
+        return _bridgeApps.count
+            ? SCPL(@"App iPhone được bật trong CarBridge.", @"iPhone apps enabled in CarBridge.")
+            : SCPL(@"Không thấy app CarBridge nào. Bật app trong CarBridge rồi cắm xe một lần để cập nhật.",
+                   @"No CarBridge apps found. Enable apps in CarBridge, then connect to the car once to refresh.");
+    return nil;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip
@@ -161,7 +230,7 @@ static NSArray<NSString *> *SCPGuessCarPlayApps(void)
         c.accessoryType = cur ? UITableViewCellAccessoryNone : UITableViewCellAccessoryCheckmark;
         return c;
     }
-    NSDictionary *a = _apps[ip.row];
+    NSDictionary *a = [self rowsInSection:ip.section][ip.row];
     c.textLabel.text = a[@"name"];
     c.detailTextLabel.text = a[@"id"];
     c.detailTextLabel.textColor = [UIColor secondaryLabelColor];
@@ -182,11 +251,12 @@ static NSArray<NSString *> *SCPGuessCarPlayApps(void)
 {
     [tv deselectRowAtIndexPath:ip animated:YES];
     NSString *key = [self.specifier propertyForKey:@"key"];
+    if (![key isKindOfClass:[NSString class]]) return;
     if (ip.section == 0) {
         CFPreferencesSetAppValue((__bridge CFStringRef)key, NULL, (__bridge CFStringRef)SCP_DOMAIN);
         CFPreferencesAppSynchronize((__bridge CFStringRef)SCP_DOMAIN);
     } else {
-        SCPSetPrefValue(key, _apps[ip.row][@"id"]);
+        SCPSetPrefValue(key, [self rowsInSection:ip.section][ip.row][@"id"]);
     }
     notify_post("com.anlai97.carduo.prefschanged");
     [tv reloadData];

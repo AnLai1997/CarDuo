@@ -387,7 +387,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     return self;
 }
 
-- (BOOL)isCarPlayApp:(NSString *)bundleID { return SCPCInfoIsCarPlayApp(SCPCAppInfo(bundleID)); }
+- (BOOL)isCarPlayApp:(NSString *)bundleID { return SCPCInfoIsCarPlayApp(SCPCAppInfo(bundleID)) || SCPCIsBridgedApp(bundleID); }
 
 - (NSString *)displayNameFor:(NSString *)bid
 {
@@ -1078,11 +1078,20 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 // Settings chi cho chon app ma CarPlay hien duoc (app CarPlay that va app CarBridge)
 - (void)publishCarPlayApps
 {
-    NSMutableArray *ids = [NSMutableArray array];
-    for (NSDictionary *a in SCPCCarPlayApps()) [ids addObject:a[@"id"]];
-    if (!ids.count) return;
-    [SCPPrefs setCarPlayApps:ids];
-    SCPLog("CarSplit: %lu app CarPlay cho Settings", (unsigned long)ids.count);
+    NSMutableArray *ids = [NSMutableArray array], *bridged = [NSMutableArray array];
+    for (NSDictionary *a in SCPCCarPlayApps()) {
+        if (SCPCIsBridgedApp(a[@"id"])) [bridged addObject:a[@"id"]]; else [ids addObject:a[@"id"]];
+    }
+    // App CarBridge co the khong nam trong thu vien app cua DashBoard -> hoi thang CarBridge
+    Class ws = objc_getClass("LSApplicationWorkspace");
+    NSArray *all = ws ? objcInvoke(objcInvoke(ws, @"defaultWorkspace"), @"allInstalledApplications") : nil;
+    for (id proxy in all) {
+        NSString *bid = objcInvoke(proxy, @"bundleIdentifier");
+        if (bid.length && ![bridged containsObject:bid] && SCPCIsBridgedApp(bid)) [bridged addObject:bid];
+    }
+    if (ids.count) [SCPPrefs setCarPlayApps:ids];
+    [SCPPrefs setCarBridgeApps:bridged];
+    SCPLog("CarSplit: %lu app CarPlay + %lu app CarBridge cho Settings: %@", (unsigned long)ids.count, (unsigned long)bridged.count, bridged);
 }
 
 // DashBoard bi huy (ngat xe): bo trang thai, khong goi gi vao scene nua

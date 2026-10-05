@@ -12,6 +12,7 @@ static UIWindow *sBootWindow;
 static AVPlayer *sBootPlayer;
 static BOOL sBootShown;   // da phat cho lan ket noi nay
 static id sBootEndObserver;
+static BOOL sBootAudio;   // da lay audio session -> phai tra lai
 
 NSString *SCPBootVideoPath(void)
 {
@@ -30,11 +31,17 @@ static void SCPBootFinish(void)
     sBootWindow = nil;
     if (sBootEndObserver) [[NSNotificationCenter defaultCenter] removeObserver:sBootEndObserver];
     sBootEndObserver = nil;
+    // nho dan tieng cung luc mo dan hinh
+    for (int i = 1; i <= 5; i++) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(i * 0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ player.volume = MAX(0, 1 - i * 0.2); });
+    }
     [UIView animateWithDuration:0.45 animations:^{
         w.alpha = 0;
         w.transform = CGAffineTransformMakeScale(1.04, 1.04);
     } completion:^(BOOL done) {
         [player pause];
+        if (sBootAudio) [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+        sBootAudio = NO;
         if (sBootPlayer == player) sBootPlayer = nil;
         w.hidden = YES;
     }];
@@ -70,7 +77,18 @@ void SCPBootShowIfNeeded(UIViewController *root)
     w.rootViewController = vc;
 
     sBootPlayer = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
-    sBootPlayer.muted = YES;   // khong chiem am thanh cua xe
+    // Co tieng: lay audio session (nhac dang phat tren xe duoc giam nho), xong thi tra lai
+    BOOL sound = [SCPPrefs bootSound];
+    sBootPlayer.muted = !sound;
+    if (sound) {
+        NSError *err = nil;
+        AVAudioSession *as = [AVAudioSession sharedInstance];
+        [as setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeMoviePlayback
+                options:AVAudioSessionCategoryOptionDuckOthers error:&err];
+        [as setActive:YES error:&err];
+        sBootAudio = !err;
+        if (err) SCPLog("Boot: audio session loi %@", err);
+    }
     // nen: video phong kin man + mo
     [vc.view.layer addSublayer:SCPBootLayer(sBootPlayer, AVLayerVideoGravityResizeAspectFill, b)];
     UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];

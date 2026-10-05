@@ -129,8 +129,8 @@
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>Khởi động CarPlay</string>
 			<key>labelEN</key><string>CarPlay startup</string>
-			<key>footerText</key><string>Khi cắm xe, video khởi động phát trên màn xe trong số giây đã chọn (không có tiếng) rồi mới vào màn hình chính.</string>
-			<key>footerEN</key><string>When you connect, the startup video plays on the car screen (muted) for the chosen time before the home screen appears.</string>
+			<key>footerText</key><string>Khi cắm xe, video khởi động phát trên màn xe trong số giây đã chọn rồi mới vào màn hình chính.</string>
+			<key>footerEN</key><string>When you connect, the startup video plays on the car screen for the chosen time before the home screen appears.</string>
 		</dict>
 		<dict>
 			<key>cell</key><string>PSSwitchCell</string>
@@ -138,6 +138,15 @@
 			<key>labelEN</key><string>Startup video</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>key</key><string>BootVideo</string>
+			<key>default</key><true/>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSSwitchCell</string>
+			<key>label</key><string>Âm thanh video</string>
+			<key>labelEN</key><string>Video sound</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>key</key><string>BootSound</string>
 			<key>default</key><true/>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
