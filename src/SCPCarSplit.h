@@ -35,7 +35,8 @@
 - (BOOL)wantsViewController:(UIViewController *)vc;
 - (void)adoptViewController:(UIViewController *)vc;
 - (BOOL)protectsViewController:(id)vc;
-- (void)sceneDestroyedForViewController:(id)vc;
+- (id)sceneOfViewController:(id)vc;
+- (void)scene:(id)scene destroyedForViewController:(id)vc ownScene:(id)own;
 - (void)rootDidLayout;                  // DBDashboardRootViewController viewDidLayoutSubviews
 - (void)dashboardInvalidated;           // ngat xe
 - (void)refreshAppTabSoon;              // DashBoard vua mo / dong app toan man -> hien / an tab icon

@@ -136,8 +136,9 @@
 
 - (void)sceneManager:(id)manager didDestroyScene:(id)scene
 {
+    id own = [[SCPCarSplit shared] sceneOfViewController:self];   // lay truoc %orig (co the bi xoa)
     %orig;
-    [[SCPCarSplit shared] sceneDestroyedForViewController:self];
+    [[SCPCarSplit shared] scene:scene destroyedForViewController:self ownScene:own];
 }
 
 %end

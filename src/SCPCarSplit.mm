@@ -851,13 +851,34 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     return NO;
 }
 
-- (void)sceneDestroyedForViewController:(id)vc
+static id SCPCSceneOf(UIViewController *vc);
+
+- (id)sceneOfViewController:(id)vc
+{
+    return [vc isKindOfClass:[UIViewController class]] ? SCPCSceneOf(vc) : nil;
+}
+
+static NSString *SCPCSceneID(id scene)
+{
+    @try { return [scene respondsToSelector:NSSelectorFromString(@"identifier")] ? objcInvoke(scene, @"identifier") : nil; }
+    @catch (NSException *e) { return nil; }
+}
+
+// DashBoard bao didDestroyScene cho MOI VC dang nghe, ke ca scene cua app khac (vd mo GOFA huy scene cu
+// cua no -> ca 2 ngan bi dong) -> chi dong ngan khi dung la scene cua VC trong ngan.
+- (void)scene:(id)scene destroyedForViewController:(id)vc ownScene:(id)own
 {
     for (SCPCarPane *p in self.slots) {
         if (p.vc != vc) continue;
+        NSString *sid = SCPCSceneID(scene), *oid = SCPCSceneID(own);
+        BOOL mine = own && (own == scene || (sid && [sid isEqualToString:oid]));
+        if (!mine) {
+            SCPLog("CarSplit: scene %@ bi huy khong phai cua %@ (%@) -> giu ngan %d", sid ?: scene, p.bundleID, oid ?: @"?", p.slot);
+            continue;
+        }
         SCPLog("CarSplit: scene cua %@ bi huy (app thoat/crash) -> dong ngan %d", p.bundleID, p.slot);
         int slot = p.slot;
-        dispatch_async(dispatch_get_main_queue(), ^{ [self closeSlot:slot background:NO]; });
+        dispatch_async(dispatch_get_main_queue(), ^{ if (self.slots[slot].vc == vc) [self closeSlot:slot background:NO]; });
     }
 }
 
