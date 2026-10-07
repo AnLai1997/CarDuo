@@ -16,6 +16,8 @@
 #define SCP_NOTIF_NATIVE        @"com.anlai97.carduo.native"
 // CarPlay process -> SpringBoard: dat khung CBWindow cua CarBridge = khung ngan (identifier, x, y, w, h; w=0 -> an)
 #define SCP_NOTIF_CBFRAME       @"com.anlai97.carduo.cbframe"
+// SpringBoard -> CarPlay process: CarBridge da dong CBWindow (identifier) -> CarPlay chieu lai app vao ngan
+#define SCP_NOTIF_CBLOST        @"com.anlai97.carduo.cblost"
 
 @interface SCPCarSplit : NSObject
 + (instancetype)shared;
@@ -37,7 +39,8 @@
 - (BOOL)protectsViewController:(id)vc;
 - (id)sceneOfViewController:(id)vc;
 - (void)scene:(id)scene destroyedForViewController:(id)vc ownScene:(id)own;
-- (void)rootDidLayout;                  // DBDashboardRootViewController viewDidLayoutSubviews
+- (void)bridgeWindowLost:(NSString *)bundleID;   // SpringBoard khong con CBWindow cho app nay
+- (void)rootDidLayout;                 // DBDashboardRootViewController viewDidLayoutSubviews
 - (void)dashboardInvalidated;           // ngat xe
 - (void)refreshAppTabSoon;              // DashBoard vua mo / dong app toan man -> hien / an tab icon
 - (void)removeAppTab;

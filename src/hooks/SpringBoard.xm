@@ -22,7 +22,10 @@ static void SCPApplyCarBridgeFrame(CGRect r, NSString *bid, int attempt)
                 SCPApplyCarBridgeFrame(r, bid, attempt + 1);
             });
         } else {
-            SCPLog("CarBridge: khong thay CBWindow de dat khung %@ (%@)", NSStringFromCGRect(r), bid);
+            SCPLog("CarBridge: khong thay CBWindow de dat khung %@ (%@) -> bao CarPlay chieu lai", NSStringFromCGRect(r), bid);
+            if (bid && r.size.width >= 2)
+                [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+                    postNotificationName:SCP_NOTIF_CBLOST object:nil userInfo:@{@"identifier": bid}];
         }
         return;
     }

@@ -79,7 +79,8 @@ static BOOL SCPCInfoIsCarPlayApp(id info)
     if (!info) return NO;
     NSString *bid = objcInvoke(info, @"bundleIdentifier");
     if (!bid.length || [bid isEqualToString:SCP_TEMPLATE_HOST] || [bid isEqualToString:@"com.apple.CarPlayApp"]
-        || [bid isEqualToString:@"com.apple.CarPlaySettings"]) return NO;
+        || [bid isEqualToString:@"com.apple.CarPlaySettings"]
+        || [bid isEqualToString:@"com.apple.InCallService"]) return NO;   // man goi dien: DashBoard khong tao scene VC -> khong vao ngan duoc
     if (![info respondsToSelector:NSSelectorFromString(@"carPlayDeclaration")]) return NO;
     if (!objcInvoke(info, @"carPlayDeclaration")) return NO;
     if (SCPCBool(info, @"isHidden") || SCPCBool(info, @"presentsFullScreen")) return NO;
@@ -335,6 +336,7 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 @property (nonatomic, strong) UIButton *fullscreenButton;
 @property (nonatomic, strong) NSTimer *barTimer;
 @property (nonatomic, strong) UIView *picker;         // bang chon app cho ngan nay
+@property (nonatomic, strong) UILabel *bridgeHint;    // "Cham de hien ..." khi app CarBridge cua ngan chua duoc chieu
 @property (nonatomic) CGSize sceneSize;               // kich thuoc da bao cho scene lan cuoi
 @end
 @implementation SCPCarPane
@@ -542,7 +544,13 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     __weak SCPCarSplit *weakSelf = self;
     c.touched = ^(CGPoint p) {
         SCPCarSplit *me = weakSelf;
-        for (SCPCarPane *pane in me.slots) if (pane.view.alpha > 0 && CGRectContainsPoint(pane.view.frame, p)) me.focusedSlot = pane.slot;
+        for (SCPCarPane *pane in me.slots) {
+            if (pane.view.alpha <= 0 || !CGRectContainsPoint(pane.view.frame, p)) continue;
+            me.focusedSlot = pane.slot;
+            // Ngan app CarBridge dang trang (CarBridge chi chieu duoc 1 app) -> cham vao thi chieu app nay
+            if ([me bridgeWaitingInPane:pane])
+                dispatch_async(dispatch_get_main_queue(), ^{ if ([me bridgeWaitingInPane:pane]) [me startBridgeForPane:pane]; });
+        }
     };
     self.container = c;
 
@@ -655,6 +663,11 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
         if (self.fullscreenSlot >= 0 && self.fullscreenSlot != slot) self.fullscreenSlot = -1;
         if (!wasActive && autoSlotRequested && ![self slotOccupied:1 - slot]) [self showPickerForSlot:1 - slot];
         [self relayoutAnimated:YES];
+        // Chon lai app CarBridge dang nam trong ngan: chieu lai neu chua chieu, khong thi kiem tra CBWindow con song
+        if (SCPCIsBridgedApp(bid)) {
+            if (![self.bridgedBundle isEqualToString:bid]) [self startBridgeForPane:self.slots[slot]];
+            else { self.lastBridgeFrame = CGRectNull; [self pushBridgeFrameSoon]; }
+        }
         return;
     }
 
@@ -826,6 +839,14 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
             SCPCarPane *pp = weakPane;
             if (weakSelf.active && [pp.bundleID isEqualToString:bid]) [weakSelf startBridgeForPane:pp];
         });
+    } else if (self.bridgedBundle) {
+        // Mo app khac co the lam CarBridge dong CBWindow cua app dang chieu -> dat lai khung de SpringBoard
+        // kiem tra, mat thi bao ve (SCP_NOTIF_CBLOST) va chieu lai
+        __weak SCPCarSplit *weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            weakSelf.lastBridgeFrame = CGRectNull;
+            [weakSelf pushBridgeFrame];
+        });
     }
 }
 
@@ -932,6 +953,7 @@ static NSString *SCPCSceneID(id scene)
     self.divider.userInteractionEnabled = both;
     if (push) [self pushSceneSizes];
     [self pushBridgeFrameSoon];   // CBWindow cua CarBridge theo khung ngan moi
+    [self updateBridgeHints];
 }
 
 // FBScene cua 1 DBApplicationSceneViewController (thu vai ten thuoc tinh), nil neu khong lay duoc
@@ -1188,11 +1210,16 @@ static CGSize SCPCSceneSize(UIViewController *vc)
         p.barTimer = [NSTimer scheduledTimerWithTimeInterval:3 repeats:NO block:^(NSTimer *t) {
             if (weakPane) [weakSelf setBarVisible:NO forPane:weakPane];
         }];
+        if (wasHidden && [p.bundleID isEqualToString:self.bridgedBundle]) [self pushBridgeFrame];   // nhuong cho thanh nut cung luc thanh hien
     } else if (!p.bar.hidden) {
         UIView *bar = p.bar;
-        [UIView animateWithDuration:0.16 animations:^{ bar.alpha = 0; } completion:^(BOOL f) { bar.hidden = YES; bar.alpha = 1; }];
+        BOOL bridged = p.bundleID && [p.bundleID isEqualToString:self.bridgedBundle];
+        __weak SCPCarSplit *weakSelf = self;
+        [UIView animateWithDuration:0.16 animations:^{ bar.alpha = 0; } completion:^(BOOL f) {
+            bar.hidden = YES; bar.alpha = 1;
+            if (bridged) [weakSelf pushBridgeFrame];   // keo app len lai ngay khi thanh an xong
+        }];
     }
-    if (p.bundleID && [p.bundleID isEqualToString:self.bridgedBundle]) [self pushBridgeFrameSoon];   // nhuong cho thanh nut
 }
 
 - (void)handleTapped:(UITapGestureRecognizer *)g
@@ -1734,6 +1761,56 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     return [p.view convertRect:r toView:nil];
 }
 
+// Ngan dang chua app CarBridge nhung CarBridge dang chieu app khac (chi chieu duoc 1 app) -> ngan trang
+- (BOOL)bridgeWaitingInPane:(SCPCarPane *)p
+{
+    return self.active && p.vc && p.bundleID && !p.picker && !self.bridgeStarting
+        && SCPCIsBridgedApp(p.bundleID) && ![p.bundleID isEqualToString:self.bridgedBundle];
+}
+
+- (void)updateBridgeHints
+{
+    for (SCPCarPane *p in self.slots) {
+        BOOL waiting = [self bridgeWaitingInPane:p];
+        if (waiting && !p.bridgeHint) {
+            UILabel *l = [[UILabel alloc] init];
+            l.textColor = [UIColor whiteColor];
+            l.backgroundColor = [UIColor colorWithWhite:0.16 alpha:0.92];   // ngan CarBridge trang -> nhan nen toi
+            l.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+            l.textAlignment = NSTextAlignmentCenter;
+            l.layer.cornerRadius = 17;
+            l.clipsToBounds = YES;
+            l.userInteractionEnabled = NO;
+            p.bridgeHint = l;
+        }
+        if (!p.bridgeHint) continue;
+        p.bridgeHint.text = waiting ? [NSString stringWithFormat:@"Chạm để hiện %@", [self displayNameFor:p.bundleID]] : nil;
+        p.bridgeHint.hidden = !waiting;
+        [p.bridgeHint sizeToFit];
+        CGFloat w = MIN(p.bridgeHint.bounds.size.width + 32, p.view.bounds.size.width - 16);
+        p.bridgeHint.bounds = CGRectMake(0, 0, MAX(0, w), 34);
+        p.bridgeHint.center = CGPointMake(CGRectGetMidX(p.view.bounds), CGRectGetMidY(p.view.bounds));
+        if (p.bridgeHint.superview != p.view) [p.view addSubview:p.bridgeHint];
+        [p.view bringSubviewToFront:p.bridgeHint];
+        [p.view bringSubviewToFront:p.handle];
+        [p.view bringSubviewToFront:p.bar];
+    }
+}
+
+// SpringBoard bao CBWindow da mat (CarBridge dong khi app khac mo...) -> chieu lai, toi da 1 lan / 5s
+- (void)bridgeWindowLost:(NSString *)bid
+{
+    SCPCarPane *p = [self paneForBundle:bid];
+    if (!self.active || !p || self.bridgeStarting || ![bid isEqualToString:self.bridgedBundle]) return;
+    static CFAbsoluteTime last;
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    if (now - last < 5) return;
+    last = now;
+    SCPLog("CarBridge: CBWindow cua %@ mat -> chieu lai", bid);
+    self.bridgedBundle = nil;   // de startBridgeForPane khong bao "thay app"
+    [self startBridgeForPane:p];
+}
+
 - (void)startBridgeForPane:(SCPCarPane *)p
 {
     id mgr = SCPCBridgeManager();
@@ -1744,6 +1821,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     self.bridgedBundle = p.bundleID;
     self.lastBridgeFrame = CGRectNull;
     self.bridgeStarting = YES;
+    [self updateBridgeHints];
     SCPLog("CarBridge: chieu %@ vao ngan %d, khung %@", p.bundleID, p.slot, NSStringFromCGRect([self bridgeFrame]));
     NSString *bid = p.bundleID;
     __weak SCPCarSplit *weakSelf = self;
@@ -1758,7 +1836,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     for (NSNumber *d in @[@1.0, @2.5, @4.0]) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(d.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             SCPCarSplit *me = weakSelf;
-            if (d.doubleValue >= 4.0) me.bridgeStarting = NO;
+            if (d.doubleValue >= 4.0) { me.bridgeStarting = NO; [me updateBridgeHints]; }
             [me pushBridgeFrame];
         });
     }
@@ -1771,6 +1849,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     self.bridgedBundle = nil;
     self.bridgeStarting = NO;
     @try { objcInvoke(SCPCBridgeManager(), @"stopBridging"); } @catch (NSException *e) { SCPLog("CarBridge: stopBridging loi %@", e); }
+    [self updateBridgeHints];
 }
 
 // Bao SpringBoard dat CBWindow dung khung ngan (CBWindow nam trong SpringBoard)

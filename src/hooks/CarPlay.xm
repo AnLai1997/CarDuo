@@ -190,6 +190,12 @@
     if (objc_getClass("CBBridgeManagerDashboard")) { %init(CARBRIDGE); SCPLog("CarBridge: da noi vao CarBridge"); }
     else SCPLog("CarBridge: khong co (bo qua)");
 
+    // SpringBoard: CarBridge da dong CBWindow cua app dang nam trong ngan -> chieu lai
+    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+        addObserverForName:SCP_NOTIF_CBLOST object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+        [[SCPCarSplit shared] bridgeWindowLost:note.userInfo[@"identifier"]];
+    }];
+
     // SpringBoard / Settings / URL scheme -> mo split CarPlay
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
         addObserverForName:SCP_NOTIF_NATIVE object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
