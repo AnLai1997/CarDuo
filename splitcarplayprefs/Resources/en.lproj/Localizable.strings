@@ -1,0 +1,96 @@
+/* CarDuo – English */
+
+"LANGUAGE" = "Language";
+"HEADER_TAGLINE" = "Split screen on CarPlay";
+"STATUS_ON" = "On";
+"STATUS_OFF" = "Off";
+"VERSION_FORMAT" = "Version: %@";
+"COPYRIGHT" = "Copyright © 2026 AnLai";
+"OK" = "OK";
+
+"GENERAL_FOOTER" = "Changes apply right away. Turn off to use CarPlay as usual.";
+"ENABLE" = "Enable CarDuo";
+
+/* TWEAK SETTINGS */
+
+"PREVIEW_GROUP" = "Car screen preview";
+"PREVIEW_INFO_FORMAT" = "%@ %.0f%% · %@ apps · Tap the ••• tab for options";
+"PREVIEW_LEFT" = "Left";
+"PREVIEW_TOP" = "Top";
+"PREVIEW_PORTRAIT" = "portrait";
+"PREVIEW_LANDSCAPE" = "landscape";
+
+"LAYOUT_GROUP" = "Layout";
+"LAYOUT_FOOTER" = "Every change shows in the preview right away. Only apps on the CarPlay screen (CarPlay and CarBridge apps) can be picked.";
+"LEFT_PANE" = "Left pane";
+"RIGHT_PANE" = "Right pane";
+"APP_NOT_SET" = "None";
+"SPLIT_DIRECTION" = "Split";
+"SPLIT_LEFT_RIGHT" = "Left / right";
+"SPLIT_TOP_BOTTOM" = "Top / bottom";
+"PANE_ORIENTATION" = "App orientation in panes";
+"ORIENTATION_PORTRAIT" = "Portrait";
+"ORIENTATION_LANDSCAPE" = "Landscape";
+"SCREEN_ASPECT" = "Car screen aspect";
+"ASPECT_16_9" = "16:9";
+"ASPECT_5_3" = "5:3";
+"ASPECT_8_3" = "8:3 ultrawide";
+"SPLIT_RATIO" = "Left pane ratio";
+"SPLIT_RATIO_FOOTER" = "0.5 splits evenly. Dragging the divider on the car screen also changes it, and the ratio is remembered per app pair.";
+
+"PICKER_NONE" = "None";
+"PICKER_CARPLAY_APPS" = "CarPlay apps";
+"PICKER_CARBRIDGE_APPS" = "CarBridge apps";
+"PICKER_GUESS_FOOTER" = "Not connected to a car yet: showing apps with CarPlay support. The exact list refreshes each time you connect.";
+"PICKER_BRIDGE_FOOTER" = "iPhone apps enabled in CarBridge.";
+"PICKER_NO_BRIDGE_FOOTER" = "No CarBridge apps found. Enable apps in CarBridge, then connect to the car once to refresh.";
+
+"STARTUP_GROUP" = "CarPlay startup";
+"STARTUP_FOOTER" = "When you connect, the startup video (the default one or one you pick from Photos / Files) plays on the car screen for the chosen time before the home screen appears.";
+"BOOT_VIDEO" = "Startup video";
+"BOOT_SOUND" = "Video sound";
+"CHOOSE_BOOT_VIDEO" = "Choose startup video";
+"PREVIEW_BOOT_VIDEO" = "Preview video";
+"BOOT_DURATION" = "Video length";
+"DURATION_2" = "2s";
+"DURATION_4" = "4s";
+"DURATION_6" = "6s";
+"DURATION_8" = "8s";
+"DURATION_FULL" = "Full";
+"PICK_FROM_PHOTOS" = "Choose from Photos";
+"PICK_FROM_FILES" = "Choose from Files";
+"USE_DEFAULT_VIDEO" = "Use default video";
+"CANCEL" = "Cancel";
+"VIDEO_NOT_FOUND" = "Startup video not found.";
+"VIDEO_SAVE_FAILED" = "Could not save the video.";
+"VIDEO_SET" = "New startup video set. It will play the next time you connect.";
+"DEFAULT_VIDEO_RESTORED" = "Back to the default video.";
+
+"ON_CONNECT_GROUP" = "In the car";
+"AUTO_LAUNCH" = "Open split on connect";
+"USAGE_FOOTER" = "The round button at the top right of the CarPlay screen opens the split: the current app goes to the left pane, the other pane shows an app picker. Holding an app icon for 1 second on the CarPlay home screen also opens it in a pane. While split, tapping an app in the dock opens it in the last touched pane. The white tab at the top of each pane: tap for Change app / Full screen / Close. The CarPlay Home button closes the split.";
+
+"FAV1_GROUP" = "Favorite pair 1";
+"FAV2_GROUP" = "Favorite pair 2";
+"FAV3_GROUP" = "Favorite pair 3";
+"PAIR_NAME" = "Name";
+"FAV1_PLACEHOLDER" = "Commute";
+"FAV2_PLACEHOLDER" = "Weekend";
+"FAV3_PLACEHOLDER" = "Road trip";
+"FAV_FOOTER" = "Shown as buttons 1, 2, 3 in each pane's \"...\" menu. One tap swaps both panes. Siri/Shortcuts: splitcarplay://fav?n=1";
+
+"EXTRAS_GROUP" = "Extras";
+"EXTRAS_FOOTER" = "PiP: the option in a pane's \"...\" menu shrinks it into a small floating, draggable tile. Swipe with 2 fingers on the right pane to switch between apps opened there. Mirror: shows the right pane app on the iPhone so a passenger can use it (experimental).";
+"MIRROR_RIGHT" = "Mirror right pane to iPhone";
+
+"SHORTCUTS_GROUP" = "Siri / Shortcuts";
+"SHORTCUTS_FOOTER" = "Create a Shortcut with the \"Open URL\" action and run it with Siri:\nsplitcarplay://open?left=com.apple.Maps&right=com.spotify.client\nsplitcarplay://fav?n=1\nsplitcarplay://close";
+
+"DEBUG_GROUP" = "Debug";
+"DEBUG_FOOTER" = "Only for testing without a car: opens the split window on the iPhone screen. The test window does NOT close by itself; tap \"Close test split\" here (or splitcarplay://close). In test mode apps always show their iPhone UI. Log: /var/mobile/Documents/SplitCarPlay.log.";
+"RUN_TEST" = "Open test split on iPhone";
+"CLOSE_TEST" = "Close test split";
+"CLEAR_LOG" = "Clear log file";
+"TEST_AFTER_RESPRING" = "Open test split after respring";
+
+"CREDITS_FOOTER" = "App hosting is based on carplay-cast (Ethan Arbuckle).";

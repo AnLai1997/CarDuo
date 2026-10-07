@@ -68,11 +68,12 @@ rồi disassemble bằng capstone (Python) đọc thẳng các subcache theo b�
 4. Giao diện chọn app, lưu cặp app mặc định.
 
 ## Build (không cần Theos trên Windows)
-- Push repo lên GitHub -> Actions tự build, tải `SplitCarPlay-deb` ở tab Artifacts.
+- Push repo lên GitHub -> Actions tự build, tải `CarDuo_<Version>_rootless` ở tab Artifacts (push tag `v<Version>` thì có thêm GitHub Release kèm file .deb).
 - Hoặc cài WSL Ubuntu + Theos: `make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless`.
 
 ## Cài đặt trong app Settings
-Vào Cài đặt > CarDuo: bật/tắt, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), video khởi động, tự mở khi cắm xe,
+Vào Cài đặt > CarDuo (giao diện HarmonyOS; Tiếng Việt / English ở nút quả cầu góc phải; thẻ tác giả + phiên bản ở cuối trang;
+chữ nằm trong `splitcarplayprefs/Resources/*.lproj/Localizable.strings`): bật/tắt, xem trước màn xe, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), video khởi động, tự mở khi cắm xe,
 kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.

@@ -1,0 +1,96 @@
+/* CarDuo – Tiếng Việt */
+
+"LANGUAGE" = "Ngôn ngữ";
+"HEADER_TAGLINE" = "Chia màn hình trên CarPlay";
+"STATUS_ON" = "Đang bật";
+"STATUS_OFF" = "Đang tắt";
+"VERSION_FORMAT" = "Phiên bản: %@";
+"COPYRIGHT" = "Bản quyền © 2026 AnLai";
+"OK" = "OK";
+
+"GENERAL_FOOTER" = "Thay đổi áp dụng ngay. Tắt để dùng CarPlay như bình thường.";
+"ENABLE" = "Bật CarDuo";
+
+/* TWEAK SETTINGS */
+
+"PREVIEW_GROUP" = "Xem trước trên màn xe";
+"PREVIEW_INFO_FORMAT" = "%@ %.0f%% · App %@ · Chạm thẻ ••• để mở tuỳ chọn";
+"PREVIEW_LEFT" = "Trái";
+"PREVIEW_TOP" = "Trên";
+"PREVIEW_PORTRAIT" = "dọc";
+"PREVIEW_LANDSCAPE" = "ngang";
+
+"LAYOUT_GROUP" = "Bố cục";
+"LAYOUT_FOOTER" = "Mọi thay đổi hiện ngay ở khung xem trước. Chỉ chọn được app có trên màn CarPlay (app CarPlay và app CarBridge).";
+"LEFT_PANE" = "Ngăn trái";
+"RIGHT_PANE" = "Ngăn phải";
+"APP_NOT_SET" = "Chưa chọn";
+"SPLIT_DIRECTION" = "Kiểu chia";
+"SPLIT_LEFT_RIGHT" = "Trái / phải";
+"SPLIT_TOP_BOTTOM" = "Trên / dưới";
+"PANE_ORIENTATION" = "Hướng app trong ngăn";
+"ORIENTATION_PORTRAIT" = "Dọc";
+"ORIENTATION_LANDSCAPE" = "Ngang";
+"SCREEN_ASPECT" = "Tỉ lệ màn xe";
+"ASPECT_16_9" = "16:9";
+"ASPECT_5_3" = "5:3";
+"ASPECT_8_3" = "8:3 siêu rộng";
+"SPLIT_RATIO" = "Tỉ lệ ngăn trái";
+"SPLIT_RATIO_FOOTER" = "0.5 là chia đều. Kéo thanh phân cách trên màn xe cũng đổi được, và tỉ lệ được nhớ riêng cho từng cặp app.";
+
+"PICKER_NONE" = "Không chọn";
+"PICKER_CARPLAY_APPS" = "App CarPlay";
+"PICKER_CARBRIDGE_APPS" = "App CarBridge";
+"PICKER_GUESS_FOOTER" = "Chưa cắm xe lần nào: đang liệt kê app có hỗ trợ CarPlay. Danh sách chính xác cập nhật mỗi lần cắm xe.";
+"PICKER_BRIDGE_FOOTER" = "App iPhone được bật trong CarBridge.";
+"PICKER_NO_BRIDGE_FOOTER" = "Không thấy app CarBridge nào. Bật app trong CarBridge rồi cắm xe một lần để cập nhật.";
+
+"STARTUP_GROUP" = "Khởi động CarPlay";
+"STARTUP_FOOTER" = "Khi cắm xe, video khởi động (mặc định hoặc video bạn chọn từ Ảnh / Tệp) phát trên màn xe trong thời lượng đã chọn rồi mới vào màn hình chính.";
+"BOOT_VIDEO" = "Video khởi động";
+"BOOT_SOUND" = "Âm thanh video";
+"CHOOSE_BOOT_VIDEO" = "Chọn video khởi động";
+"PREVIEW_BOOT_VIDEO" = "Xem thử video";
+"BOOT_DURATION" = "Thời lượng video";
+"DURATION_2" = "2s";
+"DURATION_4" = "4s";
+"DURATION_6" = "6s";
+"DURATION_8" = "8s";
+"DURATION_FULL" = "Hết video";
+"PICK_FROM_PHOTOS" = "Chọn từ Ảnh";
+"PICK_FROM_FILES" = "Chọn từ Tệp";
+"USE_DEFAULT_VIDEO" = "Dùng video mặc định";
+"CANCEL" = "Huỷ";
+"VIDEO_NOT_FOUND" = "Không tìm thấy video khởi động.";
+"VIDEO_SAVE_FAILED" = "Không lưu được video.";
+"VIDEO_SET" = "Đã đặt video khởi động mới. Lần cắm xe tới sẽ phát video này.";
+"DEFAULT_VIDEO_RESTORED" = "Đã quay về video mặc định.";
+
+"ON_CONNECT_GROUP" = "Trên xe";
+"AUTO_LAUNCH" = "Tự mở split khi cắm xe";
+"USAGE_FOOTER" = "Nút tròn ở góc trên phải màn CarPlay mở split: app đang mở vào ngăn trái, ngăn còn lại là bảng chọn app. Giữ icon app 1 giây trên màn chính CarPlay cũng mở app đó vào một ngăn. Đang split mà chạm app trên dock thì app đó vào ngăn vừa chạm. Thẻ trắng ở giữa mép trên mỗi ngăn: chạm để Đổi app / Toàn màn / Đóng. Nút Home của CarPlay tắt split.";
+
+"FAV1_GROUP" = "Cặp yêu thích 1";
+"FAV2_GROUP" = "Cặp yêu thích 2";
+"FAV3_GROUP" = "Cặp yêu thích 3";
+"PAIR_NAME" = "Tên cặp";
+"FAV1_PLACEHOLDER" = "Đi làm";
+"FAV2_PLACEHOLDER" = "Đi chơi";
+"FAV3_PLACEHOLDER" = "Đi xa";
+"FAV_FOOTER" = "Hiện thành nút 1, 2, 3 trong dấu \"...\" của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1";
+
+"EXTRAS_GROUP" = "Tính năng thêm";
+"EXTRAS_FOOTER" = "PiP: tuỳ chọn trong dấu \"...\" của ngăn thu ngăn đó thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).";
+"MIRROR_RIGHT" = "Mirror ngăn phải lên iPhone";
+
+"SHORTCUTS_GROUP" = "Siri / Shortcuts";
+"SHORTCUTS_FOOTER" = "Tạo Shortcut với hành động \"Mở URL\" rồi gọi bằng Siri:\nsplitcarplay://open?left=com.apple.Maps&right=com.spotify.client\nsplitcarplay://fav?n=1\nsplitcarplay://close";
+
+"DEBUG_GROUP" = "Gỡ lỗi";
+"DEBUG_FOOTER" = "Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm \"Đóng split thử\" ở đây (hoặc splitcarplay://close). Trong chế độ thử, app luôn hiện giao diện iPhone. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.";
+"RUN_TEST" = "Mở split thử trên iPhone";
+"CLOSE_TEST" = "Đóng split thử";
+"CLEAR_LOG" = "Xoá file log";
+"TEST_AFTER_RESPRING" = "Mở split thử sau respring";
+
+"CREDITS_FOOTER" = "Cơ chế host app dựa trên carplay-cast (Ethan Arbuckle).";

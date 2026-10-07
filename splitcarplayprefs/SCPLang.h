@@ -3,15 +3,10 @@
 
 #define SCP_DOMAIN @"com.anlai97.carduo"
 
-// Ngon ngu cua trang Settings (chon o goc trai): "vi" (mac dinh) / "en"
-static inline BOOL SCPLangIsEN(void)
-{
-    CFPropertyListRef v = CFPreferencesCopyAppValue(CFSTR("Language"), (__bridge CFStringRef)SCP_DOMAIN);
-    id s = v ? CFBridgingRelease(v) : nil;
-    return [s isKindOfClass:[NSString class]] && [s isEqualToString:@"en"];
-}
-
-static inline NSString *SCPL(NSString *vi, NSString *en) { return SCPLangIsEN() ? en : vi; }
+// Chuoi giao dien theo ngon ngu chon o nut qua cau (key "Language": "vi" / "en"),
+// doc tu <lang>.lproj/Localizable.strings. Cai dat trong SCPRootListController.m.
+FOUNDATION_EXTERN NSString *SCPLanguage(void);
+FOUNDATION_EXTERN NSString *L(NSString *key);
 
 static inline id SCPPrefValue(NSString *key)
 {

@@ -168,7 +168,7 @@ static NSString *prefString(NSString *key)
 
 static NSString *appName(NSString *bid)
 {
-    if (!bid) return SCPL(@"Chưa chọn", @"None");
+    if (!bid) return L(@"APP_NOT_SET");
     Class LSProxy = objc_getClass("LSApplicationProxy");
     if (LSProxy) {
         id proxy = ((id (*)(id, SEL, id))objc_msgSend)(LSProxy, NSSelectorFromString(@"applicationProxyForIdentifier:"), bid);
@@ -286,9 +286,9 @@ static UIImage *appIcon(NSString *bid)
         [pane bringSubviewToFront:t];
     }
 
-    _infoLabel.text = [NSString stringWithFormat:SCPL(@"%@ %.0f%% · App %@ · Chạm thẻ ••• để mở option", @"%@ %.0f%% · %@ apps · Tap the ••• tab for options"),
-                       vertical ? SCPL(@"Trên", @"Top") : SCPL(@"Trái", @"Left"), ratio * 100,
-                       orient == 3 ? SCPL(@"ngang", @"landscape") : SCPL(@"dọc", @"portrait")];
+    _infoLabel.text = [NSString stringWithFormat:L(@"PREVIEW_INFO_FORMAT"),
+                       L(vertical ? @"PREVIEW_TOP" : @"PREVIEW_LEFT"), ratio * 100,
+                       L(orient == 3 ? @"PREVIEW_LANDSCAPE" : @"PREVIEW_PORTRAIT")];
     CGFloat iw = MIN(self.bounds.size.width - 24, [_infoLabel sizeThatFits:CGSizeMake(CGFLOAT_MAX, 20)].width + 20);
     _infoLabel.frame = CGRectMake((self.bounds.size.width - iw) / 2, CGRectGetMaxY(_screenView.frame) + 8, iw, 20);
     _infoLabel.layer.cornerRadius = 10;

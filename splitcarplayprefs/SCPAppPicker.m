@@ -122,7 +122,7 @@ static NSArray<NSString *> *SCPCarBridgeApps(void)
     [super refreshCellContentsWithSpecifier:specifier];
     NSString *bid = SCPPrefValue([specifier propertyForKey:@"key"]);
     BOOL has = [bid isKindOfClass:[NSString class]] && bid.length;
-    self.detailTextLabel.text = has ? SCPAppName(bid) : SCPL(@"Chưa chọn", @"None");
+    self.detailTextLabel.text = has ? SCPAppName(bid) : L(@"APP_NOT_SET");
     self.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 }
 
@@ -198,21 +198,17 @@ static NSArray<NSDictionary *> *SCPAppRows(NSArray *ids, NSMutableSet *seen)
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section
 {
-    if (section == 1) return SCPL(@"APP CARPLAY", @"CARPLAY APPS");
-    if (section == 2) return SCPL(@"APP CARBRIDGE", @"CARBRIDGE APPS");
+    if (section == 1) return L(@"PICKER_CARPLAY_APPS");
+    if (section == 2) return L(@"PICKER_CARBRIDGE_APPS");
     return nil;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section
 {
     if (section == 1 && !_fromCar)
-        return SCPL(@"Chưa cắm xe lần nào: đang liệt kê app có hỗ trợ CarPlay. Danh sách chính xác cập nhật mỗi lần cắm xe.",
-                    @"Not connected to a car yet: showing apps with CarPlay support. The exact list refreshes each time you connect.");
+        return L(@"PICKER_GUESS_FOOTER");
     if (section == 2)
-        return _bridgeApps.count
-            ? SCPL(@"App iPhone được bật trong CarBridge.", @"iPhone apps enabled in CarBridge.")
-            : SCPL(@"Không thấy app CarBridge nào. Bật app trong CarBridge rồi cắm xe một lần để cập nhật.",
-                   @"No CarBridge apps found. Enable apps in CarBridge, then connect to the car once to refresh.");
+        return L(_bridgeApps.count ? @"PICKER_BRIDGE_FOOTER" : @"PICKER_NO_BRIDGE_FOOTER");
     return nil;
 }
 
@@ -222,7 +218,7 @@ static NSArray<NSDictionary *> *SCPAppRows(NSArray *ids, NSMutableSet *seen)
     if (!c) c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"app"];
     NSString *cur = [self currentValue];
     if (ip.section == 0) {
-        c.textLabel.text = SCPL(@"Không chọn", @"None");
+        c.textLabel.text = L(@"PICKER_NONE");
         c.detailTextLabel.text = nil;
         UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightRegular];
         c.imageView.image = [[UIImage systemImageNamed:@"nosign" withConfiguration:cfg] imageWithTintColor:[UIColor tertiaryLabelColor]

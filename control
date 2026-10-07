@@ -1,11 +1,29 @@
 Package: com.anlai97.carduo
 Name: CarDuo
-Version: 0.3.0
+Version: 1.0.0
 Architecture: iphoneos-arm64
-Description: Split the CarPlay screen into two CarPlay apps (native CarPlay UI) - personal build (Dopamine rootless, iOS 16.5)
-Author: AnLai97 <laihoangan123456@gmail.com>
-Maintainer: AnLai97 <laihoangan123456@gmail.com>
+Description: Two CarPlay apps side by side on your car screen.
+ Navigation and music at the same time, without switching back and forth.
+ CarDuo splits the CarPlay screen into two panes, each running a real
+ CarPlay app with its own native interface.
+ .
+ Features:
+  - Run any two CarPlay apps side by side, CarBridge apps included
+  - Split left/right or top/bottom and drag the divider to resize
+  - Remembers the split ratio for every app pair
+  - Save up to three favorite app pairs and switch with one tap
+  - Shrink a pane into a floating picture-in-picture tile
+  - Control it with Siri and Shortcuts
+  - Play your own startup video when CarPlay connects
+ .
+ Set it up in Settings > CarDuo, with a live preview of the car screen.
+ Changes apply right away.
+ .
+ Compatibility: iOS 15 and later, rootless jailbreaks (Dopamine, palera1n).
+Maintainer: AnLai <laihoangan123456@gmail.com>
+Author: AnLai <laihoangan123456@gmail.com>
 Section: Tweaks
-Depends: mobilesubstrate, preferenceloader, firmware (>= 15.0)
+Depends: mobilesubstrate (>= 0.9.5000), preferenceloader, firmware (>= 15.0)
 Conflicts: com.anpham.splitcarplay
 Replaces: com.anpham.splitcarplay
+Icon: file:///var/jb/Library/PreferenceBundles/SplitCarPlayPrefs.bundle/PackageIcon.png
