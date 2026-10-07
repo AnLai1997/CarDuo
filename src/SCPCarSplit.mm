@@ -138,7 +138,10 @@ static NSArray<NSString *> *SCPCHomeScreenBundles(void)
 {
     static NSArray<NSString *> *cached;
     NSMutableOrderedSet *found = [NSMutableOrderedSet orderedSet];
-    for (UIWindow *w in [UIApplication sharedApplication].windows) SCPCCollectHomeIcons(w, &found, 0);
+    for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
+        if (![s isKindOfClass:[UIWindowScene class]]) continue;
+        for (UIWindow *w in ((UIWindowScene *)s).windows) SCPCCollectHomeIcons(w, &found, 0);
+    }
     if (found.count >= 2 && ![found.array isEqualToArray:cached]) {
         cached = found.array;
         SCPLog("CarSplit: man chinh CarPlay co %lu app: %@", (unsigned long)cached.count, [cached componentsJoinedByString:@", "]);
