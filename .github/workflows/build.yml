@@ -1,8 +1,11 @@
-name: Build SplitCarPlay (rootless)
+name: Build CarDuo (rootless)
 
 on:
   push:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -14,16 +17,28 @@ jobs:
         uses: Randomblock1/theos-action@v1
 
       - name: Build .deb
-        run: make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+        run: |
+          make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+          VERSION=$(sed -n 's/^Version: *//p' control | tr -d '\r')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p out
+          cp packages/*.deb "out/CarDuo_${VERSION}_rootless.deb"
 
       - name: List .deb contents
         run: |
-          for f in packages/*.deb; do
+          for f in out/*.deb; do
             echo "== $f"
             rm -rf /tmp/deb && mkdir -p /tmp/deb && (cd /tmp/deb && ar x "$GITHUB_WORKSPACE/$f" && tar -tf data.tar.*)
           done
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SplitCarPlay-deb
-          path: packages/*.deb
+          name: CarDuo_${{ env.VERSION }}_rootless
+          path: out/*.deb
+
+      # Push tag vX.Y.Z (trung Version trong control) -> tao GitHub Release kem file .deb
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: CarDuo ${{ env.VERSION }}
+          files: out/*.deb
