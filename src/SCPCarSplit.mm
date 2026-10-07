@@ -95,19 +95,80 @@ static void SCPCSendEvent(unsigned long long type, id context)
     if (ev) objcInvoke_1(d, @"handleEvent:", ev);
 }
 
-// Danh sach app CarPlay: @{ id, name }
+static id SCPCTry(id obj, NSString *sel)
+{
+    if (!obj || ![obj respondsToSelector:NSSelectorFromString(sel)]) return nil;
+    @try { return objcInvoke(obj, sel); } @catch (NSException *e) { return nil; }
+}
+
+static NSString *SCPCIconBundle(id icon)
+{
+    for (NSString *k in @[@"applicationBundleID", @"leafIdentifier"]) {
+        id v = SCPCTry(icon, k);
+        if ([v isKindOfClass:[NSString class]] && [v length]) return v;
+    }
+    return nil;
+}
+
+static void SCPCAddIcons(NSArray *icons, NSMutableOrderedSet *out)
+{
+    if (![icons isKindOfClass:[NSArray class]]) return;
+    for (id icon in icons) { NSString *b = SCPCIconBundle(icon); if (b) [out addObject:b]; }
+}
+
+// Tim cac SBIconListView (man chinh, co the ca dock) -> moi cai lay icon cua ca thu muc chua no (moi trang).
+// Giu bo lon nhat = man chinh.
+static void SCPCCollectHomeIcons(UIView *v, NSMutableOrderedSet *__strong *best, int depth)
+{
+    if (!v || depth > 14) return;
+    if ([NSStringFromClass([v class]) hasSuffix:@"IconListView"]) {
+        NSMutableOrderedSet *got = [NSMutableOrderedSet orderedSet];
+        id model = SCPCTry(v, @"model");
+        NSArray *lists = SCPCTry(SCPCTry(model, @"folder"), @"lists");
+        if ([lists isKindOfClass:[NSArray class]] && lists.count) for (id l in lists) SCPCAddIcons(SCPCTry(l, @"icons"), got);
+        else SCPCAddIcons(SCPCTry(model, @"icons"), got);   // khong lay duoc thu muc: it nhat trang nay
+        if (got.count > (*best).count) *best = got;
+    }
+    for (UIView *c in v.subviews) SCPCCollectHomeIcons(c, best, depth + 1);
+}
+
+// Bundle cua cac app dang hien tren man chinh CarPlay (theo thu tu), nho lai lan doc duoc gan nhat
+// (man chinh co the khong nam trong cay view khi app dang mo). nil = chua doc duoc lan nao.
+static NSArray<NSString *> *SCPCHomeScreenBundles(void)
+{
+    static NSArray<NSString *> *cached;
+    NSMutableOrderedSet *found = [NSMutableOrderedSet orderedSet];
+    for (UIWindow *w in [UIApplication sharedApplication].windows) SCPCCollectHomeIcons(w, &found, 0);
+    if (found.count >= 2 && ![found.array isEqualToArray:cached]) {
+        cached = found.array;
+        SCPLog("CarSplit: man chinh CarPlay co %lu app: %@", (unsigned long)cached.count, [cached componentsJoinedByString:@", "]);
+    }
+    return cached;
+}
+
+// Danh sach app CarPlay: @{ id, name } - chi app dang hien tren man chinh CarPlay (bo app da an trong
+// Cai dat > CarPlay > Tuy chinh), cung thu tu nhu man chinh
 static NSArray<NSDictionary *> *SCPCCarPlayApps(void)
 {
     NSMutableArray *out = [NSMutableArray array];
     id lib = SCPCLibrary();
     NSArray *all = lib ? objcInvoke(lib, @"allInstalledApplications") : nil;
+    NSArray<NSString *> *home = SCPCHomeScreenBundles();
     for (id info in all) {
         if (!SCPCInfoIsCarPlayApp(info)) continue;
         NSString *name = objcInvoke(info, @"displayName");
         NSString *bid = objcInvoke(info, @"bundleIdentifier");
+        if (home && ![home containsObject:bid]) continue;
         [out addObject:@{@"id": bid, @"name": name.length ? name : bid}];
     }
-    [out sortUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES selector:@selector(localizedCaseInsensitiveCompare:)]]];
+    if (home) {
+        [out sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+            NSUInteger ia = [home indexOfObject:a[@"id"]], ib = [home indexOfObject:b[@"id"]];
+            return ia < ib ? NSOrderedAscending : (ia > ib ? NSOrderedDescending : NSOrderedSame);
+        }];
+    } else {
+        [out sortUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES selector:@selector(localizedCaseInsensitiveCompare:)]]];
+    }
     return out;
 }
 
@@ -1128,8 +1189,10 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     // App CarBridge co the khong nam trong thu vien app cua DashBoard -> hoi thang CarBridge
     Class ws = objc_getClass("LSApplicationWorkspace");
     NSArray *all = ws ? objcInvoke(objcInvoke(ws, @"defaultWorkspace"), @"allInstalledApplications") : nil;
+    NSArray<NSString *> *home = SCPCHomeScreenBundles();
     for (id proxy in all) {
         NSString *bid = objcInvoke(proxy, @"bundleIdentifier");
+        if (home && ![home containsObject:bid]) continue;   // da an khoi man chinh CarPlay
         if (bid.length && ![bridged containsObject:bid] && SCPCIsBridgedApp(bid)) [bridged addObject:bid];
     }
     if (ids.count) [SCPPrefs setCarPlayApps:ids];
