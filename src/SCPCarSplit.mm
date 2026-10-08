@@ -2613,6 +2613,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
 #define SCPC_HOME_BTN 34.0
 #define SCPC_DOCK_BTN 30.0    // nut CarDuo khi nam tren dock CarPlay
 #define SCPC_DOCK_TOP 36.0    // dong ho + song / 4G o dau dai dock: khong day cum icon dock len qua day
+#define SCPC_DOCK_MIN 22.0    // nut CarDuo tren dock nho nhat (khe tren nut Home hep)
 static char kSCPCLongPressKey;
 
 // Logo CarDuo (art/AppIcon.svg, khung 1024): 2 o xanh CarPlay vien trang, mui ten dan duong + song am
@@ -2685,23 +2686,43 @@ static UIImage *SCPCLogoImage(CGFloat side)
     return [parent convertRect:inScreen fromCoordinateSpace:screen.coordinateSpace];
 }
 
-// Tim nut Home cua dock: view co ten lop chua "Home", nho (20..70pt), nam trong dai dock
+// Tim nut Home cua dock (DBStatusBarHomeButton): view co ten lop chua "Home", nho (20..70pt), nam trong dai dock.
+// Tra ve khung phan hinh dang hien (luoi app, nho hon khung cham cua nut) de nut CarDuo nam sat ngay tren no.
 static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int depth, UIView *skip, CGRect *best)
 {
-    if (!v || depth > 14 || v == skip || v.hidden || v.alpha < 0.05) return;
+    if (!v || depth > 20 || v == skip || v.hidden || v.alpha < 0.05) return;
     NSString *cls = NSStringFromClass([v class]);
     if ([cls rangeOfString:@"Home" options:NSCaseInsensitiveSearch].location != NSNotFound) {
         CGRect r = [parent convertRect:v.bounds fromView:v];
         if (r.size.width >= 20 && r.size.width <= 70 && r.size.height >= 20 && r.size.height <= 70
             && CGRectContainsPoint(CGRectInset(strip, -4, -4), CGPointMake(CGRectGetMidX(r), CGRectGetMidY(r)))) {
+            CGRect glyph = CGRectNull;
+            for (UIView *c in v.subviews)
+                if (!c.hidden && c.alpha >= 0.05 && c.bounds.size.height > 2) glyph = CGRectUnion(glyph, [parent convertRect:c.bounds fromView:c]);
+            if (!CGRectIsNull(glyph) && CGRectContainsRect(CGRectInset(r, -1, -1), glyph)) r = glyph;
             if (CGRectIsNull(*best) || CGRectGetMinY(r) > CGRectGetMinY(*best)) *best = r;   // lay nut thap nhat
+            return;
         }
     }
     for (UIView *c in v.subviews) SCPCFindHomeButton(c, parent, strip, depth + 1, skip, best);
 }
 
+// Day cua dong ho / song / pin (_UIStatusBar*, _UIBattery*) o dau dai dock: cum icon dock khong duoc day len qua
+static void SCPCStatusBottom(UIView *v, UIView *parent, CGRect strip, int depth, CGFloat *maxY)
+{
+    if (!v || depth > 20 || v.hidden || v.alpha < 0.05) return;
+    NSString *cls = NSStringFromClass([v class]);
+    if (([cls hasPrefix:@"_UIStatusBar"] || [cls hasPrefix:@"_UIBattery"]) && v.bounds.size.height < 40 && v.bounds.size.height > 2) {
+        CGRect r = [parent convertRect:v.bounds fromView:v];
+        if (CGRectContainsPoint(CGRectInset(strip, -4, -4), CGPointMake(CGRectGetMidX(r), CGRectGetMidY(r)))
+            && CGRectGetMidY(r) < CGRectGetMidY(strip))
+            *maxY = MAX(*maxY, CGRectGetMaxY(r));
+    }
+    for (UIView *c in v.subviews) SCPCStatusBottom(c, parent, strip, depth + 1, maxY);
+}
+
 // Vi tri nut CarDuo: tren dock CarPlay (dai trai / phai), ngay duoi cum icon dock va tren nut Home. Khe khong du
-// thi day cum icon len (toi da toi duoi dong ho / song) cho vua; van khong du thi goc tren phai vung app.
+// thi day cum icon len (khong de len dong ho / song / pin) va thu nho nut; van khong du thi goc tren phai vung app.
 // *outShift = so pt can day cum icon dock len. Ghi log moi lan doi cho.
 - (CGPoint)launcherCenterInParent:(UIView *)parent size:(CGFloat *)outSize shift:(CGFloat *)outShift
 {
@@ -2722,18 +2743,27 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
         size = MIN(SCPC_DOCK_BTN, strip.size.width - 8);
         CGFloat cx = CGRectGetMidX(strip);
         cluster = CGRectIntersection([self dockClusterInParent:parent], strip);
-        SCPCFindHomeButton(root.view, parent, strip, 0, self.homeButton, &home);
-        CGFloat clusterBottom = CGRectIsNull(cluster) ? CGRectGetMinY(strip) + SCPC_DOCK_TOP : CGRectGetMaxY(cluster);
+        // Dai dock (status bar CarPlay) co the khong nam duoi root.view -> quet tu window cua dock
+        UIView *dock = nil;
+        @try { id dockVC = objcInvoke(root, @"appDockViewController"); dock = dockVC ? objcInvoke(dockVC, @"view") : nil; } @catch (NSException *e) {}
+        UIView *scan = dock.window ?: root.view;
+        SCPCFindHomeButton(scan, parent, strip, 0, self.homeButton, &home);
+        CGFloat statusBottom = CGRectGetMinY(strip) + SCPC_DOCK_TOP;
+        SCPCStatusBottom(scan, parent, strip, 0, &statusBottom);
+        CGFloat clusterBottom = CGRectIsNull(cluster) ? statusBottom : CGRectGetMaxY(cluster);
         CGFloat clusterTop = CGRectIsNull(cluster) ? clusterBottom : CGRectGetMinY(cluster);
         // Nut Home (luoi app) nam cuoi dai dock; khong tim thay thi coi o day dai dock cao bang be ngang dai
         CGFloat homeTop = !CGRectIsNull(home) && CGRectGetMinY(home) > clusterBottom ? CGRectGetMinY(home)
                                                                                     : CGRectGetMaxY(strip) - strip.size.width;
-        CGFloat need = clusterBottom + 4 + size + 4 - homeTop;                 // pt con thieu de nhet nut vao khe
-        CGFloat room = clusterTop - (CGRectGetMinY(strip) + SCPC_DOCK_TOP);   // pt co the day cum icon len
-        if (need <= 0 || need <= room) {
-            shift = CGRectIsNull(cluster) ? 0 : MAX(0, need);
-            c = CGPointMake(cx, clusterBottom - shift + 4 + size / 2);
-            where = shift > 0 ? @"duoi cum icon dock, tren nut Home (day cum icon len)" : @"duoi cum icon dock, tren nut Home";
+        // Nut CarDuo luon sat ngay tren nut Home. Khe duoi cum icon thieu thi day cum icon len, nhung khong de len
+        // dong ho / song / pin; van thieu thi thu nho nut (toi thieu SCPC_DOCK_MIN).
+        CGFloat room = CGRectIsNull(cluster) ? 0 : MAX(0, clusterTop - (statusBottom + 4));
+        CGFloat fit = homeTop - 4 - (clusterBottom - room + 4);   // nut lon nhat vua khe khi day het co
+        if (fit >= SCPC_DOCK_MIN) {
+            size = MIN(size, floor(fit));
+            shift = CGRectIsNull(cluster) ? 0 : MAX(0, clusterBottom + 4 - (homeTop - 4 - size));
+            c = CGPointMake(cx, homeTop - 4 - size / 2);
+            where = [NSString stringWithFormat:@"tren nut Home, %.0fpt%@", size, shift > 0 ? @" (day cum icon len)" : @""];
         } else {
             size = SCPC_HOME_BTN;
             c = CGPointMake(CGRectGetMaxX(area) - size / 2 - 8, CGRectGetMinY(area) + size / 2 + 8);
