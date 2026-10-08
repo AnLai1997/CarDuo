@@ -2612,7 +2612,59 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
 // ---------------------------------------------------------------------
 #define SCPC_HOME_BTN 34.0
 #define SCPC_DOCK_BTN 30.0    // nut CarDuo khi nam tren dock CarPlay
+#define SCPC_DOCK_TOP 36.0    // dong ho + song / 4G o dau dai dock: khong day cum icon dock len qua day
 static char kSCPCLongPressKey;
+
+// Logo CarDuo (art/AppIcon.svg, khung 1024): 2 o xanh CarPlay vien trang, mui ten dan duong + song am
+static UIImage *SCPCLogoImage(CGFloat side)
+{
+    UIGraphicsImageRenderer *r = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side)];
+    UIImage *img = [r imageWithActions:^(UIGraphicsImageRendererContext *rc) {
+        CGContextRef ctx = rc.CGContext;
+        CGFloat s = side / 1024.0;
+        CGContextScaleCTM(ctx, s, s);
+        CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+        void (^pane)(CGRect, CGFloat, UIColor *, UIColor *) = ^(CGRect f, CGFloat rad, UIColor *c0, UIColor *c1) {
+            UIBezierPath *p = [UIBezierPath bezierPathWithRoundedRect:f cornerRadius:rad];
+            CGContextSaveGState(ctx);
+            [p addClip];
+            NSArray *cols = @[(id)c0.CGColor, (id)c1.CGColor];
+            CGGradientRef g = CGGradientCreateWithColors(cs, (__bridge CFArrayRef)cols, NULL);
+            CGContextDrawLinearGradient(ctx, g, f.origin, CGPointMake(CGRectGetMaxX(f), CGRectGetMaxY(f)), 0);
+            CGGradientRelease(g);
+            NSArray *sheen = @[(id)[UIColor colorWithWhite:1 alpha:0.18].CGColor, (id)[UIColor colorWithWhite:1 alpha:0].CGColor];
+            CGFloat locs[2] = {0, 0.45};
+            g = CGGradientCreateWithColors(cs, (__bridge CFArrayRef)sheen, locs);
+            CGContextDrawLinearGradient(ctx, g, f.origin, CGPointMake(f.origin.x, CGRectGetMaxY(f)), 0);
+            CGGradientRelease(g);
+            CGContextRestoreGState(ctx);
+        };
+        CGContextSaveGState(ctx);
+        CGContextSetShadowWithColor(ctx, CGSizeMake(0, 12 * s), 16 * s,   // bong khong theo CTM -> tu nhan ti le
+        [UIColor colorWithRed:0.02 green:0.25 blue:0.10 alpha:0.3].CGColor);
+        [[UIColor whiteColor] setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(82, 186, 532, 652) cornerRadius:132] fill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(634, 186, 308, 652) cornerRadius:118] fill];
+        CGContextRestoreGState(ctx);
+        pane(CGRectMake(96, 200, 504, 624), 118, [UIColor colorWithRed:0x5E/255.0 green:0xE8/255.0 blue:0x6A/255.0 alpha:1],
+             [UIColor colorWithRed:0x0F/255.0 green:0xB5/255.0 blue:0x1E/255.0 alpha:1]);
+        pane(CGRectMake(648, 200, 280, 624), 104, [UIColor colorWithRed:0x2C/255.0 green:0xC8/255.0 blue:0x52/255.0 alpha:1],
+             [UIColor colorWithRed:0x06/255.0 green:0x86/255.0 blue:0x2E/255.0 alpha:1]);
+        CGColorSpaceRelease(cs);
+        [[UIColor whiteColor] setFill];
+        UIBezierPath *arrow = [UIBezierPath bezierPath];
+        [arrow moveToPoint:CGPointMake(348, 370)];
+        [arrow addLineToPoint:CGPointMake(441, 637)];
+        [arrow addLineToPoint:CGPointMake(348, 583)];
+        [arrow addLineToPoint:CGPointMake(255, 637)];
+        [arrow closePath];
+        [arrow fill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(695, 447, 46, 130) cornerRadius:23] fill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(765, 387, 46, 250) cornerRadius:23] fill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(835, 427, 46, 170) cornerRadius:23] fill];
+    }];
+    return [img imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+}
 
 - (BOOL)atHomeScreen
 {
@@ -2629,6 +2681,7 @@ static char kSCPCLongPressKey;
     UIScreen *screen = parent.window.screen ?: dock.window.screen;
     if (!screen) return CGRectNull;
     CGRect inScreen = [dock convertRect:dock.bounds toCoordinateSpace:screen.coordinateSpace];
+    inScreen.origin.y -= dock.transform.ty;   // vi tri goc, chua tinh phan nut CarDuo da day cum icon len
     return [parent convertRect:inScreen fromCoordinateSpace:screen.coordinateSpace];
 }
 
@@ -2647,9 +2700,10 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
     for (UIView *c in v.subviews) SCPCFindHomeButton(c, parent, strip, depth + 1, skip, best);
 }
 
-// Vi tri nut CarDuo: tren dock CarPlay (dai trai / phai), uu tien ngay tren nut Home; khe khong du thi giua
-// dong ho va cum icon; khong co dock doc thi goc tren phai vung app. Ghi log moi lan doi cho.
-- (CGPoint)launcherCenterInParent:(UIView *)parent size:(CGFloat *)outSize
+// Vi tri nut CarDuo: tren dock CarPlay (dai trai / phai), ngay duoi cum icon dock va tren nut Home. Khe khong du
+// thi day cum icon len (toi da toi duoi dong ho / song) cho vua; van khong du thi goc tren phai vung app.
+// *outShift = so pt can day cum icon dock len. Ghi log moi lan doi cho.
+- (CGPoint)launcherCenterInParent:(UIView *)parent size:(CGFloat *)outSize shift:(CGFloat *)outShift
 {
     UIViewController *root = SCPCRootVC();
     UIView *content = objcInvoke(root, @"contentView") ?: root.view;
@@ -2660,7 +2714,7 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
     if (leftW >= 30) strip = CGRectMake(CGRectGetMinX(full), CGRectGetMinY(full), leftW, full.size.height);
     else if (rightW >= 30) strip = CGRectMake(CGRectGetMaxX(area), CGRectGetMinY(full), rightW, full.size.height);
 
-    CGFloat size = SCPC_HOME_BTN;
+    CGFloat size = SCPC_HOME_BTN, shift = 0;
     CGPoint c = CGPointMake(CGRectGetMaxX(area) - size / 2 - 8, CGRectGetMinY(area) + size / 2 + 8);
     NSString *where = @"goc tren phai vung app (khong co dock doc)";
     CGRect cluster = CGRectNull, home = CGRectNull;
@@ -2669,14 +2723,17 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
         CGFloat cx = CGRectGetMidX(strip);
         cluster = CGRectIntersection([self dockClusterInParent:parent], strip);
         SCPCFindHomeButton(root.view, parent, strip, 0, self.homeButton, &home);
-        CGFloat clusterBottom = CGRectIsNull(cluster) ? CGRectGetMinY(strip) + 30 : CGRectGetMaxY(cluster);
-        CGFloat clusterTop = CGRectIsNull(cluster) ? CGRectGetMaxY(strip) : CGRectGetMinY(cluster);
-        if (!CGRectIsNull(home) && CGRectGetMinY(home) - clusterBottom >= size + 8) {
-            c = CGPointMake(cx, CGRectGetMinY(home) - 4 - size / 2);
-            where = @"tren nut Home";
-        } else if (clusterTop - (CGRectGetMinY(strip) + 30) >= size + 4) {
-            c = CGPointMake(cx, clusterTop - 4 - size / 2);
-            where = @"giua dong ho va cum icon dock (khe tren nut Home khong du)";
+        CGFloat clusterBottom = CGRectIsNull(cluster) ? CGRectGetMinY(strip) + SCPC_DOCK_TOP : CGRectGetMaxY(cluster);
+        CGFloat clusterTop = CGRectIsNull(cluster) ? clusterBottom : CGRectGetMinY(cluster);
+        // Nut Home (luoi app) nam cuoi dai dock; khong tim thay thi coi o day dai dock cao bang be ngang dai
+        CGFloat homeTop = !CGRectIsNull(home) && CGRectGetMinY(home) > clusterBottom ? CGRectGetMinY(home)
+                                                                                    : CGRectGetMaxY(strip) - strip.size.width;
+        CGFloat need = clusterBottom + 4 + size + 4 - homeTop;                 // pt con thieu de nhet nut vao khe
+        CGFloat room = clusterTop - (CGRectGetMinY(strip) + SCPC_DOCK_TOP);   // pt co the day cum icon len
+        if (need <= 0 || need <= room) {
+            shift = CGRectIsNull(cluster) ? 0 : MAX(0, need);
+            c = CGPointMake(cx, clusterBottom - shift + 4 + size / 2);
+            where = shift > 0 ? @"duoi cum icon dock, tren nut Home (day cum icon len)" : @"duoi cum icon dock, tren nut Home";
         } else {
             size = SCPC_HOME_BTN;
             c = CGPointMake(CGRectGetMaxX(area) - size / 2 - 8, CGRectGetMinY(area) + size / 2 + 8);
@@ -2685,10 +2742,11 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
     }
     if (![where isEqualToString:self.launcherWhere]) {
         self.launcherWhere = where;
-        SCPLog("CarSplit: nut CarDuo dat %@ | dai dock=%@ cum icon=%@ nut Home=%@", where, NSStringFromCGRect(strip),
-               NSStringFromCGRect(cluster), NSStringFromCGRect(home));
+        SCPLog("CarSplit: nut CarDuo dat %@ | dai dock=%@ cum icon=%@ nut Home=%@ day len %.1f", where,
+               NSStringFromCGRect(strip), NSStringFromCGRect(cluster), NSStringFromCGRect(home), shift);
     }
     if (outSize) *outSize = size;
+    if (outShift) *outShift = shift;
     return c;
 }
 
@@ -2706,12 +2764,15 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
         return;
     }
     self.lastLauncherCalc = now;
-    CGFloat size = SCPC_HOME_BTN;
-    CGPoint c = [self launcherCenterInParent:parent size:&size];
+    CGFloat size = SCPC_HOME_BTN, shift = 0;
+    CGPoint c = [self launcherCenterInParent:parent size:&size shift:&shift];
+    [self setDockShift:shift];
     if (!self.homeButton || fabs(self.homeButton.bounds.size.width - size) > 0.5) {
         [self.homeButton removeFromSuperview];
-        UIButton *b = SCPCCircleButton(SCPCGlyph(@"split", round(size * 0.55), NO), size, self, @selector(homeButtonTapped));
-        b.layer.cornerRadius = size * 0.28;   // vuong bo goc giong nut Home cua dock
+        UIButton *b = SCPCRoundButton(SCPCLogoImage(size), self, @selector(homeButtonTapped));
+        b.bounds = CGRectMake(0, 0, size, size);
+        b.layer.cornerRadius = 0;
+        b.backgroundColor = nil;
         self.homeButton = b;
     }
     // Nut nam tren dai dock: gan vao chinh view ve dai dock (status bar CarPlay nam tren baseContainerView,
@@ -2728,6 +2789,17 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
     self.homeButton.center = [host convertPoint:c fromView:parent];
     [self raiseLauncher];
     if ([self atHomeScreen]) [self installIconLongPress];
+}
+
+// Day cum icon dock CarPlay len dy pt (transform, DashBoard layout lai khong mat) de chua cho nut CarDuo
+// ngay tren nut Home; dy = 0 tra ve cho cu
+- (void)setDockShift:(CGFloat)dy
+{
+    UIView *dock = nil;
+    @try { id dockVC = objcInvoke(SCPCRootVC(), @"appDockViewController"); dock = dockVC ? objcInvoke(dockVC, @"view") : nil; } @catch (NSException *e) {}
+    if (!dock) return;
+    CGAffineTransform t = dy > 0 ? CGAffineTransformMakeTranslation(0, -dy) : CGAffineTransformIdentity;
+    if (!CGAffineTransformEqualToTransform(dock.transform, t)) dock.transform = t;
 }
 
 - (void)raiseLauncher
@@ -2783,6 +2855,7 @@ static void SCPCDumpTree(UIView *v, UIView *root, int depth, NSMutableString *ou
     [self.homeButton removeFromSuperview];
     self.homeButton = nil;
     self.lastLauncherCalc = 0;
+    [self setDockShift:0];
 }
 
 - (void)homeButtonTapped
