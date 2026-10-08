@@ -1,5 +1,6 @@
 #import "SCPCarSplit.h"
 #import "SCPPrefs.h"
+#import "SCPBoot.h"
 
 // =====================================================================
 //  SCPCarSplit - split CarPlay "that": moi ngan la scene CarPlay cua app (giao dien CarPlay/template),
@@ -92,7 +93,7 @@ static void SCPCSendEvent(unsigned long long type, id context)
     id d = SCPCDashboard();
     if (!d) return;
     id ev = objcInvoke_2(objc_getClass("DBEvent"), @"eventWithType:context:", type, context);
-    if (ev) objcInvoke_1(d, @"handleEvent:", ev);
+    if (ev) objcCall_1(d, @"handleEvent:", ev);
 }
 
 static id SCPCTry(id obj, NSString *sel)
@@ -238,10 +239,31 @@ static UIImage *SCPCGlyph(NSString *name, CGFloat pt, BOOL rot)
             SCPC_M(17, 13); SCPC_L(3, 13); SCPC_M(7, 9); SCPC_L(3, 13); SCPC_L(7, 17);
         } else if ([name isEqualToString:@"chevron"]) {
             SCPC_M(5, 8); SCPC_L(10, 13); SCPC_L(15, 8);
+        } else if ([name isEqualToString:@"split"]) {
+            [p appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(2.5, 4, 8.5, 12) cornerRadius:2.5]];
+            [p appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(13, 4, 4.5, 12) cornerRadius:2]];
         }
     });
     cache[key] = img;
     return img;
+}
+
+// So trong vong tron (nut cap yeu thich 1..3)
+static UIImage *SCPCNumberGlyph(NSInteger n, CGFloat pt)
+{
+    UIGraphicsImageRenderer *r = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(pt, pt)];
+    UIImage *img = [r imageWithActions:^(UIGraphicsImageRendererContext *rc) {
+        UIBezierPath *c = [UIBezierPath bezierPathWithOvalInRect:CGRectInset(CGRectMake(0, 0, pt, pt), 1.5, 1.5)];
+        c.lineWidth = 1.7 * pt / 20;
+        [[UIColor blackColor] setStroke];
+        [c stroke];
+        NSString *t = [NSString stringWithFormat:@"%ld", (long)n];
+        NSDictionary *a = @{NSFontAttributeName: [UIFont systemFontOfSize:pt * 0.55 weight:UIFontWeightBold],
+                            NSForegroundColorAttributeName: [UIColor blackColor]};
+        CGSize ts = [t sizeWithAttributes:a];
+        [t drawAtPoint:CGPointMake((pt - ts.width) / 2, (pt - ts.height) / 2) withAttributes:a];
+    }];
+    return [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 }
 
 // 2 o bo goc theo ti le f (o dau chiem f)
@@ -432,6 +454,10 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
 @property (nonatomic, strong) UIView *trayShield;
 @property (nonatomic, copy) NSString *tabBundle;
 @property (nonatomic, strong) NSTimer *trayTimer;
+// Man chinh CarPlay (chua split): nut mo split o goc tren phai + giu icon app de chia man
+@property (nonatomic, strong) UIButton *homeButton;
+@property (nonatomic) CFAbsoluteTime lastIconScan;
+@property (nonatomic) BOOL autoLaunchDone;           // da tu mo split cho lan cam xe nay
 @end
 
 @implementation SCPCarSplit
@@ -671,6 +697,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
 {
     if (![SCPPrefs enabled]) return NO;
     [self removeAppTab];
+    [self removeHomeButton];
     if (self.active && self.container.superview) { [self raise]; return YES; }
     UIViewController *root = SCPCRootVC();
     UIViewController *cur = objcInvoke(root, @"currentBaseViewController");
@@ -812,6 +839,8 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     SCPLog("CarSplit: mo cap left=%@ right=%@", left, right);
     if (!left && !right) { [self showPickerForSlot:0]; return; }
     if (![self activate]) return;
+    CGFloat saved = (left && right) ? [SCPPrefs ratioForPairLeft:left right:right] : 0;
+    if (saved >= 0.2 && saved <= 0.8) self.ratio = saved;
     if (left) [self openApp:left slot:0];
     if (right) {
         // Doi DashBoard xong phien doi workspace cua app trai roi moi mo app phai
@@ -887,12 +916,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     if (self.fullscreenSlot >= 0 && self.fullscreenSlot != slot) self.fullscreenSlot = -1;
     self.focusedSlot = slot;
     SCPLog("CarSplit: dua %@ (%@) vao ngan %d", bid, NSStringFromClass([vc class]), slot);
-    // Chan doan CarBridge: cay view cua app trong ngan, 1 lan moi app
-    static NSMutableSet *dumpedPane; if (!dumpedPane) dumpedPane = [NSMutableSet set];
-    if (bid && ![bid hasPrefix:@"com.apple."] && ![dumpedPane containsObject:bid]) {
-        [dumpedPane addObject:bid];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ SCPCDumpVC(vc, @"trong ngan"); });
-    }
+    [self rememberPair];
     [self raise];
     [self relayoutAnimated:YES];
     // App iPhone qua CarBridge: scene DashBoard rong -> nho CarBridge chieu app vao dung ngan nay
@@ -941,6 +965,13 @@ static BOOL SCPCRevealSceneView(UIView *v, int depth)
         SCPLog("CarSplit: app toan man %@ bi an (con sot tu split) -> hien lai",
                SCPRealBundleForInfos(objcInvoke(vc, @"applicationInfo"), objcInvoke(vc, @"proxyApplicationInfo")));
     }
+}
+
+// Ca 2 ngan deu co app -> nho cap nay (tu mo lai khi cam xe / nut mo split)
+- (void)rememberPair
+{
+    NSString *l = self.slots[0].bundleID, *r = self.slots[1].bundleID;
+    if (l && r) [SCPPrefs setLastPairLeft:l right:r];
 }
 
 - (void)detachVC:(UIViewController *)vc background:(BOOL)background
@@ -1147,6 +1178,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     }
     for (SCPCarPane *p in self.slots) for (UIView *btn in p.picker.subviews) if ([btn isKindOfClass:[UIButton class]]) btn.tag = p.slot;
     SCPLog("CarSplit: doi cho 2 ngan");
+    [self rememberPair];
     [self relayoutAnimated:YES];
 }
 
@@ -1170,7 +1202,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     p.vc = nil; p.bundleID = nil; p.sceneSize = CGSizeZero;
     if (self.fullscreenSlot == slot) self.fullscreenSlot = -1;
     SCPCarPane *other = self.slots[1 - slot];
-    if (!other.vc && !other.picker) { [self closeGoingHome:YES]; return; }
+    if (![self slotOccupied:other.slot]) { [self closeGoingHome:YES]; return; }
     SCPLog("CarSplit: dong ngan %d (%@)", slot, bid);
     [self relayoutAnimated:YES];
 
@@ -1239,6 +1271,8 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 - (void)dashboardInvalidated
 {
     [self removeAppTab];
+    [self removeHomeButton];
+    self.autoLaunchDone = NO;
     if (!self.active) return;
     SCPLog("CarSplit: DashBoard invalidate -> bo split");
     self.bridgedBundle = nil; self.bridgeStarting = NO;   // CarBridge tu xu ly ngat xe
@@ -1454,9 +1488,16 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     [self hideMenu];
     for (SCPCarPane *p in self.slots) [self setBarVisible:NO forPane:p];
     BOOL v = [self vertical];
-    NSArray *btns = @[SCPCRoundButton(SCPCGlyph(@"swap", 20, v), self, @selector(menuSwap)),
-                      SCPCRoundButton([self nextRatioGlyph], self, @selector(menuRatio)),
-                      SCPCRoundButton(SCPCGlyph(@"close", 20, NO), self, @selector(menuClose))];
+    NSMutableArray *btns = [NSMutableArray arrayWithObjects:
+                            SCPCRoundButton(SCPCGlyph(@"swap", 20, v), self, @selector(menuSwap)),
+                            SCPCRoundButton([self nextRatioGlyph], self, @selector(menuRatio)), nil];
+    for (NSInteger i = 1; i <= 3; i++) {
+        if (![SCPPrefs favorite:i]) continue;
+        UIButton *f = SCPCRoundButton(SCPCNumberGlyph(i, 20), self, @selector(menuFavorite:));
+        f.tag = i;
+        [btns addObject:f];
+    }
+    [btns addObject:SCPCRoundButton(SCPCGlyph(@"close", 20, NO), self, @selector(menuClose))];
     // Chia trai/phai -> thanh doc theo duong ranh; chia tren/duoi -> thanh ngang
     UIView *m = SCPCPill(btns, !v);
     CGFloat len = v ? m.bounds.size.width : m.bounds.size.height;
@@ -1493,6 +1534,14 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 }
 
 - (void)menuClose { [self hideMenu]; [self closeGoingHome:YES]; }
+
+- (void)menuFavorite:(UIButton *)b
+{
+    [self hideMenu];
+    NSDictionary *fav = [SCPPrefs favorite:b.tag];
+    SCPLog("CarSplit: cap yeu thich %ld: %@", (long)b.tag, fav);
+    if (fav) [self openPairLeft:fav[@"left"] right:fav[@"right"]];
+}
 
 // ---------------------------------------------------------------------
 //  Bang chon app CarPlay (nam trong 1 ngan)
@@ -1661,6 +1710,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 
 - (void)refreshAppTab
 {
+    [self refreshHomeButton];
     NSString *bid = (!self.active && [SCPPrefs enabled]) ? [self fullscreenAppBundle] : nil;
     UIView *parent = bid ? [self tabParent] : nil;
     if (!bid || !parent) { [self removeAppTab]; return; }
@@ -1946,7 +1996,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     SCPLog("CarBridge: dung chieu %@", self.bridgedBundle);
     self.bridgedBundle = nil;
     self.bridgeStarting = NO;
-    @try { objcInvoke(SCPCBridgeManager(), @"stopBridging"); } @catch (NSException *e) { SCPLog("CarBridge: stopBridging loi %@", e); }
+    @try { objcCall(SCPCBridgeManager(), @"stopBridging"); } @catch (NSException *e) { SCPLog("CarBridge: stopBridging loi %@", e); }
     [self updateBridgeHints];
 }
 
@@ -1973,6 +2023,131 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     });
 }
 
+// ---------------------------------------------------------------------
+//  Man chinh CarPlay (chua split): nut tron "chia doi" o goc tren phai vung app, giu icon app 0.7s
+//  de mo app do vao split. Tu mo split khi cam xe (sau video khoi dong).
+// ---------------------------------------------------------------------
+#define SCPC_HOME_BTN 34.0
+static char kSCPCLongPressKey;
+
+- (BOOL)atHomeScreen
+{
+    UIViewController *root = SCPCRootVC();
+    return root && !self.active && [SCPPrefs enabled] && !SCPBootIsShowing()
+        && !objcInvoke(root, @"currentBaseViewController");
+}
+
+- (void)refreshHomeButton
+{
+    UIView *parent = [self atHomeScreen] ? [self tabParent] : nil;
+    if (!parent) { [self removeHomeButton]; return; }
+    if (!self.homeButton) {
+        self.homeButton = SCPCCircleButton(SCPCGlyph(@"split", 18, NO), SCPC_HOME_BTN, self, @selector(homeButtonTapped));
+        SCPLog("CarSplit: nut mo split tren man chinh");
+    }
+    if (self.homeButton.superview != parent) [parent addSubview:self.homeButton];
+    CGRect area = [self appAreaInParent:parent];
+    self.homeButton.center = CGPointMake(CGRectGetMaxX(area) - SCPC_HOME_BTN / 2 - 8, CGRectGetMinY(area) + SCPC_HOME_BTN / 2 + 8);
+    [self raiseView:self.homeButton];
+    [self installIconLongPress];
+}
+
+- (void)removeHomeButton
+{
+    [self.homeButton removeFromSuperview];
+    self.homeButton = nil;
+}
+
+- (void)homeButtonTapped
+{
+    SCPLog("CarSplit: bam nut mo split tren man chinh");
+    [self openRememberedPair];
+}
+
+// Cap dung lan cuoi (khong co thi cap trong Cai dat). App khong con tren CarPlay thi bo, ngan do hien bang chon.
+- (void)openRememberedPair
+{
+    NSString *l = [SCPPrefs lastLeftApp] ?: [SCPPrefs leftApp];
+    NSString *r = [SCPPrefs lastRightApp] ?: [SCPPrefs rightApp];
+    if (l && ![self isCarPlayApp:l]) l = nil;
+    if (r && ![self isCarPlayApp:r]) r = nil;
+    if (l && [l isEqualToString:r]) r = nil;
+    [self openPairLeft:l right:r];
+}
+
+// Gan cu chi giu lau vao luoi icon man chinh CarPlay (*IconListView), toi da 1 lan quet / 2s
+- (void)installIconLongPress
+{
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+    if (now - self.lastIconScan < 2.0) return;
+    self.lastIconScan = now;
+    for (UIScene *sc in [UIApplication sharedApplication].connectedScenes) {
+        if (![sc isKindOfClass:[UIWindowScene class]]) continue;
+        for (UIWindow *w in ((UIWindowScene *)sc).windows) [self installLongPressIn:w depth:0];
+    }
+}
+
+- (void)installLongPressIn:(UIView *)v depth:(int)depth
+{
+    if (!v || depth > 14 || v == self.container) return;
+    if ([NSStringFromClass([v class]) hasSuffix:@"IconListView"]) {
+        if (objc_getAssociatedObject(v, &kSCPCLongPressKey)) return;
+        UILongPressGestureRecognizer *g = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(iconLongPressed:)];
+        g.minimumPressDuration = 0.7;
+        [v addGestureRecognizer:g];
+        objc_setAssociatedObject(v, &kSCPCLongPressKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        SCPLog("CarSplit: gan giu icon vao %@", NSStringFromClass([v class]));
+        return;
+    }
+    for (UIView *c in v.subviews) [self installLongPressIn:c depth:depth + 1];
+}
+
+- (void)iconLongPressed:(UILongPressGestureRecognizer *)g
+{
+    if (g.state != UIGestureRecognizerStateBegan || self.active || ![SCPPrefs enabled]) return;
+    UIView *hit = [g.view hitTest:[g locationInView:g.view] withEvent:nil];
+    NSString *bid = nil;
+    for (UIView *v = hit; v && v != g.view.superview && !bid; v = v.superview) {
+        id icon = SCPCTry(v, @"icon");
+        if (icon) bid = SCPCIconBundle(icon);
+    }
+    if (!bid || ![self isCarPlayApp:bid]) {
+        SCPLog("CarSplit: giu icon %@ -> khong chia man duoc", bid);
+        if (bid) [self toast:@"App này không chia màn hình được"];
+        return;
+    }
+    SCPLog("CarSplit: giu icon %@ -> mo vao split", bid);
+    [self openApp:bid slot:-1];
+}
+
+// Man xe vua hien (cam xe). Bat "Tu mo split khi cam xe" -> cho video khoi dong xong roi mo cap da nho.
+- (void)carScreenAppeared
+{
+    if (self.autoLaunchDone) return;
+    self.autoLaunchDone = YES;
+    if (![SCPPrefs enabled] || ![SCPPrefs autoLaunch]) return;
+    SCPLog("CarSplit: cam xe -> se tu mo split");
+    [self autoLaunchAttempt:0];
+}
+
+- (void)autoLaunchAttempt:(int)n
+{
+    __weak SCPCarSplit *weakSelf = self;
+    if (self.active) return;
+    if ((SCPBootIsShowing() || !SCPCRootVC()) && n < 40) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf autoLaunchAttempt:n + 1];
+        });
+        return;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        SCPCarSplit *me = weakSelf;
+        if (!me || me.active) return;
+        SCPLog("CarSplit: tu mo split khi cam xe");
+        [me openRememberedPair];
+    });
+}
+
 - (void)toast:(NSString *)msg
 {
     UIView *host = SCPCRootVC().view;
@@ -1996,33 +2171,4 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
 
 @end
 
-// ---------------------------------------------------------------------
-//  Chan doan CarBridge (YouTube / TikTok trang trong ngan): ghi lop cua CarBridge va cay view cua app
-//  khi mo toan man (chay dung) va khi nam trong ngan (trang) de so sanh.
-// ---------------------------------------------------------------------
-static void SCPCDumpViewInto(UIView *v, int depth, NSMutableArray<NSString *> *out)
-{
-    if (!v || depth > 9 || out.count >= 90) return;
-    CGAffineTransform t = v.transform;
-    NSString *pad = [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0];
-    [out addObject:[NSString stringWithFormat:@"%@%@ %@%@%@%@ layer=%@%@", pad, NSStringFromClass([v class]),
-                    NSStringFromCGRect(v.frame),
-                    CGAffineTransformIsIdentity(t) ? @"" : [NSString stringWithFormat:@" t=(%.2f,%.2f,%.2f,%.2f)", t.a, t.b, t.c, t.d],
-                    v.hidden ? @" HIDDEN" : @"", v.alpha < 1 ? [NSString stringWithFormat:@" a=%.2f", v.alpha] : @"",
-                    NSStringFromClass([v.layer class]),
-                    v.layer.sublayers.count && !v.subviews.count ? [NSString stringWithFormat:@" sublayers=%lu", (unsigned long)v.layer.sublayers.count] : @""]];
-    for (UIView *c in v.subviews) SCPCDumpViewInto(c, depth + 1, out);
-}
-
-void SCPCDumpVC(UIViewController *vc, NSString *why)
-{
-    if (!vc) return;
-    NSMutableArray<NSString *> *lines = [NSMutableArray array];
-    SCPCDumpViewInto(vc.view, 0, lines);
-    NSString *bid = SCPRealBundleForInfos(objcInvoke(vc, @"applicationInfo"), objcInvoke(vc, @"proxyApplicationInfo"));
-    NSMutableArray *childs = [NSMutableArray array];
-    for (UIViewController *c in vc.childViewControllers) [childs addObject:NSStringFromClass([c class])];
-    SCPLog("DIAG %@ %@ (%@, con: %@):\n%@", why, bid, NSStringFromClass([vc class]),
-           childs.count ? [childs componentsJoinedByString:@","] : @"-", [lines componentsJoinedByString:@"\n"]);
-}
 

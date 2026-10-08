@@ -1,6 +1,6 @@
 Package: com.anlai97.carduo
 Name: CarDuo
-Version: 1.0.0
+Version: 1.1.0
 Architecture: iphoneos-arm64
 Description: Two CarPlay apps side by side on your car screen.
  Navigation and music at the same time, without switching back and forth.

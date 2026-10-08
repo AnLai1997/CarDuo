@@ -6,68 +6,34 @@
 #import <objc/message.h>
 #import <dlfcn.h>
 
-#define LOGTAG "[SplitCP]"
+#define LOGTAG "[CarDuo]"
 #define SCPLog(fmt, ...) SCPLogWrite([NSString stringWithFormat:@fmt, ##__VA_ARGS__])
 
-// Notification CarPlay process -> SpringBoard: yeu cau mo app vao mot ngan
-#define SCP_NOTIF_LAUNCH        @"com.anlai97.carduo.launch"
-// SpringBoard -> app process: ep huong xoay
-#define SCP_NOTIF_ORIENTATION   @"com.anlai97.carduo.orientation"
-// App process -> SpringBoard (Darwin notify, qua duoc sandbox cua app): app vua doi yeu cau xoay (YouTube fullscreen).
-// Payload trong notify state: (hash bundle id << 24) | (mask huong app dang cho phep << 8) | ma
-// (ma: huong app xin, 0 = ve huong ngan, 0xFF = app vua doi mask -> SpringBoard tu suy ra huong tu mask).
-#define SCP_DARWIN_APP_ORIENT "com.anlai97.carduo.apporient"
-static inline uint64_t SCPBundleHash(NSString *bid)
-{
-    uint32_t h = 2166136261u;
-    for (const char *c = bid.UTF8String; c && *c; c++) { h ^= (uint8_t)*c; h *= 16777619u; }
-    return h;
-}
-// App process -> SpringBoard: chuyen tiep 1 dong log (app bi sandbox, khong ghi duoc file log chung)
+// Process khong ghi duoc file log chung -> SpringBoard ghi ho 1 dong log
 #define SCP_NOTIF_LOG           @"com.anlai97.carduo.log"
-// SpringBoard -> CarPlay process: dong/mo split (de CarPlay dong app native dang chay)
-#define SCP_NOTIF_SPLIT_CLOSED  @"com.anlai97.carduo.closed"
 
-// Moi ngan co the (grabber) trang tron 44x6 o giua mep tren (vung cham no rong 18pt moi phia); cham hoac keo xuong
-// de hien hang nut tron trang (kieu HyperOS) bat ra lan luot ngay duoi. Nut tron 38pt, icon den don sac.
-#define SCP_PANE_BAR_HEIGHT    48.0
-#define SCP_PANE_HANDLE_WIDTH  30.0
-#define SCP_PANE_HANDLE_HEIGHT 4.0
-#define SCP_PANE_BORDER        1.0
-#define SCP_PANE_INSET         2.0    // ngan lui vao so voi mep man -> thay ro bo goc tren nen toi
-// App iPhone chieu len xe: scene ve o kich thuoc ngan / ZOOM roi thu nho lai -> chu va nut cua app khong to qua tren man xe
-#define SCP_MIRROR_ZOOM        0.72
-
-#define getIvar(object, ivar)        [object valueForKey:ivar]
-#define setIvar(object, ivar, value) [object setValue:value forKey:ivar]
-
-#define objcInvokeT(a, b, t)            ((t (*)(id, SEL))objc_msgSend)(a, NSSelectorFromString(b))
-#define objcInvoke(a, b)                objcInvokeT(a, b, id)
-#define objcInvoke_1(a, b, c)           ((id (*)(id, SEL, __typeof__(c)))objc_msgSend)(a, NSSelectorFromString(b), c)
-#define objcInvoke_2(a, b, c, d)        ((id (*)(id, SEL, __typeof__(c), __typeof__(d)))objc_msgSend)(a, NSSelectorFromString(b), c, d)
-#define objcInvoke_3(a, b, c, d, e)     ((id (*)(id, SEL, __typeof__(c), __typeof__(d), __typeof__(e)))objc_msgSend)(a, NSSelectorFromString(b), c, d, e)
-
-// Kiem tra object tra ve dung class mong doi, log ro rang neu sai (thay cho assert crash)
-#define expectClass(obj, clsName) \
-    ({ id _o = (obj); \
-       if (!_o || ![_o isKindOfClass:objc_getClass(clsName)]) { \
-           SCPLog("UNEXPECTED %s: got %@ (%s:%d)", clsName, _o, __FILE__, __LINE__); \
-           [NSException raise:@"CarDuo" format:@"expected %s got %@", clsName, _o]; \
-       } _o; })
-
+// Goi method rieng cua Apple qua runtime. Moi macro deu kiem tra object co method do khong: khong co
+// (doi iOS, object nil / sai lop) thi ghi log 1 lan va tra nil / 0 thay vi crash vi "unrecognized selector".
+//   objcInvoke*  : method TRA VE OBJECT (id).
+//   objcCall*    : method KHONG tra ve object (void / BOOL ...) ma bo qua ket qua. Khong duoc dung objcInvoke
+//                  cho loai nay: ARC se release "ket qua" rac trong thanh ghi -> crash ngau nhien.
+//   objcInvokeT  : method tra ve kieu so / struct (BOOL, CGRect ...), tra 0 neu khong co method.
+#define SCPSel(b) NSSelectorFromString(b)
+#define objcInvokeT(a, b, t) ({ id _o = (a); SEL _s = SCPSel(b); t _r = (t){0};     if ([_o respondsToSelector:_s]) _r = ((t (*)(id, SEL))objc_msgSend)(_o, _s); else SCPMissingSelector(_o, b); _r; })
+#define objcInvoke(a, b) ({ id _o = (a); SEL _s = SCPSel(b); id _r = nil;     if ([_o respondsToSelector:_s]) _r = ((id (*)(id, SEL))objc_msgSend)(_o, _s); else SCPMissingSelector(_o, b); _r; })
+#define objcInvoke_1(a, b, c) ({ id _o = (a); SEL _s = SCPSel(b); id _r = nil;     if ([_o respondsToSelector:_s]) _r = ((id (*)(id, SEL, __typeof__(c)))objc_msgSend)(_o, _s, c); else SCPMissingSelector(_o, b); _r; })
+#define objcInvoke_2(a, b, c, d) ({ id _o = (a); SEL _s = SCPSel(b); id _r = nil;     if ([_o respondsToSelector:_s]) _r = ((id (*)(id, SEL, __typeof__(c), __typeof__(d)))objc_msgSend)(_o, _s, c, d); else SCPMissingSelector(_o, b); _r; })
+#define objcCall(a, b) ({ id _o = (a); SEL _s = SCPSel(b);     if ([_o respondsToSelector:_s]) ((void (*)(id, SEL))objc_msgSend)(_o, _s); else SCPMissingSelector(_o, b); })
+#define objcCall_1(a, b, c) ({ id _o = (a); SEL _s = SCPSel(b);     if ([_o respondsToSelector:_s]) ((void (*)(id, SEL, __typeof__(c)))objc_msgSend)(_o, _s, c); else SCPMissingSelector(_o, b); })
+#define objcCall_2(a, b, c, d) ({ id _o = (a); SEL _s = SCPSel(b);     if ([_o respondsToSelector:_s]) ((void (*)(id, SEL, __typeof__(c), __typeof__(d)))objc_msgSend)(_o, _s, c, d); else SCPMissingSelector(_o, b); })
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern int (*orig_BKSDisplayServicesSetScreenBlanked)(int);
 void SCPLogWrite(NSString *msg);
-void SCPDiagHooks(NSString *hooker);                  // chan doan: ham he thong bi dylib `hooker` hook (SCPDiag.mm)
-void SCPDiagClasses(NSArray<NSString *> *names);       // chan doan: chi tiet cac lop (SCPDiag.mm)
+void SCPMissingSelector(id obj, NSString *sel);   // object (khac nil) thieu method -> log 1 lan moi lop/method
 void SCPLogTrim(void);                      // SpringBoard khoi dong: log > 2MB -> CarDuo.old.log
 void SCPLogAppendRelayed(NSString *line);   // SpringBoard ghi ho dong log tu app
-extern const void *kSCPKey_splitWindow;
-extern const void *kSCPKey_lockAssertions;
-id SCPGetCarPlayCADisplay(void);
 #ifdef __cplusplus
 }
 #endif

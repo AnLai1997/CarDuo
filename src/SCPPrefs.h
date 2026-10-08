@@ -9,11 +9,12 @@
 + (BOOL)enabled;
 + (NSString *)leftApp;
 + (NSString *)rightApp;
++ (NSString *)lastLeftApp;        // cap app dung lan cuoi tren xe (tu mo lai khi cam xe)
++ (NSString *)lastRightApp;
 + (BOOL)autoLaunch;
 + (NSInteger)paneOrientation;   // 1 = portrait, 3 = landscape
 + (CGFloat)splitRatio;          // ti le be rong ngan trai (0.2 - 0.8)
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
-+ (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
 + (BOOL)bootVideo;             // phat video khoi dong khi CarPlay mo (mac dinh bat)
 + (CGFloat)bootDuration;        // so giay phat video khoi dong (0 = het video)
 + (BOOL)bootSound;             // video khoi dong co tieng (mac dinh bat)
@@ -35,4 +36,5 @@
 + (void)setSplitRatio:(CGFloat)r;
 + (void)setLeftApp:(NSString *)bid;
 + (void)setRightApp:(NSString *)bid;
++ (void)setLastPairLeft:(NSString *)left right:(NSString *)right;
 @end

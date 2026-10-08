@@ -298,23 +298,6 @@
 			<key>defaults</key><string>com.anlai97.carduo</string>
 		</dict>
 
-		<!-- Extras -->
-		<dict>
-			<key>cell</key><string>PSGroupCell</string>
-			<key>label</key><string>EXTRAS_GROUP</string>
-			<key>footerText</key><string>EXTRAS_FOOTER</string>
-		</dict>
-		<dict>
-			<key>cell</key><string>PSSwitchCell</string>
-			<key>label</key><string>MIRROR_RIGHT</string>
-			<key>symbol</key><string>rectangle.on.rectangle</string>
-			<key>symbolColor</key><string>#8A47E8</string>
-			<key>key</key><string>MirrorRight</string>
-			<key>default</key><false/>
-			<key>defaults</key><string>com.anlai97.carduo</string>
-			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
-		</dict>
-
 		<dict>
 			<key>cell</key><string>PSGroupCell</string>
 			<key>label</key><string>SHORTCUTS_GROUP</string>

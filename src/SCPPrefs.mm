@@ -40,6 +40,8 @@ static NSString *str(NSString *key)
 + (BOOL)enabled            { id v = value(@"Enabled");          return v ? [v boolValue] : YES; }
 + (NSString *)leftApp      { return str(@"LeftApp"); }
 + (NSString *)rightApp     { return str(@"RightApp"); }
++ (NSString *)lastLeftApp  { return str(@"LastLeft"); }
++ (NSString *)lastRightApp { return str(@"LastRight"); }
 + (BOOL)autoLaunch         { id v = value(@"AutoLaunch");       return v ? [v boolValue] : NO; }
 + (NSInteger)paneOrientation {
     id v = value(@"PaneOrientation");
@@ -52,7 +54,6 @@ static NSString *str(NSString *key)
     return MIN(0.8, MAX(0.2, r));
 }
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
-+ (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
 + (BOOL)bootVideo          { id v = value(@"BootVideo");        return v ? [v boolValue] : YES; }
 + (CGFloat)bootDuration    { id v = value(@"BootDuration");     return v ? ([v doubleValue] <= 0 ? 0 : MIN(15, MAX(1, [v doubleValue]))) : 4; }
 + (BOOL)bootSound          { id v = value(@"BootSound");        return v ? [v boolValue] : YES; }
@@ -124,5 +125,13 @@ static NSString *pairKey(NSString *left, NSString *right)
 + (void)setSplitRatio:(CGFloat)r     { [defaults() setDouble:r forKey:@"SplitRatio"]; [defaults() synchronize]; }
 + (void)setLeftApp:(NSString *)bid   { [defaults() setObject:bid forKey:@"LeftApp"];  [defaults() synchronize]; }
 + (void)setRightApp:(NSString *)bid  { [defaults() setObject:bid forKey:@"RightApp"]; [defaults() synchronize]; }
++ (void)setLastPairLeft:(NSString *)left right:(NSString *)right
+{
+    if (!left.length || !right.length) return;
+    if ([left isEqualToString:str(@"LastLeft")] && [right isEqualToString:str(@"LastRight")]) return;
+    [defaults() setObject:left forKey:@"LastLeft"];
+    [defaults() setObject:right forKey:@"LastRight"];
+    [defaults() synchronize];
+}
 
 @end

@@ -6,6 +6,15 @@
 // Inject vao process CarPlay (com.apple.CarPlayApp, code trong DashBoard.framework, prefix DB).
 // Split hien GIAO DIEN CARPLAY cua app: DashBoard tu mo scene CarPlay cua app (giong cham icon),
 // tweak dua view controller cua scene do vao 1 ngan va bao kich thuoc ngan cho scene (xem SCPCarSplit.mm).
+//
+// Quy tac on dinh: phan code cua tweak trong moi hook nam trong @try. Loi cua tweak chi ghi log
+// (va tat split neu can), %orig cua DashBoard luon duoc goi nhu binh thuong -> CarPlay khong bi sap.
+
+static void SCPHookError(const char *where, NSException *e)
+{
+    SCPLog("LOI trong %s: %@\n%@", where, e, e.callStackSymbols);
+}
+
 %group CARPLAY
 
 // ---- Kich thuoc scene: app trong ngan nhan kich thuoc ngan, khong phai ca man xe ----
@@ -14,36 +23,41 @@
 - (CGRect)sceneFrameForAppInfo:(id)info proxyAppInfo:(id)proxy
 {
     CGRect r = %orig;
-    CGSize s;
-    NSString *bid = SCPRealBundleForInfos(info, proxy);
-    if ([[SCPCarSplit shared] paneSize:&s forBundle:bid]) {
-        r.size = s;
-    }
+    @try {
+        CGSize s;
+        if ([[SCPCarSplit shared] paneSize:&s forBundle:SCPRealBundleForInfos(info, proxy)]) r.size = s;
+    } @catch (NSException *e) { SCPHookError("sceneFrameForAppInfo", e); }
     return r;
 }
 
 - (UIEdgeInsets)safeAreaInsetsForAppInfo:(id)info proxyAppInfo:(id)proxy
 {
     UIEdgeInsets e = %orig;
-    CGSize s;
-    // Ngan khong nam duoi dock/status bar -> khong can chua le
-    if ([[SCPCarSplit shared] paneSize:&s forBundle:SCPRealBundleForInfos(info, proxy)]) return UIEdgeInsetsZero;
+    @try {
+        CGSize s;
+        // Ngan khong nam duoi dock/status bar -> khong can chua le
+        if ([[SCPCarSplit shared] paneSize:&s forBundle:SCPRealBundleForInfos(info, proxy)]) return UIEdgeInsetsZero;
+    } @catch (NSException *ex) { SCPHookError("safeAreaInsetsForAppInfo", ex); }
     return e;
 }
 
 // Nut Home cua CarPlay khi dang split -> tat split (scene ve background) roi de DashBoard ve man chinh
 - (void)_handleHomeEvent:(id)event
 {
-    SCPCarSplit *sp = [SCPCarSplit shared];
-    if (sp.active && sp.bridgeStarting) SCPLog("CarSplit: Home trong luc CarBridge khoi dong -> giu split");
-    else if (sp.active) [sp closeGoingHome:NO];
+    @try {
+        SCPCarSplit *sp = [SCPCarSplit shared];
+        if (sp.active && sp.bridgeStarting) SCPLog("CarSplit: Home trong luc CarBridge khoi dong -> giu split");
+        else if (sp.active) [sp closeGoingHome:NO];
+    } @catch (NSException *e) { SCPHookError("_handleHomeEvent", e); }
     %orig;
 }
 
 - (void)invalidate
 {
-    SCPBootReset();
-    [[SCPCarSplit shared] dashboardInvalidated];
+    @try {
+        SCPBootReset();
+        [[SCPCarSplit shared] dashboardInvalidated];
+    } @catch (NSException *e) { SCPHookError("DBDashboard invalidate", e); }
     %orig;
 }
 
@@ -55,70 +69,80 @@
 - (void)presentBaseViewController:(id)vc animated:(BOOL)animated launchSource:(unsigned long long)source completion:(id)completion
 {
     SCPCarSplit *sp = [SCPCarSplit shared];
-    if (sp.active) {
-        if ([sp wantsViewController:vc]) {
-            @try {
+    BOOL adopted = NO;
+    @try {
+        if (sp.active) {
+            if ([sp wantsViewController:vc]) {
                 [sp adoptViewController:vc];
-            } @catch (NSException *e) {
-                SCPLog("CarSplit: adopt loi %@\n%@", e, e.callStackSymbols);
+                adopted = YES;
+            } else {
+                SCPLog("CarSplit: DashBoard mo %@ toan man -> tat split", vc);
+                [sp closeGoingHome:NO];
             }
-            if (completion) ((void (^)(void))completion)();
-            return;
         }
-        SCPLog("CarSplit: DashBoard mo %@ toan man -> tat split", vc);
-        [sp closeGoingHome:NO];
+    } @catch (NSException *e) {
+        // Dua vao ngan that bai: tat split, de DashBoard mo app toan man nhu binh thuong
+        SCPHookError("presentBaseViewController (adopt)", e);
+        adopted = NO;
+        @try { [sp closeGoingHome:NO]; } @catch (NSException *e2) { SCPHookError("closeGoingHome", e2); }
+    }
+    if (adopted) {
+        if (completion) ((void (^)(void))completion)();
+        return;
     }
     %orig;
-    [sp refreshAppTabSoon];   // app vua mo toan man -> tab icon o mep tren
-    // App tung nam trong ngan: DashBoard co the trinh bay lai view dang bi an -> man den, cham khong vao.
-    // Doi animation mo xong, van la app dang hien ma view con an thi hien lai.
-    if ([vc isKindOfClass:[UIViewController class]]) {
-        __weak UIViewController *weakVC = vc;
-        __weak id weakRoot = self;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            UIViewController *v = weakVC;
-            id root = weakRoot;
-            if (v && root && objcInvoke(root, @"currentBaseViewController") == v) [[SCPCarSplit shared] repairPresentedViewController:v];
-        });
-    }
-    // Chan doan CarBridge: cay view cua app (khong phai Apple) khi mo toan man, 1 lan moi app
-    if ([vc isKindOfClass:objc_getClass("DBApplicationSceneViewController")]) {
-        NSString *b = SCPRealBundleForInfos(objcInvoke(vc, @"applicationInfo"), objcInvoke(vc, @"proxyApplicationInfo"));
-        static NSMutableSet *dumped; if (!dumped) dumped = [NSMutableSet set];
-        if (b && ![b hasPrefix:@"com.apple."] && ![dumped containsObject:b]) {
-            [dumped addObject:b];
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ SCPCDumpVC(vc, @"toan man"); });
+    @try {
+        [sp refreshAppTabSoon];   // app vua mo toan man -> tab icon o mep tren
+        // App tung nam trong ngan: DashBoard co the trinh bay lai view dang bi an -> man den, cham khong vao.
+        // Doi animation mo xong, van la app dang hien ma view con an thi hien lai.
+        if ([vc isKindOfClass:[UIViewController class]]) {
+            __weak UIViewController *weakVC = vc;
+            __weak id weakRoot = self;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                @try {
+                    UIViewController *v = weakVC;
+                    id root = weakRoot;
+                    if (v && root && objcInvoke(root, @"currentBaseViewController") == v) [[SCPCarSplit shared] repairPresentedViewController:v];
+                } @catch (NSException *e) { SCPHookError("repairPresentedViewController", e); }
+            });
         }
-    }
+    } @catch (NSException *e) { SCPHookError("presentBaseViewController (sau)", e); }
 }
 
 - (void)dismissBaseViewControllerAnimated:(BOOL)animated completion:(id)completion
 {
     SCPCarSplit *sp = [SCPCarSplit shared];
-    // Dang split thi currentBaseViewController = nil; workspace ve man chinh -> tat split
-    if (sp.active && !sp.bridgeStarting && !objcInvoke(self, @"currentBaseViewController")) {
-        SCPLog("CarSplit: DashBoard ve man chinh -> tat split");
-        [sp closeGoingHome:NO];
-    }
-    [sp removeAppTab];
+    @try {
+        // Dang split thi currentBaseViewController = nil; workspace ve man chinh -> tat split
+        if (sp.active && !sp.bridgeStarting && !objcInvoke(self, @"currentBaseViewController")) {
+            SCPLog("CarSplit: DashBoard ve man chinh -> tat split");
+            [sp closeGoingHome:NO];
+        }
+        [sp removeAppTab];
+    } @catch (NSException *e) { SCPHookError("dismissBaseViewController", e); }
     %orig;
-    [sp refreshAppTabSoon];
+    @try { [sp refreshAppTabSoon]; } @catch (NSException *e) { SCPHookError("refreshAppTabSoon", e); }
 }
 
 - (void)viewDidLayoutSubviews
 {
     %orig;
-    [[SCPCarSplit shared] rootDidLayout];
+    @try { [[SCPCarSplit shared] rootDidLayout]; } @catch (NSException *e) { SCPHookError("rootDidLayout", e); }
 }
 
-// Man xe vua hien (cam xe): video khoi dong + cap nhat danh sach app CarPlay cho Settings
+// Man xe vua hien (cam xe): video khoi dong, danh sach app CarPlay cho Settings, tu mo split
 - (void)viewDidAppear:(BOOL)animated
 {
     %orig;
-    SCPBootShowIfNeeded((UIViewController *)self);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [[SCPCarSplit shared] publishCarPlayApps];
-    });
+    @try {
+        SCPBootShowIfNeeded((UIViewController *)self);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            @try {
+                [[SCPCarSplit shared] publishCarPlayApps];
+                [[SCPCarSplit shared] carScreenAppeared];
+            } @catch (NSException *e) { SCPHookError("viewDidAppear (sau 3s)", e); }
+        });
+    } @catch (NSException *e) { SCPHookError("viewDidAppear", e); }
 }
 
 %end
@@ -128,7 +152,9 @@
 
 - (void)backgroundSceneWithCompletion:(id)completion
 {
-    if ([[SCPCarSplit shared] protectsViewController:self]) {
+    BOOL protect = NO;
+    @try { protect = [[SCPCarSplit shared] protectsViewController:self]; } @catch (NSException *e) { SCPHookError("backgroundScene", e); }
+    if (protect) {
         SCPLog("CarSplit: chan background scene cua app trong ngan");
         if (completion) ((void (^)(void))completion)();
         return;
@@ -138,7 +164,9 @@
 
 - (void)deactivateSceneWithReasonMask:(unsigned long long)mask
 {
-    if ([[SCPCarSplit shared] protectsViewController:self]) {
+    BOOL protect = NO;
+    @try { protect = [[SCPCarSplit shared] protectsViewController:self]; } @catch (NSException *e) { SCPHookError("deactivateScene", e); }
+    if (protect) {
         SCPLog("CarSplit: chan deactivate scene (mask=%llu) cua app trong ngan", mask);
         return;
     }
@@ -147,9 +175,11 @@
 
 - (void)sceneManager:(id)manager didDestroyScene:(id)scene
 {
-    id own = [[SCPCarSplit shared] sceneOfViewController:self];   // lay truoc %orig (co the bi xoa)
+    id own = nil;
+    @try { own = [[SCPCarSplit shared] sceneOfViewController:self]; } @catch (NSException *e) {}   // lay truoc %orig (co the bi xoa)
     %orig;
-    [[SCPCarSplit shared] scene:scene destroyedForViewController:self ownScene:own];
+    @try { [[SCPCarSplit shared] scene:scene destroyedForViewController:self ownScene:own]; }
+    @catch (NSException *e) { SCPHookError("didDestroyScene", e); }
 }
 
 %end
@@ -163,8 +193,10 @@
 // Khung CBWindow: dang chieu vao ngan -> khung ngan
 - (CGRect)getAppFrame
 {
-    CGRect r = [[SCPCarSplit shared] bridgeFrame];
-    if (r.size.width > 1 && r.size.height > 1) return r;
+    @try {
+        CGRect r = [[SCPCarSplit shared] bridgeFrame];
+        if (r.size.width > 1 && r.size.height > 1) return r;
+    } @catch (NSException *e) { SCPHookError("getAppFrame", e); }
     return %orig;
 }
 
@@ -204,10 +236,11 @@
     // SpringBoard: CarBridge da dong CBWindow cua app dang nam trong ngan -> chieu lai
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
         addObserverForName:SCP_NOTIF_CBLOST object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
-        [[SCPCarSplit shared] bridgeWindowLost:note.userInfo[@"identifier"]];
+        @try { [[SCPCarSplit shared] bridgeWindowLost:note.userInfo[@"identifier"]]; }
+        @catch (NSException *e) { SCPHookError("CBLOST", e); }
     }];
 
-    // SpringBoard / Settings / URL scheme -> mo split CarPlay
+    // SpringBoard (URL scheme / Siri) -> mo / dong split CarPlay
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
         addObserverForName:SCP_NOTIF_NATIVE object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
         NSDictionary *u = note.userInfo;
@@ -229,8 +262,6 @@
             } else if ([action isEqualToString:@"picker"]) {
                 if (sp.active) [sp closeGoingHome:YES]; else [sp showPickerForSlot:-1];
             }
-        } @catch (NSException *e) {
-            SCPLog("CarSplit: yeu cau loi %@\n%@", e, e.callStackSymbols);
-        }
+        } @catch (NSException *e) { SCPHookError("yeu cau tu SpringBoard", e); }
     }];
 }

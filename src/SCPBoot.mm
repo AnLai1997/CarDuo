@@ -122,3 +122,8 @@ void SCPBootReset(void)
     [sBootPlayer pause];
     sBootPlayer = nil;
 }
+
+BOOL SCPBootIsShowing(void)
+{
+    return sBootWindow != nil;
+}

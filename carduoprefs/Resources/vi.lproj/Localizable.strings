@@ -68,7 +68,7 @@
 
 "ON_CONNECT_GROUP" = "Trên xe";
 "AUTO_LAUNCH" = "Tự mở split khi cắm xe";
-"USAGE_FOOTER" = "Nút tròn ở góc trên phải màn CarPlay mở split: app đang mở vào ngăn trái, ngăn còn lại là bảng chọn app. Giữ icon app 1 giây trên màn chính CarPlay cũng mở app đó vào một ngăn. Đang split mà chạm app trên dock thì app đó vào ngăn vừa chạm. Thẻ trắng ở giữa mép trên mỗi ngăn: chạm để Đổi app / Toàn màn / Đóng. Nút Home của CarPlay tắt split.";
+"USAGE_FOOTER" = "Mở split: bấm nút tròn ở góc trên phải màn chính CarPlay (mở lại cặp app dùng lần trước), giữ icon app 1 giây, hoặc chạm thẻ nhỏ ở mép trên app đang mở rồi chọn app thứ hai. Khi tự mở lúc cắm xe cũng dùng cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải). Đang split: chạm thẻ trắng trên mỗi ngăn để Đổi app / Toàn màn / Đóng; kéo thanh giữa để đổi tỉ lệ, chạm để Đổi chỗ / Tỉ lệ / Cặp yêu thích / Đóng. Chạm app trên dock thì app đó vào ngăn vừa chạm. Nút Home của CarPlay tắt split.";
 
 "FAV1_GROUP" = "Cặp yêu thích 1";
 "FAV2_GROUP" = "Cặp yêu thích 2";
@@ -77,11 +77,7 @@
 "FAV1_PLACEHOLDER" = "Đi làm";
 "FAV2_PLACEHOLDER" = "Đi chơi";
 "FAV3_PLACEHOLDER" = "Đi xa";
-"FAV_FOOTER" = "Hiện thành nút 1, 2, 3 trong dấu \"...\" của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: carduo://fav?n=1";
-
-"EXTRAS_GROUP" = "Tính năng thêm";
-"EXTRAS_FOOTER" = "PiP: tuỳ chọn trong dấu \"...\" của ngăn thu ngăn đó thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).";
-"MIRROR_RIGHT" = "Mirror ngăn phải lên iPhone";
+"FAV_FOOTER" = "Hiện thành nút 1, 2, 3 trong menu của thanh giữa 2 ngăn (chạm vào núm). Bấm là đổi cả hai ngăn. Siri/Shortcuts: carduo://fav?n=1";
 
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
 "SHORTCUTS_FOOTER" = "Tạo Shortcut với hành động \"Mở URL\" rồi gọi bằng Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";

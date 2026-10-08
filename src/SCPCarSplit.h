@@ -46,13 +46,13 @@
 - (void)repairPresentedViewController:(UIViewController *)vc;   // app toan man con bi an tu split -> hien lai
 - (void)removeAppTab;
 - (void)publishCarPlayApps;          // ghi danh sach app CarPlay (ca CarBridge) cho Settings loc app
+- (void)carScreenAppeared;            // man xe vua hien (cam xe) -> tu mo split neu bat
 @end
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 NSString *SCPRealBundleForInfos(id info, id proxyInfo);   // bo qua CarPlayTemplateUIHost, tra ve bundle that cua app
-void SCPCDumpVC(UIViewController *vc, NSString *why);     // chan doan: ghi cay view cua app (CarBridge)
 #ifdef __cplusplus
 }
 #endif

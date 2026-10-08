@@ -37,7 +37,17 @@ Toàn bộ split nằm trong process CarPlay (`DashBoard.framework`), code ở `
    thay vì hiện toàn màn. Hook `backgroundSceneWithCompletion:` / `deactivateSceneWithReasonMask:` giữ scene của ngăn foreground.
 4. Nút Home của CarPlay (`_handleHomeEvent:`) hoặc DashBoard về màn chính thì tắt split.
 Dock CarPlay vẫn hiện; chạm app trên dock khi đang split thì app vào ngăn vừa chạm.
-App không có CarPlay chỉ mở được khi bật "Cho phép app không có CarPlay" (cửa sổ SpringBoard chiếu giao diện iPhone, cách cũ).
+App iPhone (không có CarPlay) vào ngăn qua CarBridge: CarPlay báo SpringBoard đặt cửa sổ `CBWindow` đúng khung ngăn.
+
+Tweak chỉ nạp vào 2 process (`CarDuo.plist`): **CarPlay** (toàn bộ split, video khởi động, tự mở khi cắm xe)
+và **SpringBoard** (nhận URL `carduo://`, đặt khung CarBridge, ghi hộ log). Không nạp vào app nào khác.
+Cửa sổ split kiểu cũ trong SpringBoard (chiếu giao diện iPhone, Mirror) đã bỏ từ 1.1.0.
+
+Quy tắc chống crash:
+- Gọi method riêng của Apple chỉ qua macro trong `src/common.h`: `objcInvoke*` (trả về object), `objcCall*` (method `void`
+  hoặc bỏ kết quả), `objcInvokeT` (số / struct). Macro kiểm tra `respondsToSelector:` trước, thiếu method thì ghi log
+  `THIEU METHOD` một lần và bỏ qua. Không dùng `objcInvoke` cho method `void`: ARC release "kết quả" rác -> crash ngẫu nhiên.
+- Phần code của tweak trong mỗi hook nằm trong `@try`; `%orig` luôn được gọi. Lỗi chỉ ghi `LOI trong ...` vào log.
 
 Dò ngược DashBoard trên Windows: `ipsw class-dump <dsc_test> DashBoard --re -V` cho địa chỉ method,
 rồi disassemble bằng capstone (Python) đọc thẳng các subcache theo bảng mapping (ipsw disass hỏng vì linkedit giả).
@@ -77,20 +87,22 @@ chữ nằm trong `carduoprefs/Resources/*.lproj/Localizable.strings`): bật/t�
 kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
+Trên màn xe (xem sơ đồ `docs/flow.html`):
+- Mở split: nút tròn góc trên phải màn chính CarPlay (mở lại cặp dùng lần trước), giữ icon app 0,7 giây,
+  hoặc chạm thẻ nhỏ ở mép trên app đang mở toàn màn rồi chọn app thứ hai. Bật "Tự mở split khi cắm xe" thì
+  sau video khởi động tự mở cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải trong Cài đặt).
 - Việc của TỪNG NGĂN: thẻ trắng nhỏ ở giữa mép trên ngăn, chạm hoặc kéo xuống để hiện thanh nút
-  Đổi app / Toàn màn / Cửa sổ nổi (PiP) / Đóng, ngay dưới tab (tự ẩn sau 3 giây nếu không thao tác).
-- Việc của CẢ CẶP: núm kéo kiểu Xiaomi (thanh trắng mỏng) giữa 2 ngăn, kéo để đổi tỉ lệ, chạm để mở menu
-  Đổi chỗ / Tỉ lệ (icon là bố cục sẽ áp tiếp) / Cặp yêu thích 1-3 / CarPlay.
-- Khi chỉ còn 1 app chiếm hết màn, hàng nút của tab "..." có thêm nút "chia đôi": app hiện tại về nửa trái,
-  nửa phải hiện bảng chọn app để ghép cặp (Huỷ thì về lại toàn màn).
+  Đổi app / Toàn màn / Đóng (tự ẩn sau 3 giây nếu không thao tác).
+- Việc của CẢ CẶP: núm kéo giữa 2 ngăn, kéo để đổi tỉ lệ (nhớ riêng từng cặp), chạm để mở menu
+  Đổi chỗ / Tỉ lệ 50-70-30 / Cặp yêu thích 1-3 / Đóng split.
 Cần package `PreferenceLoader` (Sileo tự cài theo Depends).
 
 ## Cài & xem log
 ```
 scp packages/*.deb mobile@<ip-iphone>:/var/jb/tmp/
 ssh mobile@<ip-iphone> "sudo dpkg -i /var/jb/tmp/*.deb && killall CarPlay"
-ssh mobile@<ip-iphone> "oslog | grep SplitCP"        # cần package oslog từ Procursus
-# hoặc từ Windows (libimobiledevice): idevicesyslog | findstr SplitCP
+ssh mobile@<ip-iphone> "oslog | grep CarDuo"         # cần package oslog từ Procursus
+# hoặc từ Windows (libimobiledevice): idevicesyslog | findstr CarDuo
 ```
 `killall CarPlay` là đủ, SpringBoard sẽ tự khởi động lại nó khi xe đang kết nối.
 
