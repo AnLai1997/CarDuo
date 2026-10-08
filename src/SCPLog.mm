@@ -1,25 +1,17 @@
 #import "common.h"
 
-// Log: NSLog + ghi file (xem bang Filza) + notification de cua so split hien overlay
-NSString *const SCPLogLineNotification = @"SCPLogLineNotification";
+// Log: NSLog + luon ghi file /var/mobile/Documents/CarDuo.log (xem bang Filza)
 static NSString *const kLogPath = @"/var/mobile/Documents/CarDuo.log";
+static NSString *const kOldLogPath = @"/var/mobile/Documents/CarDuo.old.log";
 
-static NSMutableArray<NSString *> *ringBuffer(void)
+// Goi luc SpringBoard khoi dong: file qua 2MB thi doi thanh CarDuo.old.log, bat dau file moi
+void SCPLogTrim(void)
 {
-    static NSMutableArray *a; static dispatch_once_t once;
-    dispatch_once(&once, ^{ a = [NSMutableArray array]; });
-    return a;
-}
-
-NSArray<NSString *> *SCPRecentLogLines(void)
-{
-    @synchronized (ringBuffer()) { return [ringBuffer() copy]; }
-}
-
-void SCPLogClear(void)
-{
-    @synchronized (ringBuffer()) { [ringBuffer() removeAllObjects]; }
-    [[NSFileManager defaultManager] removeItemAtPath:kLogPath error:nil];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    unsigned long long size = [[fm attributesOfItemAtPath:kLogPath error:nil] fileSize];
+    if (size < 2 * 1024 * 1024) return;
+    [fm removeItemAtPath:kOldLogPath error:nil];
+    [fm moveItemAtPath:kLogPath toPath:kOldLogPath error:nil];
 }
 
 // Ghi 1 dong vao file; tra ve NO neu khong duoc (sandbox)
@@ -51,11 +43,6 @@ void SCPLogWrite(NSString *msg)
     dispatch_once(&once, ^{ df = [NSDateFormatter new]; df.dateFormat = @"HH:mm:ss"; });
     NSString *line = [NSString stringWithFormat:@"%@ [%@] %@", [df stringFromDate:[NSDate date]], proc, msg];
 
-    @synchronized (ringBuffer()) {
-        [ringBuffer() addObject:line];
-        while (ringBuffer().count > 40) [ringBuffer() removeObjectAtIndex:0];
-    }
-
     // Ghi file chung. App nguoi dung bi sandbox -> khong ghi duoc: ghi vao Documents cua app do
     // va gui dong log sang SpringBoard de no ghi ho vao file chung (xem SpringBoard.xm).
     BOOL wrote = SCPAppendLine(kLogPath, line);
@@ -68,8 +55,4 @@ void SCPLogWrite(NSString *msg)
                 postNotificationName:SCP_NOTIF_LOG object:nil userInfo:@{@"line": line}];
         }
     }
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:SCPLogLineNotification object:nil userInfo:@{@"line": line}];
-    });
 }

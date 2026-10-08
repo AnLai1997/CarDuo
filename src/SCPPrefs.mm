@@ -51,7 +51,6 @@ static NSString *str(NSString *key)
     CGFloat r = v ? [v doubleValue] : 0.5;
     return MIN(0.8, MAX(0.2, r));
 }
-+ (BOOL)testOnMainScreen   { id v = value(@"TestOnMainScreen"); return v ? [v boolValue] : NO; }
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
 + (BOOL)mirrorRight        { id v = value(@"MirrorRight");      return v ? [v boolValue] : NO; }
 + (BOOL)bootVideo          { id v = value(@"BootVideo");        return v ? [v boolValue] : YES; }
@@ -122,7 +121,6 @@ static NSString *pairKey(NSString *left, NSString *right)
     return d;
 }
 
-+ (void)setTestOnMainScreen:(BOOL)v { [defaults() setBool:v forKey:@"TestOnMainScreen"]; [defaults() synchronize]; }
 + (void)setSplitRatio:(CGFloat)r     { [defaults() setDouble:r forKey:@"SplitRatio"]; [defaults() synchronize]; }
 + (void)setLeftApp:(NSString *)bid   { [defaults() setObject:bid forKey:@"LeftApp"];  [defaults() synchronize]; }
 + (void)setRightApp:(NSString *)bid  { [defaults() setObject:bid forKey:@"RightApp"]; [defaults() synchronize]; }

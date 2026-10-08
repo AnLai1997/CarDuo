@@ -4,9 +4,6 @@
 #import "../SCPCarSplit.h"
 #import <notify.h>
 
-#define SCP_DARWIN_TEST     "com.anlai97.carduo.test"      // nut "Mo split thu" trong Settings
-#define SCP_DARWIN_CLOSE    "com.anlai97.carduo.close"     // nut "Dong split"
-#define SCP_DARWIN_CLEARLOG "com.anlai97.carduo.clearlog"
 #define SCP_DARWIN_OPEN     "com.anlai97.carduo.open"      // tu app URL scheme (Shortcuts / Siri)
 
 // Dat CBWindow cua CarBridge (SpringBoard) = khung ngan split CarPlay. w = 0 -> an cua so (ngan dang an).
@@ -55,27 +52,15 @@ static void SCPPostNative(NSDictionary *info)
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter] postNotificationName:SCP_NOTIF_NATIVE object:nil userInfo:info];
 }
 
-// Mo cap app mac dinh (LeftApp/RightApp trong Settings).
-// Tren xe: split CarPlay (giao dien CarPlay cua app). Che do thu tren iPhone: cua so chieu giao dien iPhone.
-static void SCPOpenConfiguredPair(BOOL onMainScreen)
+// Mo cap app mac dinh (LeftApp/RightApp trong Settings) thanh split CarPlay tren xe.
+static void SCPOpenConfiguredPair(void)
 {
     NSString *left = [SCPPrefs leftApp], *right = [SCPPrefs rightApp];
-    SCPLog("mo cap app mac dinh (mainScreen=%d): left=%@ right=%@", onMainScreen, left, right);
-    if (!onMainScreen) {
-        NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:@"pair" forKey:@"action"];
-        if (left) d[@"left"] = left;
-        if (right) d[@"right"] = right;
-        SCPPostNative(d);
-        return;
-    }
-    @try {
-        SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:onMainScreen];
-        if (!w) { SCPLog("khong tao duoc cua so (CarPlay chua ket noi?)"); return; }
-        if (!left && !right) { [w showAppPickerForSlot:SCPSlotLeft]; return; }
-        [w launchPairLeft:left right:right];
-    } @catch (NSException *e) {
-        SCPLog("mo cap app that bai: %@\n%@", e, e.callStackSymbols);
-    }
+    SCPLog("mo cap app mac dinh: left=%@ right=%@", left, right);
+    NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:@"pair" forKey:@"action"];
+    if (left) d[@"left"] = left;
+    if (right) d[@"right"] = right;
+    SCPPostNative(d);
 }
 
 // Yeu cau tu app URL scheme: carduo://open|fav|close
@@ -85,38 +70,22 @@ static void SCPHandlePendingRequest(void)
     if (!req) return;
     NSString *action = req[@"action"];
     SCPLog("yeu cau tu URL: %@", req);
-    BOOL car = SCPGetCarPlayCADisplay() != nil;
-    if (car) {   // tren xe: split CarPlay
-        if ([action isEqualToString:@"close"]) {
-            [[SCPSplitWindow current] dismiss];
-            SCPPostNative(@{@"action": @"close"});
-        } else if ([action hasPrefix:@"fav"]) {
-            SCPPostNative(@{@"action": @"fav", @"index": @([[action substringFromIndex:3] integerValue])});
-        } else {
-            NSString *l = req[@"left"], *r = req[@"right"];
-            if (l) [SCPPrefs setLeftApp:l];
-            if (r) [SCPPrefs setRightApp:r];
-            NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:@"pair" forKey:@"action"];
-            if (l ?: [SCPPrefs leftApp]) d[@"left"] = l ?: [SCPPrefs leftApp];
-            if (r ?: [SCPPrefs rightApp]) d[@"right"] = r ?: [SCPPrefs rightApp];
-            SCPPostNative(d);
-        }
+    if ([action isEqualToString:@"close"]) {
+        [[SCPSplitWindow current] dismiss];
+        if (SCPGetCarPlayCADisplay()) SCPPostNative(@{@"action": @"close"});
         return;
     }
-    @try {
-        if ([action isEqualToString:@"close"]) { [[SCPSplitWindow current] dismiss]; return; }
-        SCPSplitWindow *w = [SCPSplitWindow currentOrCreateOnMainScreen:!car];   // khong co xe -> thu tren iPhone
-        if (!w) return;
-        if ([action hasPrefix:@"fav"]) {
-            [w applyFavorite:[[action substringFromIndex:3] integerValue]];
-        } else {
-            NSString *l = req[@"left"], *r = req[@"right"];
-            if (l) [SCPPrefs setLeftApp:l];
-            if (r) [SCPPrefs setRightApp:r];
-            [w launchPairLeft:l ?: [SCPPrefs leftApp] right:r ?: [SCPPrefs rightApp]];
-        }
-    } @catch (NSException *e) {
-        SCPLog("URL request that bai: %@", e);
+    NSString *l = req[@"left"], *r = req[@"right"];
+    if (l) [SCPPrefs setLeftApp:l];
+    if (r) [SCPPrefs setRightApp:r];
+    if (!SCPGetCarPlayCADisplay()) { SCPLog("chua ket noi xe -> bo qua yeu cau %@", action); return; }
+    if ([action hasPrefix:@"fav"]) {
+        SCPPostNative(@{@"action": @"fav", @"index": @([[action substringFromIndex:3] integerValue])});
+    } else {
+        NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:@"pair" forKey:@"action"];
+        if (l ?: [SCPPrefs leftApp]) d[@"left"] = l ?: [SCPPrefs leftApp];
+        if (r ?: [SCPPrefs rightApp]) d[@"right"] = r ?: [SCPPrefs rightApp];
+        SCPPostNative(d);
     }
 }
 
@@ -125,6 +94,7 @@ static void SCPHandlePendingRequest(void)
 - (void)applicationDidFinishLaunching:(id)app
 {
     %orig;
+    SCPLogTrim();
     SCPLog("SpringBoard ready, dang ky notification");
 
     // CarPlay process -> app KHONG co CarPlay (khi bat "Cho phep app iPhone"): chieu giao dien iPhone vao cua so rieng
@@ -161,7 +131,7 @@ static void SCPHandlePendingRequest(void)
     }];
 
     // Settings / app URL -> Darwin notification
-    int tok = 0, tokClose = 0, tokClear = 0, tokOpen = 0, tokOrient = 0;
+    int tokOpen = 0, tokOrient = 0;
     // App dang host vua doi yeu cau xoay (YouTube fullscreen) -> lay lai scene settings cua ngan do
     notify_register_dispatch(SCP_DARWIN_APP_ORIENT, &tokOrient, dispatch_get_main_queue(), ^(int t) {
         uint64_t state = 0; notify_get_state(t, &state);
@@ -169,19 +139,7 @@ static void SCPHandlePendingRequest(void)
         SCPLog("darwin apporient: hash=%llu ma=%d mask=%lu (co cua so: %d)", (unsigned long long)hash, code, (unsigned long)mask, [SCPSplitWindow current] != nil);
         [[SCPSplitWindow current] appOrientationChangedWithHash:hash orientation:code supportedMask:mask];
     });
-    notify_register_dispatch(SCP_DARWIN_TEST,  &tok,      dispatch_get_main_queue(), ^(int t) { SCPOpenConfiguredPair(YES); });
-    notify_register_dispatch(SCP_DARWIN_CLOSE, &tokClose, dispatch_get_main_queue(), ^(int t) {
-        [[SCPSplitWindow current] dismiss];
-        if (SCPGetCarPlayCADisplay()) SCPPostNative(@{@"action": @"close"});
-    });
-    notify_register_dispatch(SCP_DARWIN_CLEARLOG, &tokClear, dispatch_get_main_queue(), ^(int t) { SCPLogClear(); SCPLog("log cleared"); });
     notify_register_dispatch(SCP_DARWIN_OPEN,  &tokOpen,  dispatch_get_main_queue(), ^(int t) { SCPHandlePendingRequest(); });
-    if ([SCPPrefs testOnMainScreen]) {
-        [SCPPrefs setTestOnMainScreen:NO];   // chi chay 1 lan, tranh ket sau moi respring
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            SCPOpenConfiguredPair(YES);
-        });
-    }
 
     // Xe ket noi / ngat ket noi
     [[NSNotificationCenter defaultCenter] addObserverForName:@"CarPlayIsConnectedDidChange" object:nil
@@ -192,7 +150,7 @@ static void SCPHandlePendingRequest(void)
         SCPSplitWindow *w = [SCPSplitWindow current];
         if (!connected) {
             [SCPLauncherButton hide];
-            if (w && !w.onMainScreen) { SCPLog("CarPlay ngat -> dismiss"); [w dismiss]; }
+            if (w) { SCPLog("CarPlay ngat -> dismiss"); [w dismiss]; }
             return;
         }
         if (![SCPPrefs enabled]) return;
@@ -202,28 +160,12 @@ static void SCPHandlePendingRequest(void)
         });
         if ([SCPPrefs autoLaunch] && !w) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                if (SCPGetCarPlayCADisplay() && ![SCPSplitWindow current]) SCPOpenConfiguredPair(NO);
+                if (SCPGetCarPlayCADisplay() && ![SCPSplitWindow current]) SCPOpenConfiguredPair();
             });
         }
     }];
 }
 
-%end
-
-// Che do thu tren iPhone: bam nut Home -> thoat cua so thu (loi thoat khi bi ket)
-%hook SBUIController
-- (BOOL)handleHomeButtonSinglePressUpForWindowScene:(id)scene withSourceType:(unsigned long long)type
-{
-    SCPSplitWindow *w = [SCPSplitWindow current];
-    if (w && w.onMainScreen) { SCPLog("demo: Home -> thoat"); [w dismiss]; return YES; }
-    return %orig;
-}
-- (BOOL)handleHomeButtonSinglePressUpForWindowScene:(id)scene
-{
-    SCPSplitWindow *w = [SCPSplitWindow current];
-    if (w && w.onMainScreen) { SCPLog("demo: Home -> thoat"); [w dismiss]; return YES; }
-    return %orig;
-}
 %end
 
 // Khong cho app bi background khi khoa may
@@ -268,12 +210,10 @@ static void SCPHandlePendingRequest(void)
 %end // SPRINGBOARD
 
 // Man hinh iPhone tat khi dang host app tren XE -> tat roi bat lai "blank" de app van render.
-// Che do thu tren man iPhone (onMainScreen) thi KHONG can thiep: de iOS tat/bat man binh thuong,
-// neu khong man se den va khong phan hoi.
 static int hook_BKSDisplayServicesSetScreenBlanked(int blanked)
 {
     SCPSplitWindow *w = [SCPSplitWindow current];
-    if (blanked == 1 && w && !w.onMainScreen && w.panes.count > 0) {
+    if (blanked == 1 && w && w.panes.count > 0) {
         orig_BKSDisplayServicesSetScreenBlanked(1);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             orig_BKSDisplayServicesSetScreenBlanked(0);

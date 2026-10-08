@@ -63,10 +63,8 @@ extern int (*orig_BKSDisplayServicesSetScreenBlanked)(int);
 void SCPLogWrite(NSString *msg);
 void SCPDiagHooks(NSString *hooker);                  // chan doan: ham he thong bi dylib `hooker` hook (SCPDiag.mm)
 void SCPDiagClasses(NSArray<NSString *> *names);       // chan doan: chi tiet cac lop (SCPDiag.mm)
-void SCPLogClear(void);
+void SCPLogTrim(void);                      // SpringBoard khoi dong: log > 2MB -> CarDuo.old.log
 void SCPLogAppendRelayed(NSString *line);   // SpringBoard ghi ho dong log tu app
-NSArray<NSString *> *SCPRecentLogLines(void);
-extern NSString *const SCPLogLineNotification;
 extern const void *kSCPKey_splitWindow;
 extern const void *kSCPKey_lockAssertions;
 id SCPGetCarPlayCADisplay(void);

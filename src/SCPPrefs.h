@@ -12,7 +12,6 @@
 + (BOOL)autoLaunch;
 + (NSInteger)paneOrientation;   // 1 = portrait, 3 = landscape
 + (CGFloat)splitRatio;          // ti le be rong ngan trai (0.2 - 0.8)
-+ (BOOL)testOnMainScreen;
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi
 + (BOOL)mirrorRight;           // hien ngan phai tren iPhone (thu nghiem)
 + (BOOL)bootVideo;             // phat video khoi dong khi CarPlay mo (mac dinh bat)
@@ -33,7 +32,6 @@
 // Yeu cau tu app URL scheme (carduo://open?left=..&right=..)
 + (NSDictionary *)takePendingRequest;   // doc va xoa
 
-+ (void)setTestOnMainScreen:(BOOL)v;
 + (void)setSplitRatio:(CGFloat)r;
 + (void)setLeftApp:(NSString *)bid;
 + (void)setRightApp:(NSString *)bid;

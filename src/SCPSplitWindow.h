@@ -31,14 +31,12 @@ typedef NS_ENUM(int, SCPSlot) {
 @property (nonatomic, strong) UIWindow *rootWindow;  // UIRootSceneWindow
 @property (nonatomic, strong) SCPAppPane *leftPane;
 @property (nonatomic, strong) SCPAppPane *rightPane;
-@property (nonatomic) BOOL onMainScreen;
 @property (nonatomic) CGFloat ratio;                 // ti le ngan trai (keo thanh phan cach de doi)
 @property (nonatomic) SCPSlot fullscreenSlot;         // SCPSlotAuto = khong fullscreen
 @property (nonatomic) SCPSlot pipSlot;                // ngan dang thu nho thanh PiP, SCPSlotAuto = khong
 
 + (instancetype)current;                 // cua so dang mo (nil neu chua)
 + (instancetype)currentOrCreate;         // tao neu chua co (can CarPlay dang ket noi)
-+ (instancetype)currentOrCreateOnMainScreen:(BOOL)mainScreen;   // mainScreen=YES: test ngay tren man iPhone
 
 - (void)launchApp:(NSString *)bundleID inSlot:(SCPSlot)slot;
 - (void)launchPairLeft:(NSString *)left right:(NSString *)right;   // mo 2 app + ap ti le rieng cua cap

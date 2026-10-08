@@ -86,11 +86,4 @@
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
 "SHORTCUTS_FOOTER" = "Create a Shortcut with the \"Open URL\" action and run it with Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";
 
-"DEBUG_GROUP" = "Debug";
-"DEBUG_FOOTER" = "Only for testing without a car: opens the split window on the iPhone screen. The test window does NOT close by itself; tap \"Close test split\" here (or carduo://close). In test mode apps always show their iPhone UI. Log: /var/mobile/Documents/CarDuo.log.";
-"RUN_TEST" = "Open test split on iPhone";
-"CLOSE_TEST" = "Close test split";
-"CLEAR_LOG" = "Clear log file";
-"TEST_AFTER_RESPRING" = "Open test split after respring";
-
 "CREDITS_FOOTER" = "App hosting is based on carplay-cast (Ethan Arbuckle).";

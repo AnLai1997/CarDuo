@@ -86,11 +86,4 @@
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
 "SHORTCUTS_FOOTER" = "Tạo Shortcut với hành động \"Mở URL\" rồi gọi bằng Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";
 
-"DEBUG_GROUP" = "Gỡ lỗi";
-"DEBUG_FOOTER" = "Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm \"Đóng split thử\" ở đây (hoặc carduo://close). Trong chế độ thử, app luôn hiện giao diện iPhone. Log ghi tại /var/mobile/Documents/CarDuo.log.";
-"RUN_TEST" = "Mở split thử trên iPhone";
-"CLOSE_TEST" = "Đóng split thử";
-"CLEAR_LOG" = "Xoá file log";
-"TEST_AFTER_RESPRING" = "Mở split thử sau respring";
-
 "CREDITS_FOOTER" = "Cơ chế host app dựa trên carplay-cast (Ethan Arbuckle).";

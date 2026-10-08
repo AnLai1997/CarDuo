@@ -83,28 +83,7 @@ theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
   Đổi chỗ / Tỉ lệ (icon là bố cục sẽ áp tiếp) / Cặp yêu thích 1-3 / CarPlay.
 - Khi chỉ còn 1 app chiếm hết màn, hàng nút của tab "..." có thêm nút "chia đôi": app hiện tại về nửa trái,
   nửa phải hiện bảng chọn app để ghép cặp (Huỷ thì về lại toàn màn).
-Mục "Gỡ lỗi" có nút mở/đóng split ngay trên màn iPhone.
 Cần package `PreferenceLoader` (Sileo tự cài theo Depends).
-
-## Test ngay trên màn iPhone (chưa có xe, cách cũ qua SSH)
-Tạo file prefs qua SSH (đổi bundle id tuỳ ý, nên dùng app bên thứ ba):
-```
-cat > /var/jb/var/mobile/Library/Preferences/com.anlai97.carduo.plist <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<plist version="1.0"><dict>
-  <key>TestLeft</key><string>com.google.ios.youtube</string>
-  <key>TestRight</key><string>com.apple.mobilesafari</string>
-  <key>TestOnMainScreen</key><true/>
-</dict></plist>
-PLIST
-```
-- Respring: sau 10 giây cửa sổ chia đôi hiện trên màn iPhone (xoay ngang).
-- Chế độ thử mô phỏng màn CarPlay: khung 800x480 vừa màn iPhone, dock CarPlay bên trái (giờ, nút thoát đỏ, icon app đang mở, nút Home mở bảng chọn app).
-  Nội dung app thu nhỏ đúng tỉ lệ như trên xe.
-- Không thể hiện giao diện CarPlay của app trên iPhone khi không có xe: tạo scene CarPlay từ SpringBoard (thử ở commit 126ea50) làm SpringBoard crash và màn đen tới khi khởi động lại máy.
-- Hoặc không cần respring: `notifyutil -p com.anlai97.carduo.test` (package `notifyutil`/`darwintools`).
-- Đóng: kéo dấu "..." của một ngăn xuống rồi bấm nút Home, hoặc `notifyutil -p com.anlai97.carduo.close`.
-- Xoá key `TestOnMainScreen` khi không muốn tự mở nữa.
 
 ## Cài & xem log
 ```
@@ -114,6 +93,9 @@ ssh mobile@<ip-iphone> "oslog | grep SplitCP"        # cần package oslog từ 
 # hoặc từ Windows (libimobiledevice): idevicesyslog | findstr SplitCP
 ```
 `killall CarPlay` là đủ, SpringBoard sẽ tự khởi động lại nó khi xe đang kết nối.
+
+Tweak luôn ghi log ra `/var/mobile/Documents/CarDuo.log` (mở bằng Filza). Khi SpringBoard khởi động mà file
+lớn hơn 2MB thì file cũ được đổi thành `CarDuo.old.log` và bắt đầu file mới.
 
 ## Lấy tên class mà không cần device
 Tool `ipsw` (blacktop/ipsw, chạy được trên Windows) class-dump thẳng từ IPSW 16.5:

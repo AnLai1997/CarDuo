@@ -17,10 +17,6 @@ const void *kSCPKey_lockAssertions = &kSCPKey_lockAssertions;
 #define SCP_KNOB_H        36.0
 #define SCP_KNOB_DOT      3.0
 #define SCP_PIP_SCALE     0.36
-// Che do thu tren iPhone mo phong man CarPlay: man xe 800x480 point (dang pho bien), dock CarPlay ben trai
-#define SCP_DEMO_CAR_W    800.0
-#define SCP_DEMO_CAR_H    480.0
-#define SCP_DEMO_DOCK_W   76.0     // be rong dock (point cua xe)
 
 // Khe phan cach mong nhung van de keo: nhan cham trong pham vi rong hon kich thuoc that
 // Tab "..." nho nhung vung cham no rong 16pt moi phia (de bam tren xe)
@@ -73,7 +69,7 @@ UIWindow *SCPMakeCarWindow(void)
     return w;
 }
 
-// Cua so tren man iPhone (che do thu / mirror)
+// Cua so tren man iPhone (mirror ngan phai)
 UIWindow *SCPMakePhoneWindow(BOOL landscape)
 {
     CGRect sb = [UIScreen mainScreen].bounds;
@@ -146,11 +142,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) NSTimer *dividerMenuTimer;
 @property (nonatomic) SCPSlot pendingSlot;                   // ngan dang cho chon app (bang chon chiem dung nua do)
 @property (nonatomic, strong) UIView *pickerView;
-@property (nonatomic, strong) UIButton *demoExitButton;    // che do thu: nut "Thoat thu" luon hien de khong bao gio bi ket
-@property (nonatomic, strong) UIView *demoCarView;        // che do thu: khung "man xe" (nen CarPlay)
-@property (nonatomic, strong) UIView *demoDock;           // che do thu: dock kieu CarPlay ben trai
-@property (nonatomic, strong) UILabel *demoClock;
-@property (nonatomic, strong) NSTimer *demoClockTimer;
 @property (nonatomic, strong) UIImageView *dragImage;
 @property (nonatomic, strong) NSString *dragBundleID;
 @property (nonatomic) SCPSlot pickerSlot;
@@ -158,7 +149,7 @@ static UIImage *SCPAppIcon(NSString *bid)
 @property (nonatomic, strong) NSMutableArray<NSString *> *rightHistory;   // chong app ngan phai (vuot 2 ngon)
 @property (nonatomic, strong) UIWindow *mirrorWindow;  // mirror ngan phai tren iPhone (thu nghiem)
 @property (nonatomic, strong) id mirrorVC;
-- (instancetype)initOnMainScreen:(BOOL)mainScreen;
+- (instancetype)initOnCar;
 - (void)setupActionsForPane:(SCPAppPane *)pane;
 - (void)layoutActionsForPane:(SCPAppPane *)pane;
 - (void)setActionsVisible:(BOOL)visible forPane:(SCPAppPane *)pane animated:(BOOL)animated;
@@ -170,7 +161,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 - (void)showDividerMenu;
 - (void)hideDividerMenu;
 - (void)scheduleDividerMenuHide;
-- (void)exitOrStayInDemo;
 - (NSString *)ratioSymbol;
 - (void)layoutDividerMenu;
 - (BOOL)singlePane;
@@ -205,22 +195,16 @@ static UIImage *SCPAppIcon(NSString *bid)
 
 + (instancetype)currentOrCreate
 {
-    return [self currentOrCreateOnMainScreen:NO];
-}
-
-+ (instancetype)currentOrCreateOnMainScreen:(BOOL)mainScreen
-{
     SCPSplitWindow *w = [self current];
     if (w) return w;
-    w = [[SCPSplitWindow alloc] initOnMainScreen:mainScreen];
+    w = [[SCPSplitWindow alloc] initOnCar];
     if (w) objc_setAssociatedObject([UIApplication sharedApplication], kSCPKey_splitWindow, w, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return w;
 }
 
-- (instancetype)initOnMainScreen:(BOOL)mainScreen
+- (instancetype)initOnCar
 {
     if (!(self = [super init])) return nil;
-    self.onMainScreen = mainScreen;
     self.ratio = 0.5;   // moi lan chia luon bat dau 50/50
     self.fullscreenSlot = SCPSlotAuto;
     self.pipSlot = SCPSlotAuto;
@@ -228,21 +212,12 @@ static UIImage *SCPAppIcon(NSString *bid)
     self.pipOrigin = CGPointMake(1, 1);   // goc duoi-phai
     self.rightHistory = [NSMutableArray array];
 
-    if (mainScreen) {
-        self.rootWindow = SCPMakePhoneWindow(YES);
-        // Che do thu (demo) tren man iPhone: KHONG tu dong; chi thoat khi bam "Dong split thu" trong Settings
-        // (hoac carduo://close). Cac nut dong trong cua so chi dong app roi hien lai bang chon.
-        SCPLog("TEST window tren man chinh, bounds=%@ (khong tu dong)", NSStringFromCGRect(self.rootWindow.bounds));
-    } else {
-        self.rootWindow = SCPMakeCarWindow();
-        if (!self.rootWindow) return nil;
-        SCPLog("root window tren man xe frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
-    }
+    self.rootWindow = SCPMakeCarWindow();
+    if (!self.rootWindow) return nil;
+    SCPLog("root window tren man xe frame=%@ screen=%@", NSStringFromCGRect(self.rootWindow.frame), self.rootWindow.screen);
 
-    self.rootWindow.backgroundColor = mainScreen ? [UIColor blackColor] : [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
-    if (mainScreen) [self setupDemoCarScreen];
+    self.rootWindow.backgroundColor = [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
     [self setupDivider];
-    if (mainScreen) [self setupDemoExitButton];
 
     self.rootWindow.alpha = 0;
     self.rootWindow.hidden = NO;
@@ -264,143 +239,6 @@ static UIImage *SCPAppIcon(NSString *bid)
 }
 
 - (BOOL)vertical { return [SCPPrefs splitDirection] == 1; }
-
-// ---------------------------------------------------------------------
-//  Che do thu: mo phong man CarPlay (khung 800x480 + dock CarPlay ben trai: gio, app dang mo, nut Home)
-// ---------------------------------------------------------------------
-- (void)setupDemoCarScreen
-{
-    CGRect car = [self carRect];
-    CGFloat k = [self carScale];
-
-    UIView *carView = [[UIView alloc] initWithFrame:car];
-    carView.backgroundColor = [UIColor colorWithRed:0.02 green:0.03 blue:0.08 alpha:1];
-    carView.layer.cornerRadius = 10 * k;
-    carView.clipsToBounds = YES;
-    carView.userInteractionEnabled = NO;
-    [self.rootWindow addSubview:carView];
-    self.demoCarView = carView;
-
-    CGFloat dw = round(SCP_DEMO_DOCK_W * k);
-    UIView *dock = [[UIView alloc] initWithFrame:CGRectMake(car.origin.x, car.origin.y, dw, car.size.height)];
-    dock.backgroundColor = [UIColor colorWithWhite:0.07 alpha:1];
-    dock.layer.cornerRadius = 10 * k;
-    dock.layer.maskedCorners = kCALayerMinXMinYCorner | kCALayerMinXMaxYCorner;
-    [self.rootWindow addSubview:dock];
-    self.demoDock = dock;
-
-    UILabel *clock = [[UILabel alloc] initWithFrame:CGRectMake(0, 10 * k, dw, 22 * k)];
-    clock.textColor = [UIColor whiteColor];
-    clock.textAlignment = NSTextAlignmentCenter;
-    clock.font = [UIFont monospacedDigitSystemFontOfSize:15 * k weight:UIFontWeightSemibold];
-    [dock addSubview:clock];
-    self.demoClock = clock;
-    [self updateDemoClock];
-    __weak SCPSplitWindow *weakSelf = self;
-    self.demoClockTimer = [NSTimer scheduledTimerWithTimeInterval:15 repeats:YES block:^(NSTimer *t) {
-        SCPSplitWindow *me = weakSelf;
-        if (!me || !me.rootWindow || me.rootWindow.hidden) { [t invalidate]; return; }
-        [me updateDemoClock];
-    }];
-
-    // Nut Home cua CarPlay (duoi cung dock): ve "man chinh" = bang chon app
-    UIButton *home = [UIButton buttonWithType:UIButtonTypeCustom];
-    CGFloat hs = 44 * k;
-    home.frame = CGRectMake((dw - hs) / 2, car.size.height - hs - 12 * k, hs, hs);
-    home.layer.cornerRadius = 10 * k;
-    home.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
-    home.tintColor = [UIColor whiteColor];
-    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:20 * k weight:UIImageSymbolWeightSemibold];
-    [home setImage:[UIImage systemImageNamed:@"square.grid.3x2.fill" withConfiguration:cfg] forState:UIControlStateNormal];
-    [home addTarget:self action:@selector(demoHomeTapped) forControlEvents:UIControlEventTouchUpInside];
-    [dock addSubview:home];
-    SCPLog("demo: man xe gia %@ (k=%.2f), vung app %@", NSStringFromCGRect(car), k, NSStringFromCGRect([self appArea]));
-}
-
-- (void)updateDemoClock
-{
-    static NSDateFormatter *df;
-    if (!df) { df = [NSDateFormatter new]; df.dateFormat = @"H:mm"; }
-    self.demoClock.text = [df stringFromDate:[NSDate date]];
-}
-
-// Icon cac app dang mo trong dock (nhu dock CarPlay); cham icon = phong to / tra ve ngan do
-- (void)updateDemoDock
-{
-    UIView *dock = self.demoDock;
-    if (!dock) return;
-    for (UIView *v in [dock.subviews copy]) if (v.tag >= 910 && v.tag < 920) [v removeFromSuperview];
-    CGFloat k = [self carScale], dw = dock.bounds.size.width, is = 44 * k;
-    UIView *above = (self.demoExitButton.superview == dock) ? self.demoExitButton : self.demoClock;
-    CGFloat y = CGRectGetMaxY(above.frame) + 14 * k;
-    NSInteger i = 0;
-    for (SCPAppPane *p in self.panes) {
-        if (!p.bundleIdentifier) continue;
-        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-        b.frame = CGRectMake((dw - is) / 2, y, is, is);
-        [b setImage:SCPAppIcon(p.bundleIdentifier) forState:UIControlStateNormal];
-        b.imageView.contentMode = UIViewContentModeScaleAspectFit;
-        b.layer.cornerRadius = 10 * k; b.clipsToBounds = YES;
-        SCPSlot slot = [self slotForPane:p];
-        BOOL active = (self.fullscreenSlot == SCPSlotAuto || self.fullscreenSlot == slot);
-        b.alpha = active ? 1 : 0.5;
-        b.tag = 910 + slot;
-        [b addTarget:self action:@selector(demoDockAppTapped:) forControlEvents:UIControlEventTouchUpInside];
-        [dock addSubview:b];
-        y += is + 10 * k;
-        if (++i >= 2) break;
-    }
-}
-
-- (void)demoDockAppTapped:(UIButton *)b
-{
-    SCPSlot slot = (SCPSlot)(b.tag - 910);
-    SCPLog("demo dock: cham app ngan %d", (int)slot);
-    [self toggleFullscreenForSlot:slot];
-}
-
-- (void)demoHomeTapped
-{
-    SCPLog("demo dock: Home -> bang chon app");
-    if (self.pickerView) { [self hideAppPicker]; return; }
-    [self showAppPickerForSlot:self.leftPane ? SCPSlotRight : SCPSlotLeft];
-}
-
-// Che do thu tren iPhone: cua so phu kin man nen PHAI luon co loi thoat ngay trong cua so.
-// Vien thuoc do "Thoat thu" o goc tren trai, luon nam tren cung (ke ca tren bang chon). Bam Home cung thoat.
-- (void)setupDemoExitButton
-{
-    UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-    id cfg = [UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightBold];
-    [b setImage:[UIImage systemImageNamed:@"xmark" withConfiguration:cfg] forState:UIControlStateNormal];
-    [b setTitle:@" Thoát thử" forState:UIControlStateNormal];
-    b.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
-    [b setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    b.tintColor = [UIColor whiteColor];
-    b.backgroundColor = [[UIColor systemRedColor] colorWithAlphaComponent:0.9];
-    b.layer.cornerRadius = 16;
-    b.frame = CGRectMake(10, 8, 112, 32);
-    b.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
-    [b addTarget:self action:@selector(demoExitTapped) forControlEvents:UIControlEventTouchUpInside];
-    self.demoExitButton = b;
-    if (self.demoDock) {
-        // Nam trong dock CarPlay gia (duoi dong ho): nut tron do nho, khong che noi dung app
-        [b setTitle:nil forState:UIControlStateNormal];
-        b.autoresizingMask = UIViewAutoresizingNone;
-        CGFloat d = MIN(30, self.demoDock.bounds.size.width - 16);
-        b.frame = CGRectMake((self.demoDock.bounds.size.width - d) / 2, CGRectGetMaxY(self.demoClock.frame) + 6, d, d);
-        b.layer.cornerRadius = d / 2;
-        [self.demoDock addSubview:b];
-        return;
-    }
-    [self.rootWindow addSubview:b];
-}
-
-- (void)demoExitTapped
-{
-    SCPLog("demo: thoat bang nut Thoat thu");
-    [self dismiss];
-}
 
 // ---------------------------------------------------------------------
 //  Option rieng cua tung ngan: dau "..." o giua mep tren ngan, keo xuong / cham de hien
@@ -675,7 +513,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     if (!pane) return;
     SCPSlot slot = [self slotForPane:pane];
     [self closeSlot:slot terminate:YES];
-    if (self.panes.count == 0) { [self exitOrStayInDemo]; return; }
+    if (self.panes.count == 0) { [self dismiss]; return; }
     [self animateLayout:^{ [self relayoutPanes]; } completion:nil];
 }
 
@@ -724,35 +562,16 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     return CGRectInset([self appArea], SCP_PANE_INSET, SCP_PANE_INSET);
 }
 
-// Khung "man xe": tren xe = ca cua so. Che do thu = hinh 800x480 vua khit man iPhone ngang, can giua.
-- (CGRect)carRect
-{
-    CGRect b = self.rootWindow.bounds;
-    if (!self.onMainScreen) return b;
-    CGFloat k = MIN(b.size.width / SCP_DEMO_CAR_W, b.size.height / SCP_DEMO_CAR_H);
-    CGFloat w = floor(SCP_DEMO_CAR_W * k), h = floor(SCP_DEMO_CAR_H * k);
-    return CGRectMake(floor((b.size.width - w) / 2), floor((b.size.height - h) / 2), w, h);
-}
-
-// Ti le point iPhone / point xe (che do thu), 1 tren xe
-- (CGFloat)carScale
-{
-    return self.onMainScreen ? [self carRect].size.height / SCP_DEMO_CAR_H : 1.0;
-}
-
-// Vung danh cho app: man xe tru dock CarPlay (che do thu)
+// Vung danh cho app: ca cua so tren man xe
 - (CGRect)appArea
 {
-    CGRect c = [self carRect];
-    if (!self.onMainScreen) return c;
-    CGFloat d = round(SCP_DEMO_DOCK_W * [self carScale]);
-    return CGRectMake(c.origin.x + d, c.origin.y, c.size.width - d, c.size.height);
+    return self.rootWindow.bounds;
 }
 
-// Ti le thu nho noi dung app iPhone: nhu tren xe (ZOOM); che do thu nhan them ti le man xe -> man iPhone
+// Ti le thu nho noi dung app iPhone tren xe
 - (CGFloat)contentZoom
 {
-    return SCP_MIRROR_ZOOM * [self carScale];
+    return SCP_MIRROR_ZOOM;
 }
 
 // Chi con 1 ngan dang chay (chua co special) -> ngan do chiem het man
@@ -881,7 +700,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         f.tag = i;
         [btns addObject:f];
     }
-    [btns addObject:[self roundButton:(self.onMainScreen ? @"xmark.square" : @"house") action:@selector(menuCloseSplit)]];
+    [btns addObject:[self roundButton:@"house" action:@selector(menuCloseSplit)]];
 
     // Container trong suot, cac nut tron trang xep 1 hang; bat ra lan luot tu giua ra 2 ben (kieu MIUI)
     CGFloat w = btns.count * SCP_BTN + (btns.count - 1) * SCP_BTN_GAP, h = SCP_BTN;
@@ -935,7 +754,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 }
 
 - (void)menuSwap        { [self hideDividerMenu]; [self swapPanes]; }
-- (void)menuCloseSplit  { [self hideDividerMenu]; [self exitOrStayInDemo]; }
+- (void)menuCloseSplit  { [self hideDividerMenu]; [self dismiss]; }
 - (void)menuFavTapped:(UIButton *)b { [self hideDividerMenu]; [self applyFavorite:b.tag]; }
 
 // Doi ti le: giu menu mo (cap nhat icon cho buoc ke tiep) de bam tiep neu chua vua y
@@ -945,18 +764,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     UIButton *ratio = (UIButton *)[self.dividerMenu viewWithTag:1010];
     if (ratio) SCPSetIcon(ratio, [self ratioSymbol]);
     [self scheduleDividerMenuHide];
-}
-
-// Thoat split: tren xe -> dong cua so ve dashboard CarPlay. Che do thu tren iPhone -> chi dong app,
-// giu cua so va hien bang chon de thu tiep; thoat han bang nut trong Settings.
-- (void)exitOrStayInDemo
-{
-    if (!self.onMainScreen) { [self dismiss]; return; }
-    SCPLog("demo: dong app, giu cua so thu");
-    [self closeSlot:SCPSlotLeft];
-    [self closeSlot:SCPSlotRight];
-    [self relayoutPanes];
-    [self showAppPickerForSlot:SCPSlotLeft];
 }
 
 - (void)dividerPanned:(UIPanGestureRecognizer *)g
@@ -1022,8 +829,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
         if (!live) { [self layoutActionsForPane:p]; [self layoutPipHandleForPane:p]; }
     }
     if (self.pickerView) self.pickerView.frame = [self pickerFrame];
-    if (self.demoDock) { [self.rootWindow bringSubviewToFront:self.demoDock]; if (!live) [self updateDemoDock]; }
-    if (self.demoExitButton.superview == self.rootWindow) [self.rootWindow bringSubviewToFront:self.demoExitButton];
     [self updatePaneActionStates];
 }
 
@@ -1132,7 +937,6 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     pv.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.97];
     self.pickerView = pv;
     [self.rootWindow addSubview:pv];
-    if (self.demoExitButton) [self.rootWindow bringSubviewToFront:self.demoExitButton];
     [self hideAllPaneActions];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 17, pv.bounds.size.width - 90, 30)];
@@ -1143,11 +947,9 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
     title.adjustsFontSizeToFitWidth = YES;
     [pv addSubview:title];
 
-    // Nut X: huy chon. Khong con app nao: che do thu -> an X (huy thi chi con cua so trong, nhin nhu man den);
-    // tren xe -> X dong han split ve dashboard CarPlay.
+    // Nut X: huy chon. Khong con app nao -> X dong han split ve dashboard CarPlay.
     UIButton *cancel = [self roundButton:@"xmark" action:@selector(pickerCancelTapped)];
     cancel.center = CGPointMake(pv.bounds.size.width - 8 - SCP_BTN / 2, 6 + SCP_BTN / 2);
-    cancel.hidden = (self.panes.count == 0 && self.onMainScreen);
     [pv addSubview:cancel];
 
     UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 66, pv.bounds.size.width, pv.bounds.size.height - 66)];
@@ -1298,8 +1100,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 - (void)pickerCancelTapped
 {
     if (self.panes.count == 0) {
-        if (self.onMainScreen) return;   // che do thu: khong co gi de quay ve, giu bang chon
-        [self dismiss];                  // tren xe: khong con app -> dong split
+        [self dismiss];                  // khong con app -> dong split
         return;
     }
     [self hideAppPicker];
@@ -1609,7 +1410,7 @@ static void SCPPopOut(NSArray<UIView *> *views, void (^done)(void))
 // ---------------------------------------------------------------------
 - (void)mirrorRightPaneIfEnabled
 {
-    if (self.onMainScreen || ![SCPPrefs mirrorRight] || !self.rightPane) return;
+    if (![SCPPrefs mirrorRight] || !self.rightPane) return;
     [self teardownMirror];
     @try {
         id sceneHandle = objcInvoke(self.rightPane.appViewController, @"sceneHandle");
@@ -1762,7 +1563,6 @@ static void SCPTerminateNow(NSString *bid)
 - (void)dismiss
 {
     SCPLog("dismiss split window");
-    [self.demoClockTimer invalidate]; self.demoClockTimer = nil;
     [self.dividerMenuTimer invalidate]; self.dividerMenuTimer = nil;
     [self.dividerMenu removeFromSuperview]; self.dividerMenu = nil;
     [self hideAppPicker];
@@ -1771,9 +1571,8 @@ static void SCPTerminateNow(NSString *bid)
     [self closeSlot:SCPSlotRight];
 
     id app = [UIApplication sharedApplication];
-    // Tren xe: neu iPhone dang khoa va den nen da tat thi tra man ve trang thai tat (carplay-cast).
-    // Che do thu tren iPhone: tuyet doi khong dong vao den nen, neu khong man den va ket.
-    if (!self.onMainScreen && objcInvokeT(app, @"isLocked", BOOL)) {
+    // Neu iPhone dang khoa va den nen da tat thi tra man ve trang thai tat (carplay-cast).
+    if (objcInvokeT(app, @"isLocked", BOOL)) {
         void *fn = dlsym(RTLD_DEFAULT, "BKSHIDServicesGetBacklightFactor");
         if (fn && orig_BKSDisplayServicesSetScreenBlanked) {
             float backlight = ((float (*)(void))fn)();
@@ -1788,17 +1587,6 @@ static void SCPTerminateNow(NSString *bid)
     [UIView animateWithDuration:0.3 animations:^{ w.alpha = 0; } completion:^(BOOL done) { finish(); }];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), finish);   // phong khi completion khong chay
     self.rootWindow = nil;
-
-    // Che do thu: ep SpringBoard ve man hinh chinh, phong khi no coi app vua host la app dang mo (man den)
-    if (self.onMainScreen) {
-        SEL homeSel = NSSelectorFromString(@"_simulateHomeButtonPressWithCompletion:");
-        if ([app respondsToSelector:homeSel]) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                SCPLog("demo: ve home");
-                ((void (*)(id, SEL, id))objc_msgSend)(app, homeSel, nil);
-            });
-        }
-    }
 
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
         postNotificationName:SCP_NOTIF_SPLIT_CLOSED object:nil userInfo:nil];

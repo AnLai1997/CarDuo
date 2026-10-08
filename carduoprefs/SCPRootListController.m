@@ -593,17 +593,4 @@ static NSString *SCPInstallBootVideo(NSURL *src, NSError **err) {
 	[self useBootVideoAt:urls.firstObject];
 }
 
-// Debug: Darwin notifications handled by the tweak in SpringBoard
-- (void)runTest {
-	notify_post("com.anlai97.carduo.test");
-}
-
-- (void)closeSplit {
-	notify_post("com.anlai97.carduo.close");
-}
-
-- (void)clearLog {
-	notify_post("com.anlai97.carduo.clearlog");
-}
-
 @end
