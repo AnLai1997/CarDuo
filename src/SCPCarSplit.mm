@@ -2066,20 +2066,20 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
     pv.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.98];
     pv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 10, size.width - 64, 26)];
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(12, 6, size.width - 52, 22)];
     title.text = @"Chọn app CarPlay";
     title.textColor = [UIColor whiteColor];
-    title.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+    title.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
     title.adjustsFontSizeToFitWidth = YES;
     [pv addSubview:title];
 
-    UIButton *cancel = SCPCCircleButton(SCPCGlyph(@"close", 16, NO), 30, self, @selector(pickerCancel:));
+    UIButton *cancel = SCPCCircleButton(SCPCGlyph(@"close", 14, NO), 26, self, @selector(pickerCancel:));
     cancel.tag = slot;
-    cancel.center = CGPointMake(size.width - 24, 23);
+    cancel.center = CGPointMake(size.width - 20, 17);
     cancel.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [pv addSubview:cancel];
 
-    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 44, size.width, size.height - 44)];
+    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 32, size.width, size.height - 32)];
     scroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     scroll.alwaysBounceVertical = YES;
     [pv addSubview:scroll];
@@ -2087,7 +2087,7 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
     NSArray *apps = SCPCCarPlayApps();
     NSMutableSet *inUse = [NSMutableSet set];
     for (SCPCarPane *o in self.slots) if (o.bundleID) [inUse addObject:o.bundleID];
-    CGFloat cellW = 76, cellH = 82, icon = 46;
+    CGFloat cellW = 58, cellH = 56, icon = 32;   // icon nho: man CarPlay thap, 1 ngan chua duoc nhieu app
     NSInteger cols = MAX(1, (NSInteger)(size.width / cellW));
     CGFloat padX = (size.width - cols * cellW) / 2;
     NSInteger i = 0;
@@ -2105,12 +2105,12 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
         iv.userInteractionEnabled = NO;
         iv.alpha = [inUse containsObject:app[@"id"]] ? 0.4 : 1;
         [b addSubview:iv];
-        UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(2, icon + 7, cellW - 4, 26)];
+        UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(1, icon + 6, cellW - 2, 13)];
         l.text = app[@"name"];
         l.textColor = [UIColor colorWithWhite:1 alpha:0.85];
-        l.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
+        l.font = [UIFont systemFontOfSize:9.5 weight:UIFontWeightMedium];
         l.textAlignment = NSTextAlignmentCenter;
-        l.numberOfLines = 2;
+        l.numberOfLines = 1;
         l.userInteractionEnabled = NO;
         [b addSubview:l];
         [scroll addSubview:b];
