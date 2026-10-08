@@ -47,4 +47,9 @@
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
 "SHORTCUTS_FOOTER" = "Tạo Shortcut với hành động \"Mở URL\" rồi gọi bằng Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";
 
+"RESPRING" = "Respring";
+"RESPRING_FOOTER" = "Khởi động lại SpringBoard để áp dụng bản tweak vừa cài. CarPlay sẽ kết nối lại sau vài giây.";
+"RESPRING_CONFIRM" = "Respring ngay bây giờ?";
+"CANCEL" = "Huỷ";
+
 "CREDITS_FOOTER" = "Cơ chế host app dựa trên carplay-cast (Ethan Arbuckle).";

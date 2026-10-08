@@ -47,4 +47,9 @@
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
 "SHORTCUTS_FOOTER" = "Create a Shortcut with the \"Open URL\" action and run it with Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";
 
+"RESPRING" = "Respring";
+"RESPRING_FOOTER" = "Restart SpringBoard to apply a freshly installed build. CarPlay reconnects after a few seconds.";
+"RESPRING_CONFIRM" = "Respring now?";
+"CANCEL" = "Cancel";
+
 "CREDITS_FOOTER" = "App hosting is based on carplay-cast (Ethan Arbuckle).";

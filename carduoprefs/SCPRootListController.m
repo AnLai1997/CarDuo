@@ -3,6 +3,9 @@
 #import <Preferences/PSTableCell.h>
 #import <UIKit/UIKit.h>
 #import <notify.h>
+#import <objc/message.h>
+#import <spawn.h>
+#import <dlfcn.h>
 #import "SCPLang.h"
 
 #define kPrefsDomain CFSTR("com.anlai97.carduo")
@@ -420,6 +423,44 @@ static BOOL SCPEnabled(void) {
 		SCPSetPrefValue(key, value);   // ghi dong bo de buoc loc "O 3" doc dung gia tri moi
 		_specifiers = nil;
 		[self reloadSpecifiers];
+	}
+}
+
+#pragma mark - Respring
+
+// Nut "Respring" trong Root.plist (action = respring): hoi lai roi khoi dong lai SpringBoard.
+- (void)respring {
+	UIAlertController *alert = [UIAlertController alertControllerWithTitle:L(@"RESPRING_CONFIRM") message:nil
+	                                                        preferredStyle:UIAlertControllerStyleAlert];
+	[alert addAction:[UIAlertAction actionWithTitle:L(@"CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+	[alert addAction:[UIAlertAction actionWithTitle:L(@"RESPRING") style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
+		[self performRespring];
+	}]];
+	[self presentViewController:alert animated:YES completion:nil];
+}
+
+// Respring kieu userspace (FBSSystemService + SBSRelaunchAction, nhu nut Respring cua cac tweak khac);
+// khong co thi killall SpringBoard.
+- (void)performRespring {
+	dlopen("/System/Library/PrivateFrameworks/FrontBoardServices.framework/FrontBoardServices", RTLD_LAZY);
+	dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", RTLD_LAZY);
+	Class relaunch = NSClassFromString(@"SBSRelaunchAction"), service = NSClassFromString(@"FBSSystemService");
+	if (relaunch && service) {
+		id action = ((id (*)(Class, SEL, NSString *, NSUInteger, NSURL *))objc_msgSend)(relaunch,
+			NSSelectorFromString(@"actionWithReason:options:targetURL:"), @"RestartRenderServer", 4 /* FadeToBlack */, nil);
+		id shared = ((id (*)(Class, SEL))objc_msgSend)(service, NSSelectorFromString(@"sharedService"));
+		if (action && shared) {
+			((void (*)(id, SEL, NSSet *, id))objc_msgSend)(shared, NSSelectorFromString(@"sendActions:withResult:"),
+				[NSSet setWithObject:action], nil);
+			return;
+		}
+	}
+	for (NSString *path in @[@"/var/jb/usr/bin/killall", @"/usr/bin/killall"]) {
+		if (![[NSFileManager defaultManager] isExecutableFileAtPath:path]) continue;
+		pid_t pid;
+		const char *argv[] = {path.fileSystemRepresentation, "-9", "SpringBoard", NULL};
+		posix_spawn(&pid, argv[0], NULL, NULL, (char *const *)argv, NULL);
+		return;
 	}
 }
 
