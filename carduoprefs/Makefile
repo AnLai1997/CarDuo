@@ -5,7 +5,7 @@ THEOS_PACKAGE_SCHEME = rootless
 include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = CarDuoPrefs
-CarDuoPrefs_FILES = SCPRootListController.m SCPPreviewCell.m SCPAppPicker.m
+CarDuoPrefs_FILES = SCPRootListController.m SCPAppPicker.m
 CarDuoPrefs_INSTALL_PATH = /Library/PreferenceBundles
 CarDuoPrefs_FRAMEWORKS = UIKit CoreFoundation QuartzCore
 CarDuoPrefs_PRIVATE_FRAMEWORKS = Preferences

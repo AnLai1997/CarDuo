@@ -43,6 +43,8 @@ static NSString *str(NSString *key)
 + (NSString *)lastLeftApp  { return str(@"LastLeft"); }
 + (NSString *)lastRightApp { return str(@"LastRight"); }
 + (BOOL)autoLaunch         { id v = value(@"AutoLaunch");       return v ? [v boolValue] : NO; }
++ (BOOL)showRecent         { id v = value(@"ShowRecent");       return v ? [v boolValue] : YES; }
++ (BOOL)showFavorites      { id v = value(@"ShowFavorites");    return v ? [v boolValue] : YES; }
 + (NSInteger)paneOrientation {
     id v = value(@"PaneOrientation");
     NSInteger o = v ? [v integerValue] : 1;

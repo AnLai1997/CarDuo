@@ -39,7 +39,7 @@ static void SCPLoadStrings(void) {
 	sStrings = [NSDictionary dictionaryWithContentsOfFile:path] ?: @{};
 }
 
-// Shared with the preview cell and the app picker (declared in SCPLang.h).
+// Shared with the app picker (declared in SCPLang.h).
 NSString *L(NSString *key) {
 	if (!sStrings) SCPLoadStrings();
 	return sStrings[key] ?: key;
@@ -337,7 +337,7 @@ static BOOL SCPEnabled(void) {
 	[self applyLanguage];
 	_specifiers = nil;
 	[self reloadSpecifiers];
-	notify_post(kPrefsChanged);   // the preview redraws its text
+	notify_post(kPrefsChanged);
 }
 
 // A full-width table header/footer holding one rounded card: an image beside a column of text lines.

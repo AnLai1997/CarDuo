@@ -12,31 +12,6 @@
 
 /* TWEAK SETTINGS */
 
-"PREVIEW_GROUP" = "Car screen preview";
-"PREVIEW_INFO_FORMAT" = "%@ %.0f%% · %@ apps · Tap the ••• tab for options";
-"PREVIEW_LEFT" = "Left";
-"PREVIEW_TOP" = "Top";
-"PREVIEW_PORTRAIT" = "portrait";
-"PREVIEW_LANDSCAPE" = "landscape";
-
-"LAYOUT_GROUP" = "Layout";
-"LAYOUT_FOOTER" = "Every change shows in the preview right away. Only apps on the CarPlay screen (CarPlay and CarBridge apps) can be picked.";
-"LEFT_PANE" = "Left pane";
-"RIGHT_PANE" = "Right pane";
-"APP_NOT_SET" = "None";
-"SPLIT_DIRECTION" = "Split";
-"SPLIT_LEFT_RIGHT" = "Left / right";
-"SPLIT_TOP_BOTTOM" = "Top / bottom";
-"PANE_ORIENTATION" = "App orientation in panes";
-"ORIENTATION_PORTRAIT" = "Portrait";
-"ORIENTATION_LANDSCAPE" = "Landscape";
-"SCREEN_ASPECT" = "Car screen aspect";
-"ASPECT_16_9" = "16:9";
-"ASPECT_5_3" = "5:3";
-"ASPECT_8_3" = "8:3 ultrawide";
-"SPLIT_RATIO" = "Left pane ratio";
-"SPLIT_RATIO_FOOTER" = "0.5 splits evenly. Dragging the divider on the car screen also changes it, and the ratio is remembered per app pair.";
-
 "PICKER_NONE" = "None";
 "PICKER_CARPLAY_APPS" = "CarPlay apps";
 "PICKER_CARBRIDGE_APPS" = "CarBridge apps";
@@ -46,6 +21,12 @@
 
 "ON_CONNECT_GROUP" = "In the car";
 "AUTO_LAUNCH" = "Open split on connect";
+"ON_CONNECT_FOOTER" = "When you connect, the most recent split reopens (or Favorite layout 1 if there is none). Layout, ratio and split direction (wide car screen: left/right, tall: top/bottom) follow the car screen; drag the bars between boxes to resize, remembered per app pair.";
+"PANEL_GROUP" = "CarDuo button panel";
+"SHOW_RECENT" = "Show Recent";
+"SHOW_FAVORITES" = "Show Favorites";
+"PANEL_FOOTER" = "The panel opens from the CarDuo button on the dock. Default (2 boxes / 3 boxes / 1 large + 2) is always there. Recent: the last 3 splits. Favorites: the layouts below.";
+"USAGE_GROUP" = "How to use";
 "USAGE_FOOTER" = "Tap the CarDuo button on the CarPlay dock (just above Home) to show a panel with 3 sections: Default (2 boxes / 3 boxes / 1 large + 2: the open app goes to box 1, the other boxes show an app picker), Recent (the last 3 splits, tap to reopen the same apps and layout), Favorites (the pairs below). Holding an app icon for 1 second opens the same panel. While split, the CarDuo button switches the layout (apps keep their box order; with fewer boxes the last apps go to the background). Drag the bars between boxes to resize, tap a knob for Swap / Ratio / Close. White tab on each box: Choose app / Full screen (tap again to shrink back) / Only this app / Close app (last, after a divider). Closing an app removes its box (3 becomes 2, 2 becomes 1 = back to full screen). The CarPlay Home button closes the split.";
 
 "LAYOUT_2" = "2 boxes";

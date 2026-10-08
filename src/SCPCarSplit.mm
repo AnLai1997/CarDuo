@@ -561,7 +561,16 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     return n.length ? n : bid;
 }
 
-- (BOOL)vertical { return [SCPPrefs splitDirection] == 1; }
+// Huong chia tu theo man xe: man ngang -> trai / phai, man doc (cao hon rong) -> tren / duoi
+- (BOOL)vertical
+{
+    CGSize sz = self.container ? self.container.bounds.size : CGSizeZero;
+    if (sz.width < 1) {
+        UIView *parent = [self tabParent];
+        if (parent) sz = [self appAreaInParent:parent].size;
+    }
+    return sz.width > 1 && sz.height > sz.width;
+}
 
 - (SCPCarPane *)paneForBundle:(NSString *)bid
 {
@@ -2158,7 +2167,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     [names addObject:@"Mặc định"];
 
     NSMutableArray *recent = [NSMutableArray array];
-    for (NSDictionary *r in [SCPPrefs recentLayouts]) {
+    for (NSDictionary *r in ([SCPPrefs showRecent] ? [SCPPrefs recentLayouts] : @[])) {
         NSArray *apps = r[@"apps"];
         BOOL ok = apps.count >= 2;
         NSMutableArray *short_ = [NSMutableArray array];
@@ -2168,11 +2177,14 @@ static CGSize SCPCSceneSize(UIViewController *vc)
         }
         if (ok) [recent addObject:@{@"layout": r[@"layout"], @"apps": apps, @"name": [short_ componentsJoinedByString:@" + "]}];
     }
-    [sections addObject:recent];   // luon hien (trong -> dong goi y), de biet co tinh nang nay
-    [names addObject:@"Gần đây"];
+    if ([SCPPrefs showRecent]) {   // bat trong Cai dat -> luon hien (trong -> dong goi y)
+        [sections addObject:recent];
+        [names addObject:@"Gần đây"];
+    }
 
     NSMutableArray *favs = [NSMutableArray array];
-    for (NSInteger i = 1; i <= 3; i++) {
+    NSInteger favCount = [SCPPrefs showFavorites] ? 3 : 0;   // tat trong Cai dat -> khong hien muc Yeu thich
+    for (NSInteger i = 1; i <= favCount; i++) {
         NSDictionary *f = [SCPPrefs favorite:i];
         NSArray *apps = [self favoriteApps:f];
         if (!apps) continue;
@@ -2282,8 +2294,8 @@ static CGSize SCPCSceneSize(UIViewController *vc)
                      animations:^{ shield.alpha = 1; panel.alpha = 1; panel.transform = CGAffineTransformIdentity; } completion:nil];
     SCPCPopIn(cells);
     [self restartTrayTimer];
-    SCPLog("CarSplit: bang bo cuc cho %@ (%lu gan day, %lu muc tat ca)", app ?: (self.active ? @"doi bo cuc" : @"cap lan truoc"),
-           (unsigned long)(sections.count > 1 ? sections[1].count : 0), (unsigned long)choices.count);
+    SCPLog("CarSplit: bang bo cuc cho %@ (%@, %lu lua chon)", app ?: (self.active ? @"doi bo cuc" : @"cap lan truoc"),
+           [titles componentsJoinedByString:@" / "], (unsigned long)choices.count);
 }
 
 - (void)panelChoiceTapped:(UIButton *)b
@@ -2661,21 +2673,45 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
 }
 
 // Cap dung lan cuoi (khong co thi cap trong Cai dat). App khong con tren CarPlay thi bo, o do hien bang chon.
+// Tu mo khi cam xe: mo lai dung cach chia gan nhat (bo cuc + app); khong co thi Bo cuc yeu thich 1
 - (void)openRememberedPair
 {
-    [self openRememberedPairWithLayout:2];
+    for (NSDictionary *r in [SCPPrefs recentLayouts]) {
+        NSArray *apps = r[@"apps"];
+        BOOL ok = apps.count >= 2;
+        for (NSString *bid in apps) if (![bid isKindOfClass:[NSString class]] || ![self isCarPlayApp:bid]) ok = NO;
+        if (!ok) continue;
+        SCPLog("CarSplit: mo lai cach chia gan nhat %@", r);
+        [self openSetupLayout:[r[@"layout"] intValue] apps:apps];
+        return;
+    }
+    NSDictionary *f = [SCPPrefs favorite:1];
+    NSArray *apps = [self favoriteApps:f];
+    if (apps) { SCPLog("CarSplit: chua co cach chia gan day -> Bo cuc yeu thich 1"); [self openSetupLayout:[f[@"layout"] intValue] apps:apps]; }
+    else SCPLog("CarSplit: chua co cach chia gan day / yeu thich -> khong tu mo");
+}
+
+// App de mo khi khong co app dang mo: cach chia gan nhat, khong co thi Bo cuc yeu thich 1 (NSNull = o trong)
+- (NSArray *)rememberedApps
+{
+    for (NSDictionary *r in [SCPPrefs recentLayouts]) {
+        NSMutableArray *apps = [NSMutableArray array];
+        BOOL any = NO;
+        for (NSString *bid in r[@"apps"]) {
+            BOOL ok = [bid isKindOfClass:[NSString class]] && [self isCarPlayApp:bid];
+            [apps addObject:ok ? bid : [NSNull null]];
+            any = any || ok;
+        }
+        if (any) return apps;
+    }
+    return [self favoriteApps:[SCPPrefs favorite:1]] ?: @[];
 }
 
 - (void)openRememberedPairWithLayout:(int)layoutID
 {
-    NSString *l = [SCPPrefs lastLeftApp] ?: [SCPPrefs leftApp];
-    NSString *r = [SCPPrefs lastRightApp] ?: [SCPPrefs rightApp];
-    if (l && ![self isCarPlayApp:l]) l = nil;
-    if (r && ![self isCarPlayApp:r]) r = nil;
-    if (l && [l isEqualToString:r]) r = nil;
-    if (layoutID == 2) { [self openPairLeft:l right:r]; return; }
-    if (![self activateWithLayout:layoutID]) return;
-    [self openAppsInOrder:@[l ?: [NSNull null], r ?: [NSNull null]]];
+    NSArray *apps = [self rememberedApps];
+    SCPLog("CarSplit: mo bo cuc %d voi app gan nhat %@", layoutID, apps);
+    [self openSetupLayout:layoutID apps:apps];
 }
 
 // Gan cu chi giu lau vao luoi icon man chinh CarPlay (*IconListView), toi da 1 lan quet / 2s

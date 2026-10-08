@@ -12,31 +12,6 @@
 
 /* TWEAK SETTINGS */
 
-"PREVIEW_GROUP" = "Xem trước trên màn xe";
-"PREVIEW_INFO_FORMAT" = "%@ %.0f%% · App %@ · Chạm thẻ ••• để mở tuỳ chọn";
-"PREVIEW_LEFT" = "Trái";
-"PREVIEW_TOP" = "Trên";
-"PREVIEW_PORTRAIT" = "dọc";
-"PREVIEW_LANDSCAPE" = "ngang";
-
-"LAYOUT_GROUP" = "Bố cục";
-"LAYOUT_FOOTER" = "Mọi thay đổi hiện ngay ở khung xem trước. Chỉ chọn được app có trên màn CarPlay (app CarPlay và app CarBridge).";
-"LEFT_PANE" = "Ngăn trái";
-"RIGHT_PANE" = "Ngăn phải";
-"APP_NOT_SET" = "Chưa chọn";
-"SPLIT_DIRECTION" = "Kiểu chia";
-"SPLIT_LEFT_RIGHT" = "Trái / phải";
-"SPLIT_TOP_BOTTOM" = "Trên / dưới";
-"PANE_ORIENTATION" = "Hướng app trong ngăn";
-"ORIENTATION_PORTRAIT" = "Dọc";
-"ORIENTATION_LANDSCAPE" = "Ngang";
-"SCREEN_ASPECT" = "Tỉ lệ màn xe";
-"ASPECT_16_9" = "16:9";
-"ASPECT_5_3" = "5:3";
-"ASPECT_8_3" = "8:3 siêu rộng";
-"SPLIT_RATIO" = "Tỉ lệ ngăn trái";
-"SPLIT_RATIO_FOOTER" = "0.5 là chia đều. Kéo thanh phân cách trên màn xe cũng đổi được, và tỉ lệ được nhớ riêng cho từng cặp app.";
-
 "PICKER_NONE" = "Không chọn";
 "PICKER_CARPLAY_APPS" = "App CarPlay";
 "PICKER_CARBRIDGE_APPS" = "App CarBridge";
@@ -46,6 +21,12 @@
 
 "ON_CONNECT_GROUP" = "Trên xe";
 "AUTO_LAUNCH" = "Tự mở split khi cắm xe";
+"ON_CONNECT_FOOTER" = "Khi cắm xe sẽ tự mở lại cách chia gần nhất (chưa có thì dùng Bố cục yêu thích 1). Bố cục, tỉ lệ và hướng chia (màn xe ngang: trái/phải, màn dọc: trên/dưới) tự theo màn xe; tỉ lệ đổi bằng cách kéo thanh giữa các ô và được nhớ riêng cho từng cặp app.";
+"PANEL_GROUP" = "Bảng của nút CarDuo";
+"SHOW_RECENT" = "Hiện mục Gần đây";
+"SHOW_FAVORITES" = "Hiện mục Yêu thích";
+"PANEL_FOOTER" = "Bảng hiện khi bấm nút CarDuo trên dock. Mục Mặc định (2 ô / 3 ô / 1 lớn + 2) luôn có. Gần đây: 3 cách chia vừa dùng. Yêu thích: các bố cục bên dưới.";
+"USAGE_GROUP" = "Cách dùng trên xe";
 "USAGE_FOOTER" = "Bấm nút CarDuo trên dock CarPlay (ngay trên nút Home) để hiện bảng gồm 3 mục: Mặc định (2 ô / 3 ô / 1 lớn + 2: app đang mở vào ô 1, các ô còn lại hiện bảng chọn app), Gần đây (3 cách chia vừa dùng, bấm là mở lại đúng app và bố cục), Yêu thích (các cặp bên dưới). Giữ icon app 1 giây cũng mở bảng này. Đang chia: bấm nút CarDuo để đổi bố cục (app giữ thứ tự ô; bớt ô thì app ở ô cuối về nền). Kéo thanh giữa các ô để đổi tỉ lệ, chạm núm để Đổi chỗ / Tỉ lệ / Đóng. Thẻ trắng trên mỗi ô: Chọn app / Phóng to (bấm lại để thu nhỏ) / Chỉ mở app này / Tắt app (nằm cuối, sau vạch ngăn). Tắt một app thì bớt một ô (3 còn 2, 2 còn 1 là về toàn màn). Nút Home của CarPlay tắt split.";
 
 "LAYOUT_2" = "2 ô";

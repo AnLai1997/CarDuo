@@ -177,8 +177,9 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: cen
 <div class="simwrap">
   <div class="toolbar">
     <button id="reset">Về màn chính</button>
-    <label><input type="checkbox" id="vertical"> Chia trên / dưới</label>
-    <label><input type="checkbox" id="fav" checked> Có bố cục yêu thích (Đi làm: 2 ô Maps + Spotify, Đi xa: 1 lớn + 2)</label>
+    <label><input type="checkbox" id="vertical"> Giả lập màn xe dọc (tweak tự chia trên / dưới)</label>
+    <label><input type="checkbox" id="recentOn" checked> Hiện mục Gần đây</label>
+    <label><input type="checkbox" id="fav" checked> Hiện mục Yêu thích (Đi làm: 2 ô Maps + Spotify, Đi xa: 1 lớn + 2)</label>
   </div>
   <div class="car"><div class="screen">
     <div class="dock" id="dock"></div>
@@ -354,7 +355,7 @@ const CAR_W = 595;   // vung app tren xe (point), de doi px -> point
 
 const area = document.getElementById('area'), dockEl = document.getElementById('dock');
 const hintEl = document.getElementById('hint'), logEl = document.getElementById('log');
-const vertBox = document.getElementById('vertical'), favBox = document.getElementById('fav');
+const vertBox = document.getElementById('vertical'), favBox = document.getElementById('fav'), recentBox = document.getElementById('recentOn');
 let S, timers = {}, press = null;
 let lastPair = ['maps', 'spotify'];
 
@@ -533,7 +534,7 @@ function renderPanel() {
   const name = apps => apps.map(a => a ? app(a).name : '?').join(' + ');
   let h = `<div class="sec">${S.mode === 'split' ? 'Đổi bố cục' : 'Mặc định'}</div><div class="opts">` +
     [2, 3, 13].map(id => `<button data-layout="${id}"${id === cur ? ' style="background:rgba(49,122,247,.22)"' : ''}>${layoutPic(id, v)}<span class="lbl">${LAYOUT_NAME[id]}</span></button>`).join('') + '</div>';
-  h += '<div class="sec">Gần đây</div>' + (recents.length
+  if (recentBox.checked) h += '<div class="sec">Gần đây</div>' + (recents.length
     ? '<div class="opts">' + recents.map((r, k) => `<button data-recent="${k}" title="${name(r.apps)}">${setupPic(r.id, r.apps, v)}<span class="lbl">${name(r.apps)}</span></button>`).join('') + '</div>'
     : '<div class="sec" style="color:rgba(255,255,255,.4);padding-top:2px">Chia màn xong sẽ hiện ở đây</div>');
   if (favBox.checked) h += '<div class="sec">Yêu thích</div><div class="opts">' +
@@ -759,6 +760,7 @@ function updateHint() {
 document.getElementById('reset').onclick = () => { log('Về màn chính'); reset(); };
 vertBox.onchange = () => render();
 favBox.onchange = () => render();
+recentBox.onchange = () => render();
 window.addEventListener('resize', () => { if (S.mode === 'split') layout(); else render(); });
 document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, 20));
 reset();

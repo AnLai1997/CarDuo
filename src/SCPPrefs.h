@@ -12,6 +12,8 @@
 + (NSString *)lastLeftApp;        // cap app dung lan cuoi tren xe (tu mo lai khi cam xe)
 + (NSString *)lastRightApp;
 + (BOOL)autoLaunch;
++ (BOOL)showRecent;              // bang nut CarDuo: hien muc Gan day (mac dinh bat)
++ (BOOL)showFavorites;           // bang nut CarDuo: hien muc Yeu thich (mac dinh bat)
 + (NSInteger)paneOrientation;   // 1 = portrait, 3 = landscape
 + (CGFloat)splitRatio;          // ti le be rong ngan trai (0.2 - 0.8)
 + (NSInteger)splitDirection;   // 0 trai/phai, 1 tren/duoi

@@ -83,8 +83,10 @@ rồi disassemble bằng capstone (Python) đọc thẳng các subcache theo b�
 
 ## Cài đặt trong app Settings
 Vào Cài đặt > CarDuo (giao diện HarmonyOS; Tiếng Việt / English ở nút quả cầu góc phải; thẻ tác giả + phiên bản ở cuối trang;
-chữ nằm trong `carduoprefs/Resources/*.lproj/Localizable.strings`): bật/tắt, xem trước màn xe, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), tự mở khi cắm xe,
-kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
+chữ nằm trong `carduoprefs/Resources/*.lproj/Localizable.strings`), chỉ còn: bật/tắt, tự mở khi cắm xe (mở lại cách chia
+gần nhất, chưa có thì Bố cục yêu thích 1), cách dùng, Bố cục yêu thích 1-3. Không còn xem trước, ngăn trái/phải mặc định,
+kiểu chia, hướng app, tỉ lệ: hướng chia tự theo màn xe (ngang -> trái/phải, dọc -> trên/dưới), tỉ lệ chia đều theo bố cục,
+kéo thanh chia để đổi và tự nhớ theo cặp app. App trong ô luôn được resize đúng kích thước ô.
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
 Trên màn xe (xem sơ đồ `docs/flow.html`):
