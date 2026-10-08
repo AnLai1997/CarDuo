@@ -2,6 +2,7 @@
 #import "../SCPPrefs.h"
 #import "../SCPCarSplit.h"
 #import <notify.h>
+#import <signal.h>
 
 // Inject vao SpringBoard. Split nam het trong process CarPlay (SCPCarSplit); SpringBoard chi:
 //  - nhan yeu cau tu app URL scheme (Shortcuts / Siri) va chuyen sang CarPlay
@@ -48,6 +49,29 @@ static void SCPApplyCarBridgeFrame(CGRect r, NSString *bid, int attempt, NSUInte
     } @catch (NSException *e) { SCPLog("CarBridge: dat khung loi %@", e); return; }
     root.hidden = NO;
     SCPLog("CarBridge: CBWindow %@ -> %@ (rootWindow %@)", bid, NSStringFromCGRect(r), root ? NSStringFromCGRect(root.frame) : @"nil");
+}
+
+// Nut [x] tren ngan CarPlay: tat han app (nhu vuot tat trong app switcher). FBSSystemService, khong co thi kill pid.
+static void SCPTerminateApp(NSString *bid)
+{
+    if (![bid isKindOfClass:[NSString class]] || !bid.length) return;
+    id svc = nil;
+    Class sc = objc_getClass("FBSSystemService");
+    if (sc && [sc respondsToSelector:@selector(sharedService)]) svc = objcInvoke(sc, @"sharedService");
+    SEL sel = NSSelectorFromString(@"terminateApplication:forReason:andReport:withDescription:");
+    if ([svc respondsToSelector:sel]) {
+        @try {
+            ((void (*)(id, SEL, id, long long, BOOL, id))objc_msgSend)(svc, sel, bid, 1, NO, @"CarDuo close");
+            SCPLog("tat han %@ (FBSSystemService)", bid);
+            return;
+        } @catch (NSException *e) { SCPLog("tat han %@ loi %@", bid, e); }
+    }
+    id ctl = objcInvoke(objc_getClass("SBApplicationController"), @"sharedInstance");
+    id app = ctl ? objcInvoke_1(ctl, @"applicationWithBundleIdentifier:", bid) : nil;
+    id state = app ? objcInvoke(app, @"processState") : nil;
+    int pid = state ? objcInvokeT(state, @"pid", int) : 0;
+    if (pid > 0) { kill(pid, SIGKILL); SCPLog("tat han %@ (kill pid %d)", bid, pid); }
+    else SCPLog("tat han %@: khong thay process", bid);
 }
 
 // Gui yeu cau sang process CarPlay. Xe chua ket noi thi khong co process CarPlay nghe -> yeu cau tu bo.
@@ -100,6 +124,10 @@ static void SCPHandlePendingRequest(void)
         CGRect r = CGRectMake([u[@"x"] doubleValue], [u[@"y"] doubleValue], [u[@"w"] doubleValue], [u[@"h"] doubleValue]);
         SCPApplyCarBridgeFrame(r, u[@"identifier"], 0, ++sCBFrameSeq);
     }];
+
+    // Nut [x] tren ngan CarPlay -> tat han app
+    [dnc addObserverForName:SCP_NOTIF_KILL object:nil queue:[NSOperationQueue mainQueue]
+                 usingBlock:^(NSNotification *note) { SCPTerminateApp(note.userInfo[@"identifier"]); }];
 
     // Dong log tu process khong ghi duoc file chung -> ghi ho
     [dnc addObserverForName:SCP_NOTIF_LOG object:nil queue:[NSOperationQueue mainQueue]

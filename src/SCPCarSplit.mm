@@ -519,6 +519,8 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
 @property (nonatomic, copy) NSString *bridgedBundle;  // app CarBridge dang duoc chieu vao ngan
 @property (nonatomic, readwrite) BOOL bridgeStarting; // CarBridge dang khoi dong chieu (bo qua Home / dismiss cua no)
 @property (nonatomic) CGRect lastBridgeFrame;
+@property (nonatomic) BOOL bridgeDragging;           // dang keo vach -> CBWindow an, ngan CarBridge hien icon
+@property (nonatomic, strong) UIView *bridgeDragCover;   // lop icon che ngan CarBridge luc keo
 // Tab tren app CarPlay dang mo toan man (chua split): cham / vuot xuong -> hang icon app CarPlay
 @property (nonatomic, strong) UIView *tray;
 @property (nonatomic, strong) UIView *trayShield;
@@ -1757,8 +1759,16 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 {
     SCPCarPane *p = [self paneForView:b];
     if (!p) return;
+    NSString *bid = p.bundleID;
     [self setBarVisible:NO forPane:p];
     [self closeSlot:p.slot background:YES];
+    if (!bid) return;
+    // [x] = tat han app (khong chi bo khoi ngan): SpringBoard terminate sau khi DashBoard dong xong ngan
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        SCPLog("CarSplit: [x] -> tat han %@", bid);
+        [[objc_getClass("NSDistributedNotificationCenter") defaultCenter]
+            postNotificationName:SCP_NOTIF_KILL object:nil userInfo:@{@"identifier": bid}];
+    });
 }
 
 // ---------------------------------------------------------------------
@@ -1855,6 +1865,10 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
     SCPCarDividerView *d = (SCPCarDividerView *)g.view;
     int i = d.index, n = [self paneCount];
     if (i < 0 || i + 1 >= n) return;
+    // App CarBridge: luc keo an CBWindow + hien icon (nhu HyperOS), tha tay moi doi khung 1 lan -> keo muot
+    if (g.state == UIGestureRecognizerStateBegan) [self beginBridgeDrag];
+    else if (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled)
+        dispatch_async(dispatch_get_main_queue(), ^{ [self endBridgeDrag]; });
     if ([self mainStack]) { [self mainStackDividerPanned:g]; return; }
     static CGFloat startA = 0.5, startB = 0.5;
     CGRect a = CGRectInset(self.container.bounds, SCPC_INSET, SCPC_INSET);
@@ -1925,8 +1939,6 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
     if (ended) {
         [self relayoutAnimated:YES];
         [self saveRatio];
-        [self repushBridgeFrameAfter:0.6];   // tha tay: gui lai khung cuoi cho CBWindow (lan keo co the bi lo)
-        [self repushBridgeFrameAfter:1.6];
         return;
     }
     [CATransaction begin];
@@ -2487,6 +2499,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
 - (CGRect)bridgeFrame
 {
     SCPCarPane *p = [self bridgedPane];
+    if (self.bridgeDragging) return CGRectZero;   // dang keo vach: an CBWindow, ngan hien icon
     if (!self.active || !p || p.view.alpha < 0.5 || p.view.bounds.size.width < 20 || !p.view.window) return CGRectZero;
     // Thanh nut cua ngan dang hien -> day khung chieu xuong duoi thanh nut de bam duoc
     CGFloat top = p.bar.hidden ? SCPC_BRIDGE_TOP : SCPC_HANDLE_H + 10 + SCPC_BTN + 6;
@@ -2603,6 +2616,49 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
         postNotificationName:SCP_NOTIF_CBFRAME object:nil
                     userInfo:@{@"identifier": self.bridgedBundle, @"x": @(r.origin.x), @"y": @(r.origin.y),
                                @"w": @(r.size.width), @"h": @(r.size.height)}];
+}
+
+// Bat dau keo vach khi co app CarBridge trong ngan: an CBWindow (no nam tren CarPlay, doi khung lien tuc thi giat)
+// va che ngan bang nen toi + icon app nhu HyperOS
+- (void)beginBridgeDrag
+{
+    SCPCarPane *p = [self bridgedPane];
+    if (!p || self.bridgeDragging) return;
+    self.bridgeDragging = YES;
+    [self.bridgeDragCover removeFromSuperview];
+    UIView *cover = [[UIView alloc] initWithFrame:p.view.bounds];
+    cover.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    cover.backgroundColor = [UIColor colorWithWhite:0.12 alpha:1];
+    cover.userInteractionEnabled = NO;
+    UIImageView *iv = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, 48, 48)];
+    iv.image = SCPCAppIcon(p.bundleID);
+    SCPCStyleIcon(iv);
+    iv.center = CGPointMake(CGRectGetMidX(cover.bounds), CGRectGetMidY(cover.bounds));
+    iv.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin
+                        | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+    [cover addSubview:iv];
+    [p.view addSubview:cover];
+    [p.view bringSubviewToFront:p.handle];
+    [p.view bringSubviewToFront:p.bar];
+    self.bridgeDragCover = cover;
+    self.lastBridgeFrame = CGRectNull;
+    [self pushBridgeFrame];   // khung 0 -> SpringBoard an CBWindow
+}
+
+// Tha tay: dat CBWindow vao khung moi 1 lan, cho CarBridge ve lai roi bo lop icon
+- (void)endBridgeDrag
+{
+    if (!self.bridgeDragging) return;
+    self.bridgeDragging = NO;
+    self.lastBridgeFrame = CGRectNull;
+    [self pushBridgeFrame];
+    [self repushBridgeFrameAfter:0.6];   // SpringBoard co the bo lo lan dau (CBWindow chua san sang)
+    [self repushBridgeFrameAfter:1.6];
+    UIView *cover = self.bridgeDragCover;
+    self.bridgeDragCover = nil;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [UIView animateWithDuration:0.2 animations:^{ cover.alpha = 0; } completion:^(BOOL f) { [cover removeFromSuperview]; }];
+    });
 }
 
 // Gui lai khung CBWindow du khung khong doi (SpringBoard co the da bo lo lan truoc vi CBWindow chua co)

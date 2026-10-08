@@ -18,6 +18,8 @@
 #define SCP_NOTIF_CBFRAME       @"com.anlai97.carduo.cbframe"
 // SpringBoard -> CarPlay process: CarBridge da dong CBWindow (identifier) -> CarPlay chieu lai app vao ngan
 #define SCP_NOTIF_CBLOST        @"com.anlai97.carduo.cblost"
+// CarPlay process -> SpringBoard: nut [x] tren thanh ngan -> tat han app (identifier)
+#define SCP_NOTIF_KILL          @"com.anlai97.carduo.kill"
 
 @interface SCPCarSplit : NSObject
 + (instancetype)shared;
