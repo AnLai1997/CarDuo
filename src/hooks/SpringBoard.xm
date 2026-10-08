@@ -11,16 +11,20 @@
 #define SCP_DARWIN_OPEN     "com.anlai97.carduo.open"      // tu app URL scheme (Shortcuts / Siri)
 
 // Dat CBWindow cua CarBridge (SpringBoard) = khung ngan split CarPlay. w = 0 -> an cua so (ngan dang an).
-static void SCPApplyCarBridgeFrame(CGRect r, NSString *bid, int attempt)
+// Moi yeu cau dat khung tang so thu tu; lan thu lai cua yeu cau cu thi bo (khong de khung cu de len khung moi)
+static NSUInteger sCBFrameSeq;
+
+static void SCPApplyCarBridgeFrame(CGRect r, NSString *bid, int attempt, NSUInteger seq)
 {
+    if (seq != sCBFrameSeq) return;
     Class mc = objc_getClass("CBBridgeManager");
     id mgr = (mc && [mc respondsToSelector:@selector(sharedInstance)]) ? objcInvoke(mc, @"sharedInstance") : nil;
     id win = nil;
     @try { win = (mgr && [mgr respondsToSelector:NSSelectorFromString(@"window")]) ? objcInvoke(mgr, @"window") : nil; } @catch (NSException *e) {}
     if (!win) {
-        if (attempt < 8) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                SCPApplyCarBridgeFrame(r, bid, attempt + 1);
+        if (attempt < 6) {   // ~2.4s roi bao CarPlay chieu lai
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                SCPApplyCarBridgeFrame(r, bid, attempt + 1, seq);
             });
         } else {
             SCPLog("CarBridge: khong thay CBWindow de dat khung %@ (%@) -> bao CarPlay chieu lai", NSStringFromCGRect(r), bid);
@@ -94,7 +98,7 @@ static void SCPHandlePendingRequest(void)
                  usingBlock:^(NSNotification *note) {
         NSDictionary *u = note.userInfo;
         CGRect r = CGRectMake([u[@"x"] doubleValue], [u[@"y"] doubleValue], [u[@"w"] doubleValue], [u[@"h"] doubleValue]);
-        SCPApplyCarBridgeFrame(r, u[@"identifier"], 0);
+        SCPApplyCarBridgeFrame(r, u[@"identifier"], 0, ++sCBFrameSeq);
     }];
 
     // Dong log tu process khong ghi duoc file chung -> ghi ho

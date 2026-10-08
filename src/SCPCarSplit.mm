@@ -1925,6 +1925,8 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
     if (ended) {
         [self relayoutAnimated:YES];
         [self saveRatio];
+        [self repushBridgeFrameAfter:0.6];   // tha tay: gui lai khung cuoi cho CBWindow (lan keo co the bi lo)
+        [self repushBridgeFrameAfter:1.6];
         return;
     }
     [CATransaction begin];
@@ -2458,6 +2460,7 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
 //  (hook getAppFrame + bao SpringBoard dat lai CBWindow moi khi ngan doi).
 // ---------------------------------------------------------------------
 #define SCPC_BRIDGE_TOP   16.0    // chua mep tren ngan (thanh "...") khong bi CBWindow che
+#define SCPC_BRIDGE_SIDE   9.0    // chua mep giap ngan khac: nut keo (vien thuoc 12pt / o vuong 22pt giua khe) khong bi CBWindow che
 
 static id SCPCBridgeManager(void)
 {
@@ -2487,8 +2490,13 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     if (!self.active || !p || p.view.alpha < 0.5 || p.view.bounds.size.width < 20 || !p.view.window) return CGRectZero;
     // Thanh nut cua ngan dang hien -> day khung chieu xuong duoi thanh nut de bam duoc
     CGFloat top = p.bar.hidden ? SCPC_BRIDGE_TOP : SCPC_HANDLE_H + 10 + SCPC_BTN + 6;
-    CGRect b = p.view.bounds;
-    CGRect r = CGRectMake(0, top, b.size.width, MAX(0, b.size.height - top));
+    // CBWindow (SpringBoard) nam tren moi view CarPlay -> canh nao giap ngan khac thi lui vao de lo nut keo
+    CGRect b = p.view.bounds, f = p.view.frame;
+    CGSize box = p.view.superview.bounds.size;
+    CGFloat left = CGRectGetMinX(f) > 1 ? SCPC_BRIDGE_SIDE : 0, right = CGRectGetMaxX(f) < box.width - 1 ? SCPC_BRIDGE_SIDE : 0;
+    CGFloat bottom = CGRectGetMaxY(f) < box.height - 1 ? SCPC_BRIDGE_SIDE : 0;
+    if (CGRectGetMinY(f) > 1) top = MAX(top, SCPC_BRIDGE_SIDE);
+    CGRect r = CGRectMake(left, top, MAX(0, b.size.width - left - right), MAX(0, b.size.height - top - bottom));
     return [p.view convertRect:r toView:nil];
 }
 
@@ -2528,14 +2536,14 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     }
 }
 
-// SpringBoard bao CBWindow da mat (CarBridge dong khi app khac mo...) -> chieu lai, toi da 1 lan / 5s
+// SpringBoard bao CBWindow da mat (CarBridge dong khi app khac mo...) -> chieu lai, toi da 1 lan / 3s
 - (void)bridgeWindowLost:(NSString *)bid
 {
     SCPCarPane *p = [self paneForBundle:bid];
     if (!self.active || !p || self.bridgeStarting || ![bid isEqualToString:self.bridgedBundle]) return;
     static CFAbsoluteTime last;
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-    if (now - last < 5) return;
+    if (now - last < 3) return;
     last = now;
     SCPLog("CarBridge: CBWindow cua %@ mat -> chieu lai", bid);
     self.bridgedBundle = nil;   // de startBridgeForPane khong bao "thay app"
@@ -2595,6 +2603,17 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
         postNotificationName:SCP_NOTIF_CBFRAME object:nil
                     userInfo:@{@"identifier": self.bridgedBundle, @"x": @(r.origin.x), @"y": @(r.origin.y),
                                @"w": @(r.size.width), @"h": @(r.size.height)}];
+}
+
+// Gui lai khung CBWindow du khung khong doi (SpringBoard co the da bo lo lan truoc vi CBWindow chua co)
+- (void)repushBridgeFrameAfter:(double)delay
+{
+    if (!self.bridgedBundle) return;
+    __weak SCPCarSplit *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        weakSelf.lastBridgeFrame = CGRectNull;
+        [weakSelf pushBridgeFrame];
+    });
 }
 
 - (void)pushBridgeFrameSoon
