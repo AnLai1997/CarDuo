@@ -54,10 +54,6 @@ static NSString *str(NSString *key)
     return MIN(0.8, MAX(0.2, r));
 }
 + (NSInteger)splitDirection{ id v = value(@"SplitDirection");   return v ? [v integerValue] : 0; }
-+ (BOOL)bootVideo          { id v = value(@"BootVideo");        return v ? [v boolValue] : YES; }
-+ (CGFloat)bootDuration    { id v = value(@"BootDuration");     return v ? ([v doubleValue] <= 0 ? 0 : MIN(15, MAX(1, [v doubleValue]))) : 4; }
-+ (BOOL)bootSound          { id v = value(@"BootSound");        return v ? [v boolValue] : YES; }
-+ (NSString *)customBootVideo { return str(@"BootVideoPath"); }
 + (NSArray<NSString *> *)carPlayApps { id v = value(@"CarPlayApps"); return [v isKindOfClass:[NSArray class]] ? v : nil; }
 + (void)setCarPlayApps:(NSArray<NSString *> *)ids
 {

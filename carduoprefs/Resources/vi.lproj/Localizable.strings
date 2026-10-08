@@ -6,7 +6,6 @@
 "STATUS_OFF" = "Đang tắt";
 "VERSION_FORMAT" = "Phiên bản: %@";
 "COPYRIGHT" = "Bản quyền © 2026 AnLai";
-"OK" = "OK";
 
 "GENERAL_FOOTER" = "Thay đổi áp dụng ngay. Tắt để dùng CarPlay như bình thường.";
 "ENABLE" = "Bật CarDuo";
@@ -44,27 +43,6 @@
 "PICKER_GUESS_FOOTER" = "Chưa cắm xe lần nào: đang liệt kê app có hỗ trợ CarPlay. Danh sách chính xác cập nhật mỗi lần cắm xe.";
 "PICKER_BRIDGE_FOOTER" = "App iPhone được bật trong CarBridge.";
 "PICKER_NO_BRIDGE_FOOTER" = "Không thấy app CarBridge nào. Bật app trong CarBridge rồi cắm xe một lần để cập nhật.";
-
-"STARTUP_GROUP" = "Khởi động CarPlay";
-"STARTUP_FOOTER" = "Khi cắm xe, video khởi động (mặc định hoặc video bạn chọn từ Ảnh / Tệp) phát trên màn xe trong thời lượng đã chọn rồi mới vào màn hình chính.";
-"BOOT_VIDEO" = "Video khởi động";
-"BOOT_SOUND" = "Âm thanh video";
-"CHOOSE_BOOT_VIDEO" = "Chọn video khởi động";
-"PREVIEW_BOOT_VIDEO" = "Xem thử video";
-"BOOT_DURATION" = "Thời lượng video";
-"DURATION_2" = "2s";
-"DURATION_4" = "4s";
-"DURATION_6" = "6s";
-"DURATION_8" = "8s";
-"DURATION_FULL" = "Hết video";
-"PICK_FROM_PHOTOS" = "Chọn từ Ảnh";
-"PICK_FROM_FILES" = "Chọn từ Tệp";
-"USE_DEFAULT_VIDEO" = "Dùng video mặc định";
-"CANCEL" = "Huỷ";
-"VIDEO_NOT_FOUND" = "Không tìm thấy video khởi động.";
-"VIDEO_SAVE_FAILED" = "Không lưu được video.";
-"VIDEO_SET" = "Đã đặt video khởi động mới. Lần cắm xe tới sẽ phát video này.";
-"DEFAULT_VIDEO_RESTORED" = "Đã quay về video mặc định.";
 
 "ON_CONNECT_GROUP" = "Trên xe";
 "AUTO_LAUNCH" = "Tự mở split khi cắm xe";

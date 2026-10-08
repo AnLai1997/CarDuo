@@ -12,9 +12,9 @@ Description: Two CarPlay apps side by side on your car screen.
   - Split left/right or top/bottom and drag the divider to resize
   - Remembers the split ratio for every app pair
   - Save up to three favorite app pairs and switch with one tap
-  - Shrink a pane into a floating picture-in-picture tile
+  - Open a split from the home screen button or by holding an app icon
+  - Reopens your last app pair when CarPlay connects
   - Control it with Siri and Shortcuts
-  - Play your own startup video when CarPlay connects
  .
  Set it up in Settings > CarDuo, with a live preview of the car screen.
  Changes apply right away.

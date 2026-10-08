@@ -6,7 +6,6 @@
 "STATUS_OFF" = "Off";
 "VERSION_FORMAT" = "Version: %@";
 "COPYRIGHT" = "Copyright © 2026 AnLai";
-"OK" = "OK";
 
 "GENERAL_FOOTER" = "Changes apply right away. Turn off to use CarPlay as usual.";
 "ENABLE" = "Enable CarDuo";
@@ -44,27 +43,6 @@
 "PICKER_GUESS_FOOTER" = "Not connected to a car yet: showing apps with CarPlay support. The exact list refreshes each time you connect.";
 "PICKER_BRIDGE_FOOTER" = "iPhone apps enabled in CarBridge.";
 "PICKER_NO_BRIDGE_FOOTER" = "No CarBridge apps found. Enable apps in CarBridge, then connect to the car once to refresh.";
-
-"STARTUP_GROUP" = "CarPlay startup";
-"STARTUP_FOOTER" = "When you connect, the startup video (the default one or one you pick from Photos / Files) plays on the car screen for the chosen time before the home screen appears.";
-"BOOT_VIDEO" = "Startup video";
-"BOOT_SOUND" = "Video sound";
-"CHOOSE_BOOT_VIDEO" = "Choose startup video";
-"PREVIEW_BOOT_VIDEO" = "Preview video";
-"BOOT_DURATION" = "Video length";
-"DURATION_2" = "2s";
-"DURATION_4" = "4s";
-"DURATION_6" = "6s";
-"DURATION_8" = "8s";
-"DURATION_FULL" = "Full";
-"PICK_FROM_PHOTOS" = "Choose from Photos";
-"PICK_FROM_FILES" = "Choose from Files";
-"USE_DEFAULT_VIDEO" = "Use default video";
-"CANCEL" = "Cancel";
-"VIDEO_NOT_FOUND" = "Startup video not found.";
-"VIDEO_SAVE_FAILED" = "Could not save the video.";
-"VIDEO_SET" = "New startup video set. It will play the next time you connect.";
-"DEFAULT_VIDEO_RESTORED" = "Back to the default video.";
 
 "ON_CONNECT_GROUP" = "In the car";
 "AUTO_LAUNCH" = "Open split on connect";

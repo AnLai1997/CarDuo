@@ -39,7 +39,7 @@ Toàn bộ split nằm trong process CarPlay (`DashBoard.framework`), code ở `
 Dock CarPlay vẫn hiện; chạm app trên dock khi đang split thì app vào ngăn vừa chạm.
 App iPhone (không có CarPlay) vào ngăn qua CarBridge: CarPlay báo SpringBoard đặt cửa sổ `CBWindow` đúng khung ngăn.
 
-Tweak chỉ nạp vào 2 process (`CarDuo.plist`): **CarPlay** (toàn bộ split, video khởi động, tự mở khi cắm xe)
+Tweak chỉ nạp vào 2 process (`CarDuo.plist`): **CarPlay** (toàn bộ split, tự mở khi cắm xe)
 và **SpringBoard** (nhận URL `carduo://`, đặt khung CarBridge, ghi hộ log). Không nạp vào app nào khác.
 Cửa sổ split kiểu cũ trong SpringBoard (chiếu giao diện iPhone, Mirror) đã bỏ từ 1.1.0.
 
@@ -83,14 +83,14 @@ rồi disassemble bằng capstone (Python) đọc thẳng các subcache theo b�
 
 ## Cài đặt trong app Settings
 Vào Cài đặt > CarDuo (giao diện HarmonyOS; Tiếng Việt / English ở nút quả cầu góc phải; thẻ tác giả + phiên bản ở cuối trang;
-chữ nằm trong `carduoprefs/Resources/*.lproj/Localizable.strings`): bật/tắt, xem trước màn xe, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), video khởi động, tự mở khi cắm xe,
+chữ nằm trong `carduoprefs/Resources/*.lproj/Localizable.strings`): bật/tắt, xem trước màn xe, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), tự mở khi cắm xe,
 kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
 Trên màn xe (xem sơ đồ `docs/flow.html`):
 - Mở split: nút tròn góc trên phải màn chính CarPlay (mở lại cặp dùng lần trước), giữ icon app 0,7 giây,
   hoặc chạm thẻ nhỏ ở mép trên app đang mở toàn màn rồi chọn app thứ hai. Bật "Tự mở split khi cắm xe" thì
-  sau video khởi động tự mở cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải trong Cài đặt).
+  khi cắm xe tự mở cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải trong Cài đặt).
 - Việc của TỪNG NGĂN: thẻ trắng nhỏ ở giữa mép trên ngăn, chạm hoặc kéo xuống để hiện thanh nút
   Đổi app / Toàn màn / Đóng (tự ẩn sau 3 giây nếu không thao tác).
 - Việc của CẢ CẶP: núm kéo giữa 2 ngăn, kéo để đổi tỉ lệ (nhớ riêng từng cặp), chạm để mở menu

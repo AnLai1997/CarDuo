@@ -3,10 +3,6 @@
 #import <Preferences/PSTableCell.h>
 #import <UIKit/UIKit.h>
 #import <notify.h>
-#import <AVKit/AVKit.h>
-#import <AVFoundation/AVFoundation.h>
-#import <PhotosUI/PhotosUI.h>
-#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "SCPLang.h"
 
 #define kPrefsDomain CFSTR("com.anlai97.carduo")
@@ -101,44 +97,6 @@ static UIImage *SCPIcon(NSString *symbol, UIColor *color) {
 static BOOL SCPEnabled(void) {
 	id value = (__bridge_transfer id)CFPreferencesCopyAppValue(kEnabledKey, kPrefsDomain);
 	return value ? [value boolValue] : YES;
-}
-
-#pragma mark - Startup video
-
-// Default video (installed with the package) or the one the user picked.
-static NSString *SCPDefaultBootVideo(void) {
-	for (NSString *p in @[@"/var/jb/Library/Application Support/CarDuo/boot.mp4", @"/Library/Application Support/CarDuo/boot.mp4"]) {
-		if ([[NSFileManager defaultManager] fileExistsAtPath:p]) return p;
-	}
-	return nil;
-}
-
-static NSString *SCPCurrentBootVideo(void) {
-	NSString *custom = SCPPrefValue(@"BootVideoPath");
-	if ([custom isKindOfClass:[NSString class]] && [[NSFileManager defaultManager] fileExistsAtPath:custom]) return custom;
-	return SCPDefaultBootVideo();
-}
-
-// A folder the CarPlay process can read (inside jbroot) and Settings (mobile) can write.
-static NSString *SCPBootVideoDir(void) {
-	BOOL rootless = [[NSFileManager defaultManager] fileExistsAtPath:@"/var/jb"];
-	return rootless ? @"/var/jb/var/mobile/Library/CarDuo" : @"/var/mobile/Library/CarDuo";
-}
-
-// Copies the picked video into the CarDuo folder and removes the previous custom one. Returns the new path (nil on error).
-static NSString *SCPInstallBootVideo(NSURL *src, NSError **err) {
-	NSFileManager *fm = [NSFileManager defaultManager];
-	NSString *dir = SCPBootVideoDir();
-	[fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
-	for (NSString *f in [fm contentsOfDirectoryAtPath:dir error:nil]) {
-		if ([f hasPrefix:@"boot-custom"]) [fm removeItemAtPath:[dir stringByAppendingPathComponent:f] error:nil];
-	}
-	NSString *ext = src.pathExtension.length ? src.pathExtension.lowercaseString : @"mov";
-	// A new name every time so AVPlayer never plays a cached old copy
-	NSString *dst = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"boot-custom-%ld.%@", (long)time(NULL), ext]];
-	if (![fm copyItemAtPath:src.path toPath:dst error:err]) return nil;
-	[fm setAttributes:@{NSFilePosixPermissions: @0644} ofItemAtPath:dst error:nil];
-	return dst;
 }
 
 #pragma mark - Header card
@@ -271,7 +229,7 @@ static NSString *SCPInstallBootVideo(NSURL *src, NSError **err) {
 
 @end
 
-@interface SCPRootListController () <PHPickerViewControllerDelegate, UIDocumentPickerDelegate>
+@interface SCPRootListController ()
 @property (nonatomic, strong) SCPHeaderCard *headerCard;
 @end
 
@@ -499,98 +457,5 @@ static NSString *SCPInstallBootVideo(NSURL *src, NSError **err) {
 	label.textColor = [UIColor secondaryLabelColor];
 }
 
-#pragma mark - Helpers for actions
-
-- (void)showMessage:(NSString *)message {
-	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"CarDuo" message:message preferredStyle:UIAlertControllerStyleAlert];
-	[alert addAction:[UIAlertAction actionWithTitle:L(@"OK") style:UIAlertActionStyleDefault handler:nil]];
-	[self presentViewController:alert animated:YES completion:nil];
-}
-
-#pragma mark - Actions
-
-// Plays the startup video right here on the iPhone.
-- (void)previewBootVideo {
-	NSString *path = SCPCurrentBootVideo();
-	if (!path) {
-		[self showMessage:L(@"VIDEO_NOT_FOUND")];
-		return;
-	}
-	// Plays with sound even when the ring switch is on silent
-	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
-	AVPlayerViewController *player = [AVPlayerViewController new];
-	player.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
-	[self presentViewController:player animated:YES completion:^{ [player.player play]; }];
-}
-
-// Startup video from Photos, from Files, or back to the default one.
-- (void)chooseBootVideo {
-	__weak typeof(self) weakSelf = self;
-	UIAlertController *sheet = [UIAlertController alertControllerWithTitle:L(@"BOOT_VIDEO") message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-	[sheet addAction:[UIAlertAction actionWithTitle:L(@"PICK_FROM_PHOTOS") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-		PHPickerConfiguration *config = [PHPickerConfiguration new];
-		config.filter = [PHPickerFilter videosFilter];
-		config.selectionLimit = 1;
-		config.preferredAssetRepresentationMode = PHPickerConfigurationAssetRepresentationModeCompatible;
-		PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:config];
-		picker.delegate = weakSelf;
-		[weakSelf presentViewController:picker animated:YES completion:nil];
-	}]];
-	[sheet addAction:[UIAlertAction actionWithTitle:L(@"PICK_FROM_FILES") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-		UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeMovie] asCopy:YES];
-		picker.delegate = weakSelf;
-		[weakSelf presentViewController:picker animated:YES completion:nil];
-	}]];
-	if ([SCPPrefValue(@"BootVideoPath") isKindOfClass:[NSString class]]) {
-		[sheet addAction:[UIAlertAction actionWithTitle:L(@"USE_DEFAULT_VIDEO") style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
-			[[NSFileManager defaultManager] removeItemAtPath:SCPPrefValue(@"BootVideoPath") error:nil];
-			CFPreferencesSetAppValue(CFSTR("BootVideoPath"), NULL, kPrefsDomain);
-			CFPreferencesAppSynchronize(kPrefsDomain);
-			notify_post(kPrefsChanged);
-			[weakSelf showMessage:L(@"DEFAULT_VIDEO_RESTORED")];
-		}]];
-	}
-	[sheet addAction:[UIAlertAction actionWithTitle:L(@"CANCEL") style:UIAlertActionStyleCancel handler:nil]];
-	sheet.popoverPresentationController.sourceView = self.view;
-	sheet.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
-	[self presentViewController:sheet animated:YES completion:nil];
-}
-
-- (void)useBootVideoAt:(NSURL *)url {
-	NSError *err = nil;
-	NSString *dst = url ? SCPInstallBootVideo(url, &err) : nil;
-	if (!dst) {
-		[self showMessage:[NSString stringWithFormat:@"%@\n%@", L(@"VIDEO_SAVE_FAILED"), err.localizedDescription ?: @""]];
-		return;
-	}
-	SCPSetPrefValue(@"BootVideoPath", dst);
-	notify_post(kPrefsChanged);
-	[self showMessage:L(@"VIDEO_SET")];
-}
-
-- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
-	[picker dismissViewControllerAnimated:YES completion:nil];
-	NSItemProvider *provider = results.firstObject.itemProvider;
-	if (!provider) return;
-	__weak typeof(self) weakSelf = self;
-	[provider loadFileRepresentationForTypeIdentifier:UTTypeMovie.identifier completionHandler:^(NSURL *url, NSError *error) {
-		// url only exists inside this block -> copy it to a temp file before going to the main thread
-		NSURL *tmp = nil;
-		if (url) {
-			tmp = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:
-			                              [NSString stringWithFormat:@"carduo-pick.%@", url.pathExtension.length ? url.pathExtension : @"mov"]]];
-			[[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
-			if (![[NSFileManager defaultManager] copyItemAtURL:url toURL:tmp error:nil]) tmp = nil;
-		}
-		dispatch_async(dispatch_get_main_queue(), ^{
-			[weakSelf useBootVideoAt:tmp];
-			if (tmp) [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
-		});
-	}];
-}
-
-- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
-	[self useBootVideoAt:urls.firstObject];
-}
 
 @end

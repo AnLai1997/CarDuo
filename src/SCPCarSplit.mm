@@ -1,6 +1,5 @@
 #import "SCPCarSplit.h"
 #import "SCPPrefs.h"
-#import "SCPBoot.h"
 
 // =====================================================================
 //  SCPCarSplit - split CarPlay "that": moi ngan la scene CarPlay cua app (giao dien CarPlay/template),
@@ -2025,7 +2024,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
 
 // ---------------------------------------------------------------------
 //  Man chinh CarPlay (chua split): nut tron "chia doi" o goc tren phai vung app, giu icon app 0.7s
-//  de mo app do vao split. Tu mo split khi cam xe (sau video khoi dong).
+//  de mo app do vao split. Tu mo split khi cam xe.
 // ---------------------------------------------------------------------
 #define SCPC_HOME_BTN 34.0
 static char kSCPCLongPressKey;
@@ -2033,8 +2032,7 @@ static char kSCPCLongPressKey;
 - (BOOL)atHomeScreen
 {
     UIViewController *root = SCPCRootVC();
-    return root && !self.active && [SCPPrefs enabled] && !SCPBootIsShowing()
-        && !objcInvoke(root, @"currentBaseViewController");
+    return root && !self.active && [SCPPrefs enabled] && !objcInvoke(root, @"currentBaseViewController");
 }
 
 - (void)refreshHomeButton
@@ -2120,7 +2118,7 @@ static char kSCPCLongPressKey;
     [self openApp:bid slot:-1];
 }
 
-// Man xe vua hien (cam xe). Bat "Tu mo split khi cam xe" -> cho video khoi dong xong roi mo cap da nho.
+// Man xe vua hien (cam xe). Bat "Tu mo split khi cam xe" -> doi DashBoard san sang roi mo cap da nho.
 - (void)carScreenAppeared
 {
     if (self.autoLaunchDone) return;
@@ -2134,7 +2132,7 @@ static char kSCPCLongPressKey;
 {
     __weak SCPCarSplit *weakSelf = self;
     if (self.active) return;
-    if ((SCPBootIsShowing() || !SCPCRootVC()) && n < 40) {
+    if (!SCPCRootVC() && n < 40) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [weakSelf autoLaunchAttempt:n + 1];
         });

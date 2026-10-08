@@ -1,7 +1,6 @@
 #import "../common.h"
 #import "../SCPPrefs.h"
 #import "../SCPCarSplit.h"
-#import "../SCPBoot.h"
 
 // Inject vao process CarPlay (com.apple.CarPlayApp, code trong DashBoard.framework, prefix DB).
 // Split hien GIAO DIEN CARPLAY cua app: DashBoard tu mo scene CarPlay cua app (giong cham icon),
@@ -55,7 +54,6 @@ static void SCPHookError(const char *where, NSException *e)
 - (void)invalidate
 {
     @try {
-        SCPBootReset();
         [[SCPCarSplit shared] dashboardInvalidated];
     } @catch (NSException *e) { SCPHookError("DBDashboard invalidate", e); }
     %orig;
@@ -130,12 +128,11 @@ static void SCPHookError(const char *where, NSException *e)
     @try { [[SCPCarSplit shared] rootDidLayout]; } @catch (NSException *e) { SCPHookError("rootDidLayout", e); }
 }
 
-// Man xe vua hien (cam xe): video khoi dong, danh sach app CarPlay cho Settings, tu mo split
+// Man xe vua hien (cam xe): danh sach app CarPlay cho Settings, tu mo split
 - (void)viewDidAppear:(BOOL)animated
 {
     %orig;
     @try {
-        SCPBootShowIfNeeded((UIViewController *)self);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             @try {
                 [[SCPCarSplit shared] publishCarPlayApps];
