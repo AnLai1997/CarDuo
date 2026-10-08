@@ -254,8 +254,7 @@ static void SCPHookError(const char *where, NSException *e)
             } else if ([action isEqualToString:@"pair"]) {
                 [sp openPairLeft:u[@"left"] right:u[@"right"]];
             } else if ([action isEqualToString:@"fav"]) {
-                NSDictionary *fav = [SCPPrefs favorite:[u[@"index"] integerValue]];
-                if (fav) [sp openPairLeft:fav[@"left"] right:fav[@"right"]];
+                [sp openFavorite:[u[@"index"] integerValue]];
             } else if ([action isEqualToString:@"picker"]) {
                 if (sp.active) [sp closeGoingHome:YES]; else [sp showPickerForSlot:-1];
             }

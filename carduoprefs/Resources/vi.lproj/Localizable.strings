@@ -46,16 +46,22 @@
 
 "ON_CONNECT_GROUP" = "Trên xe";
 "AUTO_LAUNCH" = "Tự mở split khi cắm xe";
-"USAGE_FOOTER" = "Mở split: bấm nút tròn ở góc trên phải màn chính CarPlay (mở lại cặp app dùng lần trước), giữ icon app 1 giây, hoặc chạm thẻ nhỏ ở mép trên app đang mở rồi chọn app thứ hai. Khi tự mở lúc cắm xe cũng dùng cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải). Đang split: chạm thẻ trắng trên mỗi ngăn để Đổi app / Toàn màn / Đóng; kéo thanh giữa để đổi tỉ lệ, chạm để Đổi chỗ / Tỉ lệ / Cặp yêu thích / Đóng. Chạm app trên dock thì app đó vào ngăn vừa chạm. Nút Home của CarPlay tắt split.";
+"USAGE_FOOTER" = "Bấm nút CarDuo trên dock CarPlay (ngay trên nút Home) để hiện bảng gồm 3 mục: Mặc định (2 ô / 3 ô / 1 lớn + 2: app đang mở vào ô 1, các ô còn lại hiện bảng chọn app), Gần đây (3 cách chia vừa dùng, bấm là mở lại đúng app và bố cục), Yêu thích (các cặp bên dưới). Giữ icon app 1 giây cũng mở bảng này. Đang chia: bấm nút CarDuo để đổi bố cục (app giữ thứ tự ô; bớt ô thì app ở ô cuối về nền). Kéo thanh giữa các ô để đổi tỉ lệ, chạm núm để Đổi chỗ / Tỉ lệ / Đóng. Thẻ trắng trên mỗi ô: Chọn app / Phóng to (bấm lại để thu nhỏ) / Chỉ mở app này / Tắt app (nằm cuối, sau vạch ngăn). Tắt một app thì bớt một ô (3 còn 2, 2 còn 1 là về toàn màn). Nút Home của CarPlay tắt split.";
 
-"FAV1_GROUP" = "Cặp yêu thích 1";
-"FAV2_GROUP" = "Cặp yêu thích 2";
-"FAV3_GROUP" = "Cặp yêu thích 3";
-"PAIR_NAME" = "Tên cặp";
+"LAYOUT_2" = "2 ô";
+"LAYOUT_3" = "3 ô";
+"LAYOUT_13" = "1 lớn + 2";
+"BOX_1" = "Ô 1";
+"BOX_2" = "Ô 2";
+"BOX_3" = "Ô 3";
+"FAV1_GROUP" = "Bố cục yêu thích 1";
+"FAV2_GROUP" = "Bố cục yêu thích 2";
+"FAV3_GROUP" = "Bố cục yêu thích 3";
+"PAIR_NAME" = "Tên";
 "FAV1_PLACEHOLDER" = "Đi làm";
 "FAV2_PLACEHOLDER" = "Đi chơi";
 "FAV3_PLACEHOLDER" = "Đi xa";
-"FAV_FOOTER" = "Hiện thành nút 1, 2, 3 trong menu của thanh giữa 2 ngăn (chạm vào núm). Bấm là đổi cả hai ngăn. Siri/Shortcuts: carduo://fav?n=1";
+"FAV_FOOTER" = "Chọn bố cục rồi chọn app cho từng ô (Ô 3 chỉ hiện khi bố cục có 3 ô). Hiện trong mục Yêu thích của bảng nút CarDuo trên dock, bấm là mở đúng bố cục và app đó. Siri/Shortcuts: carduo://fav?n=1";
 
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
 "SHORTCUTS_FOOTER" = "Tạo Shortcut với hành động \"Mở URL\" rồi gọi bằng Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";

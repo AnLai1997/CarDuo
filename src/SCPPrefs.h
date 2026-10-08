@@ -19,8 +19,12 @@
 + (void)setCarPlayApps:(NSArray<NSString *> *)ids;
 + (void)setCarBridgeApps:(NSArray<NSString *> *)ids;   // app CarBridge dang bat (CarPlay process ghi lai)
 
-// Cap app yeu thich 1..3: @{ @"name", @"left", @"right" } (nil neu chua dat)
+// Bo cuc yeu thich 1..3: @{ @"name", @"layout": 2|3|13, @"left", @"right", @"third" } (nil neu chua dat app nao)
 + (NSDictionary *)favorite:(NSInteger)index;
+
+// Cach chia dung gan day (toi da 3, moi nhat truoc): @{ @"layout": 2|3|13, @"apps": @[bundle, ...] }
++ (NSArray<NSDictionary *> *)recentLayouts;
++ (void)addRecentLayout:(NSInteger)layout apps:(NSArray<NSString *> *)apps;
 
 // Ti le rieng cho tung cap app
 + (CGFloat)ratioForPairLeft:(NSString *)left right:(NSString *)right;   // 0 neu chua co

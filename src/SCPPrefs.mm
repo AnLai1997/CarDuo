@@ -73,17 +73,47 @@ static NSString *str(NSString *key)
 {
     NSString *left = str([NSString stringWithFormat:@"Fav%ldLeft", (long)index]);
     NSString *right = str([NSString stringWithFormat:@"Fav%ldRight", (long)index]);
-    if (!left && !right) return nil;
+    NSString *third = str([NSString stringWithFormat:@"Fav%ldThird", (long)index]);
+    NSInteger layout = [value([NSString stringWithFormat:@"Fav%ldLayout", (long)index]) integerValue];
+    if (layout != 3 && layout != 13) { layout = 2; third = nil; }
+    if (!left && !right && !third) return nil;
     NSString *name = str([NSString stringWithFormat:@"Fav%ldName", (long)index]) ?: [NSString stringWithFormat:@"Cặp %ld", (long)index];
     NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:name forKey:@"name"];
     if (left) d[@"left"] = left;
     if (right) d[@"right"] = right;
+    if (third) d[@"third"] = third;
+    d[@"layout"] = @(layout);
     return d;
 }
 
 static NSString *pairKey(NSString *left, NSString *right)
 {
     return [NSString stringWithFormat:@"%@|%@", left ?: @"-", right ?: @"-"];
+}
+
++ (NSArray<NSDictionary *> *)recentLayouts
+{
+    NSArray *a = value(@"RecentLayouts");
+    if (![a isKindOfClass:[NSArray class]]) return @[];
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSDictionary *d in a) {
+        if (![d isKindOfClass:[NSDictionary class]] || ![d[@"apps"] isKindOfClass:[NSArray class]] || !d[@"layout"]) continue;
+        [out addObject:d];
+    }
+    return out;
+}
+
++ (void)addRecentLayout:(NSInteger)layout apps:(NSArray<NSString *> *)apps
+{
+    if (apps.count < 2) return;
+    NSDictionary *entry = @{@"layout": @(layout), @"apps": apps};
+    NSMutableArray *list = [[self recentLayouts] mutableCopy];
+    if (list.count && [list[0] isEqualToDictionary:entry]) return;   // khong doi -> khong ghi lai
+    [list removeObject:entry];
+    [list insertObject:entry atIndex:0];
+    while (list.count > 3) [list removeLastObject];
+    [defaults() setObject:list forKey:@"RecentLayouts"];
+    [defaults() synchronize];
 }
 
 + (CGFloat)ratioForPairLeft:(NSString *)left right:(NSString *)right

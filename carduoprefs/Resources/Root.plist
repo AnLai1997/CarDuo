@@ -152,11 +152,20 @@
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>key</key><string>Fav1Layout</string>
+			<key>default</key><integer>2</integer>
+			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer></array>
+			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string></array>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
 			<key>cell</key><string>PSLinkCell</string>
 			<key>cellClass</key><string>SCPAppLinkCell</string>
 			<key>detail</key><string>SCPAppPickerController</string>
-			<key>label</key><string>LEFT_PANE</string>
-			<key>symbol</key><string>rectangle.lefthalf.filled</string>
+			<key>label</key><string>BOX_1</string>
+			<key>symbol</key><string>1.square.fill</string>
 			<key>symbolColor</key><string>#0A59F7</string>
 			<key>key</key><string>Fav1Left</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
@@ -165,10 +174,20 @@
 			<key>cell</key><string>PSLinkCell</string>
 			<key>cellClass</key><string>SCPAppLinkCell</string>
 			<key>detail</key><string>SCPAppPickerController</string>
-			<key>label</key><string>RIGHT_PANE</string>
-			<key>symbol</key><string>rectangle.righthalf.filled</string>
+			<key>label</key><string>BOX_2</string>
+			<key>symbol</key><string>2.square.fill</string>
 			<key>symbolColor</key><string>#7B5CF5</string>
 			<key>key</key><string>Fav1Right</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>BOX_3</string>
+			<key>symbol</key><string>3.square.fill</string>
+			<key>symbolColor</key><string>#12B53A</string>
+			<key>key</key><string>Fav1Third</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 		</dict>
 
@@ -187,11 +206,20 @@
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>key</key><string>Fav2Layout</string>
+			<key>default</key><integer>2</integer>
+			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer></array>
+			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string></array>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
 			<key>cell</key><string>PSLinkCell</string>
 			<key>cellClass</key><string>SCPAppLinkCell</string>
 			<key>detail</key><string>SCPAppPickerController</string>
-			<key>label</key><string>LEFT_PANE</string>
-			<key>symbol</key><string>rectangle.lefthalf.filled</string>
+			<key>label</key><string>BOX_1</string>
+			<key>symbol</key><string>1.square.fill</string>
 			<key>symbolColor</key><string>#0A59F7</string>
 			<key>key</key><string>Fav2Left</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
@@ -200,10 +228,20 @@
 			<key>cell</key><string>PSLinkCell</string>
 			<key>cellClass</key><string>SCPAppLinkCell</string>
 			<key>detail</key><string>SCPAppPickerController</string>
-			<key>label</key><string>RIGHT_PANE</string>
-			<key>symbol</key><string>rectangle.righthalf.filled</string>
+			<key>label</key><string>BOX_2</string>
+			<key>symbol</key><string>2.square.fill</string>
 			<key>symbolColor</key><string>#7B5CF5</string>
 			<key>key</key><string>Fav2Right</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>BOX_3</string>
+			<key>symbol</key><string>3.square.fill</string>
+			<key>symbolColor</key><string>#12B53A</string>
+			<key>key</key><string>Fav2Third</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 		</dict>
 
@@ -223,11 +261,20 @@
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
 		<dict>
+			<key>cell</key><string>PSSegmentCell</string>
+			<key>key</key><string>Fav3Layout</string>
+			<key>default</key><integer>2</integer>
+			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer></array>
+			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string></array>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
+		</dict>
+		<dict>
 			<key>cell</key><string>PSLinkCell</string>
 			<key>cellClass</key><string>SCPAppLinkCell</string>
 			<key>detail</key><string>SCPAppPickerController</string>
-			<key>label</key><string>LEFT_PANE</string>
-			<key>symbol</key><string>rectangle.lefthalf.filled</string>
+			<key>label</key><string>BOX_1</string>
+			<key>symbol</key><string>1.square.fill</string>
 			<key>symbolColor</key><string>#0A59F7</string>
 			<key>key</key><string>Fav3Left</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
@@ -236,10 +283,20 @@
 			<key>cell</key><string>PSLinkCell</string>
 			<key>cellClass</key><string>SCPAppLinkCell</string>
 			<key>detail</key><string>SCPAppPickerController</string>
-			<key>label</key><string>RIGHT_PANE</string>
-			<key>symbol</key><string>rectangle.righthalf.filled</string>
+			<key>label</key><string>BOX_2</string>
+			<key>symbol</key><string>2.square.fill</string>
 			<key>symbolColor</key><string>#7B5CF5</string>
 			<key>key</key><string>Fav3Right</string>
+			<key>defaults</key><string>com.anlai97.carduo</string>
+		</dict>
+		<dict>
+			<key>cell</key><string>PSLinkCell</string>
+			<key>cellClass</key><string>SCPAppLinkCell</string>
+			<key>detail</key><string>SCPAppPickerController</string>
+			<key>label</key><string>BOX_3</string>
+			<key>symbol</key><string>3.square.fill</string>
+			<key>symbolColor</key><string>#12B53A</string>
+			<key>key</key><string>Fav3Third</string>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 		</dict>
 

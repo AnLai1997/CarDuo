@@ -240,7 +240,15 @@ static BOOL SCPEnabled(void) {
 - (NSArray *)specifiers {
 	if (!_specifiers) {
 		SCPLoadStrings();
-		_specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+		NSMutableArray *specs = [[self loadSpecifiersFromPlistName:@"Root" target:self] mutableCopy];
+		// Bo cuc yeu thich: dong "O 3" chi hien khi bo cuc co 3 o (3 o / 1 lon + 2)
+		for (PSSpecifier *spec in [specs copy]) {
+			NSString *key = [spec propertyForKey:@"key"];
+			if (![key hasPrefix:@"Fav"] || ![key hasSuffix:@"Third"] || key.length < 4) continue;
+			NSInteger layout = [SCPPrefValue([[key substringToIndex:4] stringByAppendingString:@"Layout"]) integerValue];
+			if (layout != 3 && layout != 13) [specs removeObject:spec];
+		}
+		_specifiers = specs;
 		[self localizeSpecifiers:_specifiers];
 	}
 	return _specifiers;
@@ -405,7 +413,14 @@ static BOOL SCPEnabled(void) {
 // The chip follows the enable switch right away (uses the new value, not a possibly stale prefs read).
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
 	[super setPreferenceValue:value specifier:specifier];
-	if ([[specifier propertyForKey:@"key"] isEqualToString:(__bridge NSString *)kEnabledKey]) [self updateHeaderStatusEnabled:[value boolValue]];
+	NSString *key = [specifier propertyForKey:@"key"];
+	if ([key isEqualToString:(__bridge NSString *)kEnabledKey]) [self updateHeaderStatusEnabled:[value boolValue]];
+	// Doi bo cuc yeu thich -> hien / an dong "O 3"
+	if ([key hasPrefix:@"Fav"] && [key hasSuffix:@"Layout"]) {
+		SCPSetPrefValue(key, value);   // ghi dong bo de buoc loc "O 3" doc dung gia tri moi
+		_specifiers = nil;
+		[self reloadSpecifiers];
+	}
 }
 
 // Bottom card: author logo, app name, version and copyright.

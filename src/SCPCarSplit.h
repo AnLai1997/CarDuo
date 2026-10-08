@@ -27,6 +27,7 @@
 
 - (void)openApp:(NSString *)bundleID slot:(int)slot;          // slot -1 = tu chon (ngan trong / ngan dang chon)
 - (void)openPairLeft:(NSString *)left right:(NSString *)right;
+- (void)openFavorite:(NSInteger)index;                         // bo cuc yeu thich 1..3 (dung bo cuc + app da dat)
 - (void)showPickerForSlot:(int)slot;                           // -1 = ngan trong
 - (void)closeGoingHome:(BOOL)goHome;                           // goHome: gui Home cho DashBoard de workspace ve man chinh
 - (void)closeApp:(NSString *)bundleID;                         // dong ngan dang chua app nay (neu co)
@@ -42,7 +43,7 @@
 - (void)bridgeWindowLost:(NSString *)bundleID;   // SpringBoard khong con CBWindow cho app nay
 - (void)rootDidLayout;                 // DBDashboardRootViewController viewDidLayoutSubviews
 - (void)dashboardInvalidated;           // ngat xe
-- (void)refreshAppTabSoon;              // DashBoard vua mo / dong app toan man -> hien / an tab icon
+- (void)refreshAppTabSoon;              // DashBoard vua mo / dong app toan man -> cap nhat nut CarDuo tren dock
 - (void)repairPresentedViewController:(UIViewController *)vc;   // app toan man con bi an tu split -> hien lai
 - (void)removeAppTab;
 - (void)publishCarPlayApps;          // ghi danh sach app CarPlay (ca CarBridge) cho Settings loc app

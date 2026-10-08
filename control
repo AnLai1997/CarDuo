@@ -8,11 +8,12 @@ Description: Two CarPlay apps side by side on your car screen.
  CarPlay app with its own native interface.
  .
  Features:
-  - Run any two CarPlay apps side by side, CarBridge apps included
+  - Run two or three CarPlay apps side by side, CarBridge apps included
+  - Layouts: 2 boxes, 3 boxes, or 1 large + 2 small, switchable at any time
   - Split left/right or top/bottom and drag the divider to resize
   - Remembers the split ratio for every app pair
   - Save up to three favorite app pairs and switch with one tap
-  - Open a split from the home screen button or by holding an app icon
+  - Open a split from the CarDuo button on the CarPlay dock or by holding an app icon
   - Reopens your last app pair when CarPlay connects
   - Control it with Siri and Shortcuts
  .

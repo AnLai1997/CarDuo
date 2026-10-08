@@ -88,13 +88,27 @@ kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn đ
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
 Trên màn xe (xem sơ đồ `docs/flow.html`):
-- Mở split: nút tròn góc trên phải màn chính CarPlay (mở lại cặp dùng lần trước), giữ icon app 0,7 giây,
-  hoặc chạm thẻ nhỏ ở mép trên app đang mở toàn màn rồi chọn app thứ hai. Bật "Tự mở split khi cắm xe" thì
-  khi cắm xe tự mở cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải trong Cài đặt).
-- Việc của TỪNG NGĂN: thẻ trắng nhỏ ở giữa mép trên ngăn, chạm hoặc kéo xuống để hiện thanh nút
-  Đổi app / Toàn màn / Đóng (tự ẩn sau 3 giây nếu không thao tác).
-- Việc của CẢ CẶP: núm kéo giữa 2 ngăn, kéo để đổi tỉ lệ (nhớ riêng từng cặp), chạm để mở menu
-  Đổi chỗ / Tỉ lệ 50-70-30 / Cặp yêu thích 1-3 / Đóng split.
+- Mở split: nút CarDuo trên dock CarPlay (ngay trên nút Home; khe không đủ thì giữa đồng hồ và cụm icon dock)
+  -> bảng bố cục. Đang mở app toàn màn: chọn bố cục thì app đó vào ô 1, các ô còn lại hiện bảng chọn app
+  (ô xanh trong hình là chỗ của app đang mở). Ở màn chính: mở cặp lần trước. Giữ icon app 0,7 giây ở màn chính
+  cũng mở bảng bố cục. App mở toàn màn không có gì đè lên (đã bỏ logo ở mép trên app, nút dock làm thay).
+  Bật "Tự mở split khi cắm xe" thì khi cắm xe tự mở cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải).
+- Việc của TỪNG Ô: thẻ trắng nhỏ ở giữa mép trên ô, chạm hoặc kéo xuống để hiện thanh nút
+  Chọn app / Phóng to (thu nhỏ) / Chỉ mở app này │ Tắt app (tự ẩn sau 3 giây nếu không thao tác).
+  Nút Tắt app nằm cuối, sau vạch ngăn, để khó bấm nhầm; ô hẹp thì cả thanh nút tự thu nhỏ cho vừa.
+  Tắt một app (hoặc huỷ bảng chọn của ô trống) thì bớt một ô: 3 còn 2, 2 còn 1 = app đó về toàn màn.
+- Tỉ lệ: kéo thanh giữa 2 ô kề nhau (chỉ 2 ô đó đổi). Bố cục 2 ô nhớ tỉ lệ riêng từng cặp app.
+- 1 lớn + 2 nhỏ: ô 1 lớn bên trái (chia trên/dưới: ở trên), ô 2 và 3 xếp chồng; vạch dọc đổi bề rộng ô lớn,
+  vạch ngang đổi chiều cao 2 ô nhỏ (25-75%). Núm vạch ngang lệch 1/4 để không đè thẻ trắng của ô dưới.
+- Đổi bố cục khi đang chia: nút CarDuo trên dock vẫn hiện -> bảng "Đổi bố cục" (bố cục đang dùng tô sáng).
+  App giữ thứ tự ô; thêm ô thì ô mới hiện bảng chọn; bớt ô thì app ở ô cuối về nền.
+- Thanh giữa 2 ô: kéo để đổi tỉ lệ, chạm núm để mở menu Đổi chỗ 2 ô đó / Tỉ lệ (2 ô: 50-70-30,
+  3 ô: đều <-> giữa to 25-50-25) / Đóng split.
+- Bảng của nút CarDuo có 3 mục: Mặc định (2 ô / 3 ô / 1 lớn + 2), Gần đây (tối đa 3 cách chia vừa dùng,
+  lưu ở key `RecentLayouts`, mỗi ô hiện icon app; bấm là mở lại đúng bố cục và app), Yêu thích (bố cục yêu thích
+  1-3 trong Cài đặt). "Gần đây" luôn hiện (trống thì có dòng gợi ý). Yêu thích không còn nằm trong menu thanh chia.
+- Bố cục yêu thích trong Cài đặt: Tên, chọn bố cục (`FavNLayout` = 2 / 3 / 13), rồi app cho Ô 1 / Ô 2 / Ô 3
+  (`FavNLeft` / `FavNRight` / `FavNThird`; Ô 3 chỉ hiện khi bố cục có 3 ô). Cặp cũ tự thành bố cục 2 ô.
 Cần package `PreferenceLoader` (Sileo tự cài theo Depends).
 
 ## Cài & xem log

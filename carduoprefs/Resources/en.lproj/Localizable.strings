@@ -46,16 +46,22 @@
 
 "ON_CONNECT_GROUP" = "In the car";
 "AUTO_LAUNCH" = "Open split on connect";
-"USAGE_FOOTER" = "Open the split with the round button at the top right of the CarPlay home screen (reopens the last pair), by holding an app icon for 1 second, or by tapping the small tab at the top of an open app and picking a second app. Opening on connect also uses the last pair (or Left / Right pane if there is none). While split: tap the white tab on a pane for Change app / Full screen / Close; drag the middle bar to resize, tap it for Swap / Ratio / Favorite pairs / Close. Tapping an app in the dock opens it in the last touched pane. The CarPlay Home button closes the split.";
+"USAGE_FOOTER" = "Tap the CarDuo button on the CarPlay dock (just above Home) to show a panel with 3 sections: Default (2 boxes / 3 boxes / 1 large + 2: the open app goes to box 1, the other boxes show an app picker), Recent (the last 3 splits, tap to reopen the same apps and layout), Favorites (the pairs below). Holding an app icon for 1 second opens the same panel. While split, the CarDuo button switches the layout (apps keep their box order; with fewer boxes the last apps go to the background). Drag the bars between boxes to resize, tap a knob for Swap / Ratio / Close. White tab on each box: Choose app / Full screen (tap again to shrink back) / Only this app / Close app (last, after a divider). Closing an app removes its box (3 becomes 2, 2 becomes 1 = back to full screen). The CarPlay Home button closes the split.";
 
-"FAV1_GROUP" = "Favorite pair 1";
-"FAV2_GROUP" = "Favorite pair 2";
-"FAV3_GROUP" = "Favorite pair 3";
+"LAYOUT_2" = "2 boxes";
+"LAYOUT_3" = "3 boxes";
+"LAYOUT_13" = "1 large + 2";
+"BOX_1" = "Box 1";
+"BOX_2" = "Box 2";
+"BOX_3" = "Box 3";
+"FAV1_GROUP" = "Favorite layout 1";
+"FAV2_GROUP" = "Favorite layout 2";
+"FAV3_GROUP" = "Favorite layout 3";
 "PAIR_NAME" = "Name";
 "FAV1_PLACEHOLDER" = "Commute";
 "FAV2_PLACEHOLDER" = "Weekend";
 "FAV3_PLACEHOLDER" = "Road trip";
-"FAV_FOOTER" = "Shown as buttons 1, 2, 3 in the menu of the middle bar (tap its knob). One tap swaps both panes. Siri/Shortcuts: carduo://fav?n=1";
+"FAV_FOOTER" = "Pick a layout, then an app for each box (Box 3 only shows for 3-box layouts). Shown in the Favorites section of the CarDuo dock button panel; tap to open that layout with those apps. Siri/Shortcuts: carduo://fav?n=1";
 
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
 "SHORTCUTS_FOOTER" = "Create a Shortcut with the \"Open URL\" action and run it with Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";
