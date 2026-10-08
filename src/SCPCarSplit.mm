@@ -528,7 +528,9 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
 @property (nonatomic) BOOL suppressReopen;           // bat split ma KHONG mo lai app dang toan man vao o 1
 // Chua split: nut CarDuo tren dock CarPlay (tren nut Home) + giu icon app tren man chinh de chia man
 @property (nonatomic, strong) UIButton *homeButton;
-@property (nonatomic, copy) NSString *launcherWhere;   // vi tri nut CarDuo lan truoc (chi de ghi log khi doi)
+@property (nonatomic, weak) UIView *launcherHost;      // view dang chua nut CarDuo (view dai dock hoac tabParent)
+@property (nonatomic) BOOL dockTreeLogged;             // da ghi cay view dai dock (1 lan / tien trinh)
+@property (nonatomic, copy) NSString *launcherWhere;  // vi tri nut CarDuo lan truoc (chi de ghi log khi doi)
 @property (nonatomic) CFAbsoluteTime lastLauncherCalc;  // lan do dock gan nhat (do lai toi da 1 lan / giay)
 @property (nonatomic) CFAbsoluteTime lastIconScan;
 @property (nonatomic) BOOL autoLaunchDone;           // da tu mo split cho lan cam xe nay
@@ -2699,7 +2701,10 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
     if (!parent) { [self removeHomeButton]; return; }
     // Ham nay chay moi lan DashBoard layout -> do dock (quet cay view tim nut Home) toi da 1 lan / giay
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-    if (self.homeButton.superview == parent && now - self.lastLauncherCalc < 1.0) { [self raiseView:self.homeButton]; return; }
+    if (self.homeButton.superview && self.homeButton.superview == self.launcherHost && now - self.lastLauncherCalc < 1.0) {
+        [self raiseLauncher];
+        return;
+    }
     self.lastLauncherCalc = now;
     CGFloat size = SCPC_HOME_BTN;
     CGPoint c = [self launcherCenterInParent:parent size:&size];
@@ -2709,10 +2714,68 @@ static void SCPCFindHomeButton(UIView *v, UIView *parent, CGRect strip, int dept
         b.layer.cornerRadius = size * 0.28;   // vuong bo goc giong nut Home cua dock
         self.homeButton = b;
     }
-    if (self.homeButton.superview != parent) [parent addSubview:self.homeButton];
-    self.homeButton.center = c;
-    [self raiseView:self.homeButton];
+    // Nut nam tren dai dock: gan vao chinh view ve dai dock (status bar CarPlay nam tren baseContainerView,
+    // gan vao tabParent thi nut bi dai dock che mat). Ngoai dock (goc vung app) thi van gan vao tabParent.
+    CGRect r = CGRectMake(c.x - size / 2, c.y - size / 2, size, size);
+    UIView *host = [self.launcherWhere hasPrefix:@"goc"] ? nil : [self dockHostForRect:r inParent:parent];
+    if (!host) host = parent;
+    if (self.homeButton.superview != host) {
+        [host addSubview:self.homeButton];
+        SCPLog("CarSplit: nut CarDuo gan vao %@ %@", NSStringFromClass([host class]),
+               host == parent ? @"(tabParent)" : NSStringFromCGRect([parent convertRect:host.bounds fromView:host]));
+    }
+    self.launcherHost = host;
+    self.homeButton.center = [host convertPoint:c fromView:parent];
+    [self raiseLauncher];
     if ([self atHomeScreen]) [self installIconLongPress];
+}
+
+- (void)raiseLauncher
+{
+    UIView *host = self.homeButton.superview;
+    if (!host) return;
+    if (host == [self tabParent]) [self raiseView:self.homeButton];
+    else if (host.subviews.lastObject != self.homeButton) [host bringSubviewToFront:self.homeButton];
+}
+
+static void SCPCDumpTree(UIView *v, UIView *root, int depth, NSMutableString *out)
+{
+    if (!v || depth > 7 || out.length > 6000) return;
+    CGRect r = [root convertRect:v.bounds fromView:v];
+    [out appendFormat:@"%@%@ %@%@%@\n", [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0],
+        NSStringFromClass([v class]), NSStringFromCGRect(r), v.hidden ? @" hidden" : @"",
+        v.userInteractionEnabled ? @"" : @" noTouch"];
+    for (UIView *c in v.subviews) SCPCDumpTree(c, root, depth + 1, out);
+}
+
+// View to nhat chua cum icon dock ma van nam gon trong dai dock va bao tron khung r (toa do parent).
+// nil neu khong thay (dock chua layout / khac man hinh). Lan dau ghi cay view dai dock vao log.
+- (UIView *)dockHostForRect:(CGRect)r inParent:(UIView *)parent
+{
+    UIView *dock = nil;
+    @try { id dockVC = objcInvoke(SCPCRootVC(), @"appDockViewController"); dock = dockVC ? objcInvoke(dockVC, @"view") : nil; } @catch (NSException *e) {}
+    if (!dock.window || !parent.window) return nil;
+    UIScreen *screen = parent.window.screen ?: dock.window.screen;
+    if (!screen) return nil;
+    CGRect want = [parent convertRect:r toCoordinateSpace:screen.coordinateSpace];
+    CGRect full = [parent convertRect:parent.bounds toCoordinateSpace:screen.coordinateSpace];
+    UIView *best = nil;
+    for (UIView *v = dock; v && ![v isKindOfClass:[UIWindow class]] && v != parent; v = v.superview) {
+        CGRect mine = [v convertRect:v.bounds toCoordinateSpace:screen.coordinateSpace];
+        if (mine.size.width > full.size.width * 0.5) break;   // da ra ngoai dai dock (view toan man hinh)
+        if (CGRectContainsRect(CGRectInset(mine, -0.5, -0.5), want)) { best = v; break; }
+    }
+    if (!self.dockTreeLogged && dock.bounds.size.height < full.size.height * 0.9) {   // dock da layout xong
+        self.dockTreeLogged = YES;
+        UIView *top = dock;
+        while (top.superview && ![top.superview isKindOfClass:[UIWindow class]] && top.superview != parent
+               && [top.superview convertRect:top.superview.bounds toCoordinateSpace:screen.coordinateSpace].size.width <= full.size.width * 0.5)
+            top = top.superview;
+        NSMutableString *s = [NSMutableString string];
+        SCPCDumpTree(top, top, 0, s);
+        SCPLog("DIAG cay dai dock:\n%@", s);
+    }
+    return best;
 }
 
 - (void)removeHomeButton
