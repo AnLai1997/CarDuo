@@ -77,17 +77,17 @@
 "FAV1_PLACEHOLDER" = "Commute";
 "FAV2_PLACEHOLDER" = "Weekend";
 "FAV3_PLACEHOLDER" = "Road trip";
-"FAV_FOOTER" = "Shown as buttons 1, 2, 3 in each pane's \"...\" menu. One tap swaps both panes. Siri/Shortcuts: splitcarplay://fav?n=1";
+"FAV_FOOTER" = "Shown as buttons 1, 2, 3 in each pane's \"...\" menu. One tap swaps both panes. Siri/Shortcuts: carduo://fav?n=1";
 
 "EXTRAS_GROUP" = "Extras";
 "EXTRAS_FOOTER" = "PiP: the option in a pane's \"...\" menu shrinks it into a small floating, draggable tile. Swipe with 2 fingers on the right pane to switch between apps opened there. Mirror: shows the right pane app on the iPhone so a passenger can use it (experimental).";
 "MIRROR_RIGHT" = "Mirror right pane to iPhone";
 
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
-"SHORTCUTS_FOOTER" = "Create a Shortcut with the \"Open URL\" action and run it with Siri:\nsplitcarplay://open?left=com.apple.Maps&right=com.spotify.client\nsplitcarplay://fav?n=1\nsplitcarplay://close";
+"SHORTCUTS_FOOTER" = "Create a Shortcut with the \"Open URL\" action and run it with Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";
 
 "DEBUG_GROUP" = "Debug";
-"DEBUG_FOOTER" = "Only for testing without a car: opens the split window on the iPhone screen. The test window does NOT close by itself; tap \"Close test split\" here (or splitcarplay://close). In test mode apps always show their iPhone UI. Log: /var/mobile/Documents/SplitCarPlay.log.";
+"DEBUG_FOOTER" = "Only for testing without a car: opens the split window on the iPhone screen. The test window does NOT close by itself; tap \"Close test split\" here (or carduo://close). In test mode apps always show their iPhone UI. Log: /var/mobile/Documents/CarDuo.log.";
 "RUN_TEST" = "Open test split on iPhone";
 "CLOSE_TEST" = "Close test split";
 "CLEAR_LOG" = "Clear log file";

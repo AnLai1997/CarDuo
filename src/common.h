@@ -52,7 +52,7 @@ static inline uint64_t SCPBundleHash(NSString *bid)
     ({ id _o = (obj); \
        if (!_o || ![_o isKindOfClass:objc_getClass(clsName)]) { \
            SCPLog("UNEXPECTED %s: got %@ (%s:%d)", clsName, _o, __FILE__, __LINE__); \
-           [NSException raise:@"SplitCarPlay" format:@"expected %s got %@", clsName, _o]; \
+           [NSException raise:@"CarDuo" format:@"expected %s got %@", clsName, _o]; \
        } _o; })
 
 

@@ -231,7 +231,7 @@ static UIImage *SCPAppIcon(NSString *bid)
     if (mainScreen) {
         self.rootWindow = SCPMakePhoneWindow(YES);
         // Che do thu (demo) tren man iPhone: KHONG tu dong; chi thoat khi bam "Dong split thu" trong Settings
-        // (hoac splitcarplay://close). Cac nut dong trong cua so chi dong app roi hien lai bang chon.
+        // (hoac carduo://close). Cac nut dong trong cua so chi dong app roi hien lai bang chon.
         SCPLog("TEST window tren man chinh, bounds=%@ (khong tu dong)", NSStringFromCGRect(self.rootWindow.bounds));
     } else {
         self.rootWindow = SCPMakeCarWindow();
@@ -1716,13 +1716,13 @@ static void SCPTerminateNow(NSString *bid)
     id svc = objcInvoke(objc_getClass("FBSSystemService"), @"sharedService");
     SEL sel = NSSelectorFromString(@"terminateApplication:forReason:andReport:withDescription:");
     if (svc && [svc respondsToSelector:sel]) {
-        ((void (*)(id, SEL, id, long long, BOOL, id))objc_msgSend)(svc, sel, bid, 1, NO, @"SplitCarPlay: user closed pane");
+        ((void (*)(id, SEL, id, long long, BOOL, id))objc_msgSend)(svc, sel, bid, 1, NO, @"CarDuo: user closed pane");
         SCPLog("terminate %@ (FBSSystemService)", bid);
         return;
     }
     void (*fn)(NSString *, int, BOOL, NSString *) =
         (void (*)(NSString *, int, BOOL, NSString *))dlsym(RTLD_DEFAULT, "BKSTerminateApplicationForReasonAndReportWithDescription");
-    if (fn) { fn(bid, 1, NO, @"SplitCarPlay"); SCPLog("terminate %@ (BKS)", bid); }
+    if (fn) { fn(bid, 1, NO, @"CarDuo"); SCPLog("terminate %@ (BKS)", bid); }
     else SCPLog("khong tim thay API terminate cho %@", bid);
 }
 

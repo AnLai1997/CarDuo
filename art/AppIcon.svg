@@ -1,36 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- CarDuo: two split panes on a transparent background (CarPlay green) -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5CB4FF"/>
-      <stop offset=".55" stop-color="#1F6BFF"/>
-      <stop offset="1" stop-color="#0A45E0"/>
+    <linearGradient id="cp" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5EE86A"/>
+      <stop offset="1" stop-color="#0FB51E"/>
     </linearGradient>
-    <radialGradient id="glow" cx=".22" cy=".12" r=".75">
-      <stop offset="0" stop-color="#fff" stop-opacity=".38"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3E8BFF"/>
-      <stop offset="1" stop-color="#0A4FE8"/>
+    <linearGradient id="cpdark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2CC852"/>
+      <stop offset="1" stop-color="#06862E"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".18"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
     <filter id="sh" x="-20%" y="-20%" width="140%" height="150%">
-      <feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#062A8C" flood-opacity=".35"/>
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#06401A" flood-opacity=".3"/>
     </filter>
-    <clipPath id="mask"><rect width="1024" height="1024" rx="0"/></clipPath>
   </defs>
-  <g clip-path="url(#mask)">
-    <rect width="1024" height="1024" fill="url(#bg)"/>
-    <rect width="1024" height="1024" fill="url(#glow)"/>
-    <g filter="url(#sh)">
-      <rect x="196" y="300" width="372" height="424" rx="68" fill="#fff"/>
-      <rect x="616" y="300" width="212" height="424" rx="68" fill="#fff" fill-opacity=".62"/>
-      <rect x="584" y="444" width="16" height="136" rx="8" fill="#fff"/>
-    </g>
-    <path d="M382 410 L458 596 Q462 606 452 603 L382 566 L312 603 Q302 606 306 596 Z" fill="url(#ink)" stroke="url(#ink)" stroke-width="18" stroke-linejoin="round"/>
-    <g fill="#0A4FE8">
-      <rect x="669" y="472" width="26" height="80" rx="13"/>
-      <rect x="709" y="442" width="26" height="140" rx="13"/>
-      <rect x="749" y="462" width="26" height="100" rx="13"/>
-    </g>
+  <g filter="url(#sh)">
+    <rect x="82" y="186" width="532" height="652" rx="132" fill="#fff"/>
+    <rect x="634" y="186" width="308" height="652" rx="118" fill="#fff"/>
+  </g>
+  <rect x="96" y="200" width="504" height="624" rx="118" fill="url(#cp)"/>
+  <rect x="96" y="200" width="504" height="624" rx="118" fill="url(#sheen)"/>
+  <rect x="648" y="200" width="280" height="624" rx="104" fill="url(#cpdark)"/>
+  <rect x="648" y="200" width="280" height="624" rx="104" fill="url(#sheen)"/>
+  <path d="M348 370 L441 637 L348 583 L255 637 Z" fill="#fff"/>
+  <g fill="#fff">
+    <rect x="695" y="447" width="46" height="130" rx="23"/>
+    <rect x="765" y="387" width="46" height="250" rx="23"/>
+    <rect x="835" y="427" width="46" height="170" rx="23"/>
   </g>
 </svg>

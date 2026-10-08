@@ -30,7 +30,7 @@
 + (CGFloat)ratioForPairLeft:(NSString *)left right:(NSString *)right;   // 0 neu chua co
 + (void)setRatio:(CGFloat)ratio forPairLeft:(NSString *)left right:(NSString *)right;
 
-// Yeu cau tu app URL scheme (splitcarplay://open?left=..&right=..)
+// Yeu cau tu app URL scheme (carduo://open?left=..&right=..)
 + (NSDictionary *)takePendingRequest;   // doc va xoa
 
 + (void)setTestOnMainScreen:(BOOL)v;

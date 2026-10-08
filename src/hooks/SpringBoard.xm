@@ -78,7 +78,7 @@ static void SCPOpenConfiguredPair(BOOL onMainScreen)
     }
 }
 
-// Yeu cau tu app URL scheme: splitcarplay://open|fav|close
+// Yeu cau tu app URL scheme: carduo://open|fav|close
 static void SCPHandlePendingRequest(void)
 {
     NSDictionary *req = [SCPPrefs takePendingRequest];

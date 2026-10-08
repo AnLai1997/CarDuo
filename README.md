@@ -1,8 +1,8 @@
 # CarDuo (Dopamine rootless, iOS 16.5)
 
 Tweak cá nhân: chia màn hình CarPlay thành 2 app chạy song song.
-Tên hiển thị là **CarDuo**; tên kỹ thuật (package `com.anlai97.carduo`, URL scheme `splitcarplay://`,
-file dylib/log) vẫn giữ SplitCarPlay để không hỏng Shortcuts và workflow build.
+Tên hiển thị và tên kỹ thuật đều là **CarDuo** (package `com.anlai97.carduo`, URL scheme `carduo://`,
+file dylib/log `CarDuo`).
 
 ## Kiến trúc (đã xác minh qua mã nguồn carplay-cast, iOS 14+)
 Tham khảo `ref/carplay-cast/` (Ethan Arbuckle, github.com/EthanArbuckle/carplay-cast).
@@ -73,7 +73,7 @@ rồi disassemble bằng capstone (Python) đọc thẳng các subcache theo b�
 
 ## Cài đặt trong app Settings
 Vào Cài đặt > CarDuo (giao diện HarmonyOS; Tiếng Việt / English ở nút quả cầu góc phải; thẻ tác giả + phiên bản ở cuối trang;
-chữ nằm trong `splitcarplayprefs/Resources/*.lproj/Localizable.strings`): bật/tắt, xem trước màn xe, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), video khởi động, tự mở khi cắm xe,
+chữ nằm trong `carduoprefs/Resources/*.lproj/Localizable.strings`): bật/tắt, xem trước màn xe, chọn app ngăn trái/phải (chỉ app CarPlay / CarBridge), video khởi động, tự mở khi cắm xe,
 kiểu chia, hướng app trong ngăn, tỉ lệ ngăn. App trong ngăn luôn được resize đúng kích thước ngăn và có viền.
 Nút bấm kiểu HyperOS: tròn 52pt nền trắng, icon hình học đen, nút đang bật chuyển xanh; bật ra lần lượt
 theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.

@@ -77,17 +77,17 @@
 "FAV1_PLACEHOLDER" = "Đi làm";
 "FAV2_PLACEHOLDER" = "Đi chơi";
 "FAV3_PLACEHOLDER" = "Đi xa";
-"FAV_FOOTER" = "Hiện thành nút 1, 2, 3 trong dấu \"...\" của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: splitcarplay://fav?n=1";
+"FAV_FOOTER" = "Hiện thành nút 1, 2, 3 trong dấu \"...\" của mỗi ngăn. Bấm là đổi cả hai ngăn. Siri/Shortcuts: carduo://fav?n=1";
 
 "EXTRAS_GROUP" = "Tính năng thêm";
 "EXTRAS_FOOTER" = "PiP: tuỳ chọn trong dấu \"...\" của ngăn thu ngăn đó thành ô nhỏ nổi, kéo đi được. Vuốt 2 ngón trên ngăn phải để chuyển qua lại các app đã mở ở ngăn đó. Mirror: hiện app ngăn phải trên màn iPhone để người ngồi cạnh thao tác (thử nghiệm).";
 "MIRROR_RIGHT" = "Mirror ngăn phải lên iPhone";
 
 "SHORTCUTS_GROUP" = "Siri / Shortcuts";
-"SHORTCUTS_FOOTER" = "Tạo Shortcut với hành động \"Mở URL\" rồi gọi bằng Siri:\nsplitcarplay://open?left=com.apple.Maps&right=com.spotify.client\nsplitcarplay://fav?n=1\nsplitcarplay://close";
+"SHORTCUTS_FOOTER" = "Tạo Shortcut với hành động \"Mở URL\" rồi gọi bằng Siri:\ncarduo://open?left=com.apple.Maps&right=com.spotify.client\ncarduo://fav?n=1\ncarduo://close";
 
 "DEBUG_GROUP" = "Gỡ lỗi";
-"DEBUG_FOOTER" = "Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm \"Đóng split thử\" ở đây (hoặc splitcarplay://close). Trong chế độ thử, app luôn hiện giao diện iPhone. Log ghi tại /var/mobile/Documents/SplitCarPlay.log.";
+"DEBUG_FOOTER" = "Chỉ để kiểm tra khi chưa có xe: mở cửa sổ chia đôi trên màn iPhone. Cửa sổ thử KHÔNG tự đóng, chỉ thoát khi bấm \"Đóng split thử\" ở đây (hoặc carduo://close). Trong chế độ thử, app luôn hiện giao diện iPhone. Log ghi tại /var/mobile/Documents/CarDuo.log.";
 "RUN_TEST" = "Mở split thử trên iPhone";
 "CLOSE_TEST" = "Đóng split thử";
 "CLEAR_LOG" = "Xoá file log";

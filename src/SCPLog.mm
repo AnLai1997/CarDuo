@@ -2,7 +2,7 @@
 
 // Log: NSLog + ghi file (xem bang Filza) + notification de cua so split hien overlay
 NSString *const SCPLogLineNotification = @"SCPLogLineNotification";
-static NSString *const kLogPath = @"/var/mobile/Documents/SplitCarPlay.log";
+static NSString *const kLogPath = @"/var/mobile/Documents/CarDuo.log";
 
 static NSMutableArray<NSString *> *ringBuffer(void)
 {
@@ -60,7 +60,7 @@ void SCPLogWrite(NSString *msg)
     // va gui dong log sang SpringBoard de no ghi ho vao file chung (xem SpringBoard.xm).
     BOOL wrote = SCPAppendLine(kLogPath, line);
     if (!wrote) {
-        SCPAppendLine([NSHomeDirectory() stringByAppendingPathComponent:@"Documents/SplitCarPlay.log"], line);
+        SCPAppendLine([NSHomeDirectory() stringByAppendingPathComponent:@"Documents/CarDuo.log"], line);
         static BOOL isSpringBoard; static dispatch_once_t sbOnce;
         dispatch_once(&sbOnce, ^{ isSpringBoard = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.springboard"]; });
         if (!isSpringBoard) {

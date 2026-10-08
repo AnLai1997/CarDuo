@@ -26,4 +26,4 @@ Section: Tweaks
 Depends: mobilesubstrate (>= 0.9.5000), preferenceloader, firmware (>= 15.0)
 Conflicts: com.anpham.splitcarplay
 Replaces: com.anpham.splitcarplay
-Icon: file:///var/jb/Library/PreferenceBundles/SplitCarPlayPrefs.bundle/PackageIcon.png
+Icon: file:///var/jb/Library/PreferenceBundles/CarDuoPrefs.bundle/PackageIcon.png

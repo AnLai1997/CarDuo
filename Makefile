@@ -8,18 +8,18 @@ INSTALL_TARGET_PROCESSES = CarPlay SpringBoard
 
 include $(THEOS)/makefiles/common.mk
 
-TWEAK_NAME = SplitCarPlay
-SplitCarPlay_FILES = $(wildcard src/hooks/*.xm) $(wildcard src/*.mm)
-SplitCarPlay_CFLAGS = -fobjc-arc -Isrc
-SplitCarPlay_FRAMEWORKS = UIKit QuartzCore AVFoundation
+TWEAK_NAME = CarDuo
+CarDuo_FILES = $(wildcard src/hooks/*.xm) $(wildcard src/*.mm)
+CarDuo_CFLAGS = -fobjc-arc -Isrc
+CarDuo_FRAMEWORKS = UIKit QuartzCore AVFoundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
-SUBPROJECTS += splitcarplayprefs splitcarplayapp
+SUBPROJECTS += carduoprefs carduoapp
 include $(THEOS_MAKE_PATH)/aggregate.mk
 
 # entry.plist cho PreferenceLoader -> /var/jb/Library/PreferenceLoader/Preferences/
 after-stage::
 	mkdir -p "$(THEOS_STAGING_DIR)/Library/PreferenceLoader/Preferences"
-	cp splitcarplayprefs/entry.plist "$(THEOS_STAGING_DIR)/Library/PreferenceLoader/Preferences/SplitCarPlayPrefs.plist"
+	cp carduoprefs/entry.plist "$(THEOS_STAGING_DIR)/Library/PreferenceLoader/Preferences/CarDuoPrefs.plist"
 	find "$(THEOS_STAGING_DIR)" -type f | sort

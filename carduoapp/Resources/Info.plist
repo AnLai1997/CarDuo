@@ -7,7 +7,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>CarDuo</string>
 	<key>CFBundleExecutable</key>
-	<string>SplitCarPlay</string>
+	<string>CarDuo</string>
 	<key>CFBundleIcons</key>
 	<dict>
 		<key>CFBundlePrimaryIcon</key>
@@ -45,7 +45,7 @@
 			<string>com.anlai97.carduo</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>splitcarplay</string>
+				<string>carduo</string>
 			</array>
 		</dict>
 	</array>

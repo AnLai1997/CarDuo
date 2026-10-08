@@ -1,7 +1,7 @@
-// SplitCarPlay companion app: nhan URL scheme cho Shortcuts / Siri
-//   splitcarplay://open?left=<bundle>&right=<bundle>   mo split voi 2 app (tren xe)
-//   splitcarplay://fav?n=1                               mo cap yeu thich 1..3
-//   splitcarplay://close                                 dong split
+// CarDuo companion app: nhan URL scheme cho Shortcuts / Siri
+//   carduo://open?left=<bundle>&right=<bundle>   mo split voi 2 app (tren xe)
+//   carduo://fav?n=1                               mo cap yeu thich 1..3
+//   carduo://close                                 dong split
 // Ghi yeu cau vao prefs domain roi gui Darwin notification cho SpringBoard.
 #import <UIKit/UIKit.h>
 #import <notify.h>
@@ -15,7 +15,7 @@ static void setPref(NSString *key, NSString *value)
 
 static BOOL handleURL(NSURL *url)
 {
-    if (![url.scheme isEqualToString:@"splitcarplay"]) return NO;
+    if (![url.scheme isEqualToString:@"carduo"]) return NO;
     NSString *action = url.host ?: @"open";
     NSMutableDictionary *q = [NSMutableDictionary dictionary];
     for (NSURLQueryItem *it in [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO].queryItems) {
@@ -52,15 +52,15 @@ static BOOL handleURL(NSURL *url)
     l.textColor = [UIColor whiteColor];
     l.font = [UIFont systemFontOfSize:15];
     l.textAlignment = NSTextAlignmentCenter;
-    l.text = @"SplitCarPlay\n\nApp này nhận lệnh từ Shortcuts / Siri.\n\nTạo Shortcut với hành động \"Open URL\":\n\n"
-             @"splitcarplay://open?left=com.apple.Maps&right=com.google.ios.youtube\n\n"
-             @"splitcarplay://fav?n=1   (cặp yêu thích 1)\n\nsplitcarplay://close\n\n"
-             @"Cài đặt chi tiết: Cài đặt > SplitCarPlay";
+    l.text = @"CarDuo\n\nApp này nhận lệnh từ Shortcuts / Siri.\n\nTạo Shortcut với hành động \"Open URL\":\n\n"
+             @"carduo://open?left=com.apple.Maps&right=com.google.ios.youtube\n\n"
+             @"carduo://fav?n=1   (cặp yêu thích 1)\n\ncarduo://close\n\n"
+             @"Cài đặt chi tiết: Cài đặt > CarDuo";
     l.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [vc.view addSubview:l];
 
     UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
-    [b setTitle:@"Mở Cài đặt SplitCarPlay" forState:UIControlStateNormal];
+    [b setTitle:@"Mở Cài đặt CarDuo" forState:UIControlStateNormal];
     b.frame = CGRectMake(0, vc.view.bounds.size.height - 90, vc.view.bounds.size.width, 44);
     b.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleWidth;
     [b addTarget:self action:@selector(openSettings) forControlEvents:UIControlEventTouchUpInside];
@@ -73,7 +73,7 @@ static BOOL handleURL(NSURL *url)
 
 - (void)openSettings
 {
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"prefs:root=SplitCarPlay"] options:@{} completionHandler:nil];
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"prefs:root=CarDuo"] options:@{} completionHandler:nil];
 }
 
 - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options
