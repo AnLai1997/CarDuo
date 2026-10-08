@@ -43,6 +43,7 @@
 - (void)rootDidLayout;                 // DBDashboardRootViewController viewDidLayoutSubviews
 - (void)dashboardInvalidated;           // ngat xe
 - (void)refreshAppTabSoon;              // DashBoard vua mo / dong app toan man -> hien / an tab icon
+- (void)repairPresentedViewController:(UIViewController *)vc;   // app toan man con bi an tu split -> hien lai
 - (void)removeAppTab;
 - (void)publishCarPlayApps;          // ghi danh sach app CarPlay (ca CarBridge) cho Settings loc app
 @end

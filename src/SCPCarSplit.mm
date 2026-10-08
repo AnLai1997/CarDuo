@@ -914,6 +914,35 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     }
 }
 
+// Day scene vao nen ngoai luong cua DashBoard lam no an view cua app (hidden / alpha 0). Lan sau mo app,
+// DashBoard dung lai dung VC do ma khong hien lai -> app len man den, cham khong vao. Tra view (va chuoi
+// view trinh bay scene ben duoi) ve trang thai hien. Tra ve YES neu co sua.
+static BOOL SCPCRevealSceneView(UIView *v, int depth)
+{
+    if (!v || depth > 4) return NO;
+    BOOL fixed = NO;
+    if (v.hidden) { v.hidden = NO; fixed = YES; }
+    if (v.alpha < 0.99) { v.alpha = 1; fixed = YES; }
+    for (UIView *c in v.subviews) {
+        NSString *cls = NSStringFromClass([c class]);
+        if ([cls hasPrefix:@"_UIScene"] || [cls hasPrefix:@"_UITouchPassthrough"]) {
+            if (SCPCRevealSceneView(c, depth + 1)) fixed = YES;
+        }
+    }
+    return fixed;
+}
+
+- (void)repairPresentedViewController:(UIViewController *)vc
+{
+    if (![vc isKindOfClass:[UIViewController class]] || !vc.isViewLoaded) return;
+    for (SCPCarPane *p in self.slots) if (p.vc == vc) return;   // dang nam trong ngan, split tu lo
+    if (SCPCRevealSceneView(vc.view, 0)) {
+        vc.view.transform = CGAffineTransformIdentity;
+        SCPLog("CarSplit: app toan man %@ bi an (con sot tu split) -> hien lai",
+               SCPRealBundleForInfos(objcInvoke(vc, @"applicationInfo"), objcInvoke(vc, @"proxyApplicationInfo")));
+    }
+}
+
 - (void)detachVC:(UIViewController *)vc background:(BOOL)background
 {
     if (!vc) return;
@@ -927,6 +956,9 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     [vc willMoveToParentViewController:nil];
     [vc.view removeFromSuperview];
     [vc removeFromParentViewController];
+    // Tra VC cho DashBoard o trang thai binh thuong de lan sau no mo toan man duoc
+    SCPCRevealSceneView(vc.view, 0);
+    vc.view.transform = CGAffineTransformIdentity;
 }
 
 - (BOOL)protectsViewController:(id)vc

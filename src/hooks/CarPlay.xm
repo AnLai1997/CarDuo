@@ -70,6 +70,17 @@
     }
     %orig;
     [sp refreshAppTabSoon];   // app vua mo toan man -> tab icon o mep tren
+    // App tung nam trong ngan: DashBoard co the trinh bay lai view dang bi an -> man den, cham khong vao.
+    // Doi animation mo xong, van la app dang hien ma view con an thi hien lai.
+    if ([vc isKindOfClass:[UIViewController class]]) {
+        __weak UIViewController *weakVC = vc;
+        __weak id weakRoot = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            UIViewController *v = weakVC;
+            id root = weakRoot;
+            if (v && root && objcInvoke(root, @"currentBaseViewController") == v) [[SCPCarSplit shared] repairPresentedViewController:v];
+        });
+    }
     // Chan doan CarBridge: cay view cua app (khong phai Apple) khi mo toan man, 1 lan moi app
     if ([vc isKindOfClass:objc_getClass("DBApplicationSceneViewController")]) {
         NSString *b = SCPRealBundleForInfos(objcInvoke(vc, @"applicationInfo"), objcInvoke(vc, @"proxyApplicationInfo"));
