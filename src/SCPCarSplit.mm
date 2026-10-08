@@ -22,8 +22,8 @@
 #define SCPC_PILL         40.0    // be day thanh vien thuoc
 #define SCPC_HANDLE_W     36.0
 #define SCPC_HANDLE_H     4.0
-#define SCPC_KNOB_W       3.0
-#define SCPC_KNOB_H       44.0
+// Nut keo kieu HyperOS: vien thuoc toi 12 x 40 co 3 cham (vach ngang: nam ngang); 1 lon + 2: o vuong 22 co 4 cham.
+// Vung cham rong SCPC_DIVIDER_HIT quanh nut.
 #define SCPC_DIVIDER_HIT  26.0
 #define SCPC_PENDING_TTL  12.0    // giay: qua thoi gian ma DashBoard chua trinh bay app thi bo pending
 #define SCPC_HOME_SETTLE  0.5     // giay: cho DashBoard ve Home truoc khi mo app vao ngan
@@ -1385,6 +1385,12 @@ static NSString *SCPCSceneID(id scene)
             d.alpha = showDividers ? 1 : 0;
             [self layoutKnobOf:d];
         }
+        // 1 lon + 2: vach 1 (ngang, khong co nut) nam sat nut mui ten 4 huong cua vach 0 -> dua vach 0 len tren
+        // cung, neu khong cham vao nua nut se roi vao vach 1 va chi keo duoc 1 chieu
+        if ([self mainStack] && self.dividers.count) {
+            [self.container bringSubviewToFront:self.dividers[0]];
+            if (self.menu) [self.container bringSubviewToFront:self.menu];
+        }
     };
     if (animated) {
         [UIView animateWithDuration:0.45 delay:0 usingSpringWithDamping:0.86 initialSpringVelocity:0.4
@@ -1756,14 +1762,57 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 // ---------------------------------------------------------------------
 //  Duong ranh + num keo: keo doi ti le, cham mo menu (doi cho / ti le / ve CarPlay)
 // ---------------------------------------------------------------------
+static UIColor *SCPCKnobColor(void) { return [UIColor colorWithWhite:0.16 alpha:0.92]; }
+
+// Nut keo dang keo: phong nhe + nen xanh; tha ra ve nen toi
+static void SCPCKnobActive(UIView *knob, BOOL on)
+{
+    [UIView animateWithDuration:on ? 0.15 : 0.2 animations:^{
+        knob.transform = on ? CGAffineTransformMakeScale(1.15, 1.15) : CGAffineTransformIdentity;
+        knob.backgroundColor = on ? SCPCAccent() : SCPCKnobColor();
+    }];
+}
+
+// Kieu nut: 1 = vien thuoc dung (3 cham doc), 2 = vien thuoc nam (3 cham ngang), 3 = o vuong 4 cham (1 lon + 2).
+// Chi ve lai khi doi kieu (tag luu kieu hien tai).
+static void SCPCKnobStyle(UIView *knob, NSInteger style)
+{
+    if (knob.tag == style) return;
+    knob.tag = style;
+    for (UIView *sub in [knob.subviews copy]) [sub removeFromSuperview];
+    CGSize sz = (style == 3) ? CGSizeMake(22, 22) : (style == 1 ? CGSizeMake(12, 40) : CGSizeMake(40, 12));
+    knob.bounds = CGRectMake(0, 0, sz.width, sz.height);
+    knob.layer.cornerRadius = (style == 3) ? 7 : 6;
+    CGFloat mx = sz.width / 2, my = sz.height / 2, dot = 3;
+    NSArray<NSValue *> *pts = (style == 3)
+        ? @[[NSValue valueWithCGPoint:CGPointMake(mx - 3.5, my - 3.5)], [NSValue valueWithCGPoint:CGPointMake(mx + 3.5, my - 3.5)],
+            [NSValue valueWithCGPoint:CGPointMake(mx - 3.5, my + 3.5)], [NSValue valueWithCGPoint:CGPointMake(mx + 3.5, my + 3.5)]]
+        : (style == 1)
+        ? @[[NSValue valueWithCGPoint:CGPointMake(mx, my - 7)], [NSValue valueWithCGPoint:CGPointMake(mx, my)], [NSValue valueWithCGPoint:CGPointMake(mx, my + 7)]]
+        : @[[NSValue valueWithCGPoint:CGPointMake(mx - 7, my)], [NSValue valueWithCGPoint:CGPointMake(mx, my)], [NSValue valueWithCGPoint:CGPointMake(mx + 7, my)]];
+    for (NSValue *pv in pts) {
+        UIView *d = [[UIView alloc] initWithFrame:CGRectMake(0, 0, dot, dot)];
+        d.center = pv.CGPointValue;
+        d.backgroundColor = [UIColor whiteColor];
+        d.layer.cornerRadius = dot / 2;
+        d.userInteractionEnabled = NO;
+        [knob addSubview:d];
+    }
+}
+
 - (SCPCarDividerView *)newDividerAt:(int)i
 {
     SCPCarDividerView *d = [[SCPCarDividerView alloc] initWithFrame:CGRectZero];
     d.index = i;
     d.backgroundColor = [UIColor clearColor];
-    UIView *knob = [[UIView alloc] init];
-    // Thanh keo kieu HarmonyOS: vien thuoc manh nam gon trong khe, keo thi to va sang len
-    knob.backgroundColor = [UIColor colorWithWhite:1 alpha:0.7];
+    // Nut keo kieu HyperOS (1 lon + 2: 1 nut duy nhat o cho giao 2 vach, keo duoc 2 chieu)
+    UIView *knob = [[UIView alloc] initWithFrame:CGRectZero];
+    knob.backgroundColor = SCPCKnobColor();
+    knob.layer.cornerCurve = kCACornerCurveContinuous;
+    knob.layer.borderWidth = 0.5;
+    knob.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
+    knob.layer.shadowColor = [UIColor blackColor].CGColor;
+    knob.layer.shadowOpacity = 0.5; knob.layer.shadowRadius = 5; knob.layer.shadowOffset = CGSizeMake(0, 2);
     knob.userInteractionEnabled = NO;
     [d addSubview:knob];
     d.knob = knob;
@@ -1779,11 +1828,21 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 {
     CGSize s = d.bounds.size;
     BOOL v = [self dividerRunsHorizontally:d.index];
-    CGFloat kw = v ? SCPC_KNOB_H : SCPC_KNOB_W, kh = v ? SCPC_KNOB_W : SCPC_KNOB_H;
-    d.knob.bounds = CGRectMake(0, 0, kw, kh);
-    // Vach ngang: num lech sang 1/4 chieu dai, khong trung the trang o giua mep tren o phia duoi
-    d.knob.center = v ? CGPointMake(MAX(kw / 2 + 6, s.width * 0.25), s.height / 2) : CGPointMake(s.width / 2, s.height / 2);
-    d.knob.layer.cornerRadius = SCPC_KNOB_W / 2;
+    UIView *knob = d.knob;
+    SCPCKnobStyle(knob, [self mainStack] ? 3 : (v ? 2 : 1));
+    if ([self mainStack]) {
+        // 1 lon + 2: 1 nut duy nhat o cho giao 2 vach (nam tren vach 0), vach 1 khong co nut
+        knob.hidden = (d.index != 0);
+        if (d.index == 0) {
+            CGRect d1 = [self dividerFrameAt:1];
+            CGPoint j = [d convertPoint:CGPointMake(CGRectGetMidX(d1), CGRectGetMidY(d1)) fromView:self.container];
+            knob.center = [self vertical] ? CGPointMake(j.x, s.height / 2) : CGPointMake(s.width / 2, j.y);
+        }
+    } else {
+        knob.hidden = NO;
+        // Vach ngang: nut lech sang 1/4 chieu dai, khong trung the trang o giua mep tren o phia duoi
+        knob.center = v ? CGPointMake(MAX(knob.bounds.size.width / 2 + 6, s.width * 0.25), s.height / 2) : CGPointMake(s.width / 2, s.height / 2);
+    }
     [self.container bringSubviewToFront:d];
     if (self.menu) [self.container bringSubviewToFront:self.menu];
 }
@@ -1803,20 +1862,14 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     if (g.state == UIGestureRecognizerStateBegan) {
         startA = [self fractionAt:i]; startB = [self fractionAt:i + 1];
         [self hideMenu];
-        [UIView animateWithDuration:0.15 animations:^{
-            d.knob.transform = CGAffineTransformMakeScale(1.4, 1.4);
-            d.knob.backgroundColor = [UIColor whiteColor];
-        }];
+        SCPCKnobActive(d.knob, YES);
     }
     CGPoint t = [g translationInView:self.container];
     CGFloat pair = startA + startB, minF = (n == 2) ? 0.2 : 0.15;
     CGFloat na = MIN(pair - minF, MAX(minF, startA + (v ? t.y : t.x) / len));
     BOOL ended = (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled);
     if (ended) {
-        [UIView animateWithDuration:0.2 animations:^{
-            d.knob.transform = CGAffineTransformIdentity;
-            d.knob.backgroundColor = [UIColor colorWithWhite:1 alpha:0.7];
-        }];
+        SCPCKnobActive(d.knob, NO);
         if (n == 2) for (NSNumber *snap in @[@0.3, @0.5, @0.7]) if (fabs(na - snap.doubleValue) < 0.04) { na = snap.doubleValue; break; }
     }
     if ((int)self.fractions.count != n) [self resetFractions];
@@ -1834,36 +1887,39 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 }
 
 // 1 lon + 2 nho: vach 0 doi be rong o lon, vach 1 doi chieu cao (rong) 2 o nho
+// 1 lon + 2. Keo nut o cho giao 2 vach: doi ca be rong o lon (f0) lan chieu cao 2 o nho (f1) cung luc.
+// Keo doc theo vach (khong cham nut): vach 0 doi f0, vach 1 doi f1.
 - (void)mainStackDividerPanned:(UIPanGestureRecognizer *)g
 {
     SCPCarDividerView *d = (SCPCarDividerView *)g.view;
     int i = d.index;
-    static CGFloat startF = 0.5;
-    BOOL along = [self dividerRunsHorizontally:i];   // vach ngang -> keo theo chieu doc
-    CGRect ref = (i == 0) ? CGRectInset(self.container.bounds, SCPC_INSET, SCPC_INSET)
-                          : CGRectUnion([self frameForSlot:1], [self frameForSlot:2]);
-    CGFloat len = (along ? ref.size.height : ref.size.width) - SCPC_GAP;
-    if (len < 10) return;
+    static CGFloat start0 = 0.5, start1 = 0.5;
+    static BOOL both = NO;
+    CGRect a = CGRectInset(self.container.bounds, SCPC_INSET, SCPC_INSET);
+    BOOL along0 = [self dividerRunsHorizontally:0], along1 = [self dividerRunsHorizontally:1];
+    CGRect rest = CGRectUnion([self frameForSlot:1], [self frameForSlot:2]);
+    CGFloat len0 = (along0 ? a.size.height : a.size.width) - SCPC_GAP;
+    CGFloat len1 = (along1 ? rest.size.height : rest.size.width) - SCPC_GAP;
+    if (len0 < 10 || len1 < 10) return;
     if ((int)self.fractions.count != 2) [self resetFractions];
     if (g.state == UIGestureRecognizerStateBegan) {
-        startF = [self fractionAt:i];
+        start0 = [self fractionAt:0]; start1 = [self fractionAt:1];
+        both = (i == 0 && !d.knob.hidden && CGRectContainsPoint(CGRectInset(d.knob.frame, -SCPC_DIVIDER_HIT, -SCPC_DIVIDER_HIT), [g locationInView:d]));
         [self hideMenu];
-        [UIView animateWithDuration:0.15 animations:^{
-            d.knob.transform = CGAffineTransformMakeScale(1.4, 1.4);
-            d.knob.backgroundColor = [UIColor whiteColor];
-        }];
+        if (both || i == 0) SCPCKnobActive(d.knob, YES);
     }
     CGPoint t = [g translationInView:self.container];
-    CGFloat f = MIN(0.75, MAX(0.25, startF + (along ? t.y : t.x) / len));
+    CGFloat f0 = start0, f1 = start1;
+    if (i == 0) f0 = MIN(0.75, MAX(0.25, start0 + (along0 ? t.y : t.x) / len0));
+    if (i == 1 || both) f1 = MIN(0.75, MAX(0.25, start1 + (along1 ? t.y : t.x) / len1));
     BOOL ended = (g.state == UIGestureRecognizerStateEnded || g.state == UIGestureRecognizerStateCancelled);
     if (ended) {
-        [UIView animateWithDuration:0.2 animations:^{
-            d.knob.transform = CGAffineTransformIdentity;
-            d.knob.backgroundColor = [UIColor colorWithWhite:1 alpha:0.7];
-        }];
-        if (fabs(f - 0.5) < 0.04) f = 0.5;
+        if (both || i == 0) SCPCKnobActive(d.knob, NO);
+        if (fabs(f0 - 0.5) < 0.04) f0 = 0.5;
+        if (fabs(f1 - 0.5) < 0.04) f1 = 0.5;
     }
-    self.fractions[i] = @(f);
+    self.fractions[0] = @(f0);
+    self.fractions[1] = @(f1);
     if (ended) {
         [self relayoutAnimated:YES];
         [self saveRatio];
@@ -1943,8 +1999,9 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     SCPCarDividerView *dv = self.dividers[index];
     CGPoint kc = [self.container convertPoint:dv.knob.center fromView:dv];
     CGFloat maxX = self.container.bounds.size.width - len / 2 - 8;
-    if (!v) m.center = CGPointMake(kc.x, MAX(len / 2 + 8, kc.y - SCPC_KNOB_H / 2 - 8 - len / 2));
-    else    m.center = CGPointMake(MIN(maxX, kc.x + SCPC_KNOB_H / 2 + 8 + len / 2), kc.y);
+    CGSize ks = dv.knob.bounds.size;
+    if (!v) m.center = CGPointMake(kc.x, MAX(len / 2 + 8, kc.y - ks.height / 2 - 8 - len / 2));
+    else    m.center = CGPointMake(MIN(maxX, kc.x + ks.width / 2 + 8 + len / 2), kc.y);
     self.menu = m;
     [self.container addSubview:m];
     SCPCDropIn(m);
