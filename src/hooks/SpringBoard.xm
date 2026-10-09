@@ -74,10 +74,16 @@ static void SCPTerminateApp(NSString *bid)
     else SCPLog("tat han %@: khong thay process", bid);
 }
 
-// Gui yeu cau sang process CarPlay. Xe chua ket noi thi khong co process CarPlay nghe -> yeu cau tu bo.
+// Gui yeu cau sang process CarPlay. Xe chua ket noi thi khong co process CarPlay nghe: giu lai yeu cau cuoi
+// (toi da 10 phut) va gui lai khi man xe san sang (SCP_NOTIF_READY). CarPlay nhan duoc thi tra SCP_NOTIF_ACK.
+static NSDictionary *sPendingNative;
+static CFAbsoluteTime sPendingNativeAt;
+
 static void SCPPostNative(NSDictionary *info)
 {
     SCPLog("-> split CarPlay: %@", info);
+    sPendingNative = info;
+    sPendingNativeAt = CFAbsoluteTimeGetCurrent();
     [[objc_getClass("NSDistributedNotificationCenter") defaultCenter] postNotificationName:SCP_NOTIF_NATIVE object:nil userInfo:info];
 }
 
@@ -96,12 +102,12 @@ static void SCPHandlePendingRequest(void)
         SCPPostNative(@{@"action": @"fav", @"index": @([[action substringFromIndex:3] integerValue])});
         return;
     }
+    // carduo://open?left=..&right=..: chi mo dung app trong link (khong ghi de cap mac dinh, thieu ben nao thi
+    // o do hien bang chon app)
     NSString *l = req[@"left"], *r = req[@"right"];
-    if (l) [SCPPrefs setLeftApp:l];
-    if (r) [SCPPrefs setRightApp:r];
     NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:@"pair" forKey:@"action"];
-    if (l ?: [SCPPrefs leftApp]) d[@"left"] = l ?: [SCPPrefs leftApp];
-    if (r ?: [SCPPrefs rightApp]) d[@"right"] = r ?: [SCPPrefs rightApp];
+    if (l) d[@"left"] = l;
+    if (r) d[@"right"] = r;
     SCPPostNative(d);
 }
 
@@ -123,6 +129,19 @@ static void SCPHandlePendingRequest(void)
         NSDictionary *u = note.userInfo;
         CGRect r = CGRectMake([u[@"x"] doubleValue], [u[@"y"] doubleValue], [u[@"w"] doubleValue], [u[@"h"] doubleValue]);
         SCPApplyCarBridgeFrame(r, u[@"identifier"], 0, ++sCBFrameSeq);
+    }];
+
+    // CarPlay da nhan yeu cau -> bo yeu cau dang giu; man xe vua san sang -> gui lai yeu cau chua toi (< 10 phut)
+    [dnc addObserverForName:SCP_NOTIF_ACK object:nil queue:[NSOperationQueue mainQueue]
+                 usingBlock:^(NSNotification *note) { sPendingNative = nil; }];
+    [dnc addObserverForName:SCP_NOTIF_READY object:nil queue:[NSOperationQueue mainQueue]
+                 usingBlock:^(NSNotification *note) {
+        NSDictionary *req = sPendingNative;
+        if (!req || CFAbsoluteTimeGetCurrent() - sPendingNativeAt > 600) { sPendingNative = nil; return; }
+        SCPLog("man xe san sang -> gui lai yeu cau %@", req);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (sPendingNative == req) SCPPostNative(req);
+        });
     }];
 
     // Nut [x] tren ngan CarPlay -> tat han app

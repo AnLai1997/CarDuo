@@ -20,6 +20,9 @@
 #define SCP_NOTIF_CBLOST        @"com.anlai97.carduo.cblost"
 // CarPlay process -> SpringBoard: nut [x] tren thanh ngan -> tat han app (identifier)
 #define SCP_NOTIF_KILL          @"com.anlai97.carduo.kill"
+// CarPlay process -> SpringBoard: da nhan yeu cau carduo:// (ACK) / man xe vua san sang (READY, gui lai yeu cau dang giu)
+#define SCP_NOTIF_ACK           @"com.anlai97.carduo.ack"
+#define SCP_NOTIF_READY         @"com.anlai97.carduo.ready"
 
 @interface SCPCarSplit : NSObject
 + (instancetype)shared;
@@ -50,6 +53,9 @@
 - (void)removeAppTab;
 - (void)publishCarPlayApps;          // ghi danh sach app CarPlay (ca CarBridge) cho Settings loc app
 - (void)carScreenAppeared;            // man xe vua hien (cam xe) -> tu mo split neu bat
+- (void)baseViewControllerPresented;  // DashBoard vua trinh bay app toan man -> bo the che cua soloBundle
+- (BOOL)ignoreHomeDuringBridgeStart;  // Home do CarBridge tu gui luc bat dau chieu (bo qua)
+- (void)showPickerForFocusedPane;     // carduo://picker khi dang chia: bang chon app cho o dang chon
 @end
 
 #ifdef __cplusplus

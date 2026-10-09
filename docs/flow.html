@@ -145,7 +145,14 @@ code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--blue-so
 .picker .pgrid { flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: center; gap: 4px 2px; padding: 4px; overflow: auto; }
 .picker .pcell { width: 58px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; color: #dfe6ef; font-size: 10px; text-align: center; }
 .picker .pcell .ico { width: 34px; height: 34px; border-radius: 23%; overflow: hidden; display: flex; }
-.picker .pcell.inuse { opacity: .4; }
+.picker .pcell { position: relative; }
+.picker .pcell .tick { position: absolute; top: -3px; left: calc(50% + 10px); width: 16px; height: 16px; border-radius: 50%; background: #3482ff;
+  border: 1.5px solid #141414; color: #fff; font-size: 10px; line-height: 13px; text-align: center; }
+.loader .lstop { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; background: rgba(40,40,40,.94);
+  border: .5px solid rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; }
+.layoutpanel .exitb { position: relative; }
+.layoutpanel .exitb .keep { position: absolute; right: 2px; bottom: 6px; width: 16px; height: 16px; border-radius: 27%; overflow: hidden; display: flex;
+  border: 1px solid #1f1f1f; }
 .divider { position: absolute; z-index: 5; cursor: col-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
 .divider.v { cursor: row-resize; }
 /* Tay nam kieu HyperOS: vien thuoc trang trong khe den; 1 lon + 2: cham tron trang o cho giao 2 vach */
@@ -424,7 +431,7 @@ function iconBody(id) {
 }
 const appIcon = id => `<svg class="appicon" viewBox="0 0 60 60" preserveAspectRatio="xMidYMid slice">${iconBody(id)}</svg>`;
 const DOCK = ['maps', 'spotify', 'phone'];
-const GAP = 6, INSET = 0, RADIUS = 12, BAR_HIDE = 3500, PANEL_HIDE = 8000, DISMISS = .12, MIN_FRAC = .2;
+const GAP = 6, INSET = 0, RADIUS = 12, BAR_HIDE = 6000, PANEL_HIDE = 8000, DISMISS = .12, MIN_FRAC = .2;
 const CAR_W = 595;   // vung app tren xe (point), de doi px -> point
 
 const area = document.getElementById('area'), dockEl = document.getElementById('dock');
@@ -528,7 +535,7 @@ function renderSplit() {
     el.className = 'pane nofx' + (i === FL ? ' floatwin' : (i === S.focus && S.panes.length > 1 ? ' focused' : ''));
     el.dataset.pane = i;
     el.innerHTML = (p.app ? appView(p.app) : '') +
-      (p.loading ? `<div class="loader"><div class="ico">${appIcon(p.app)}</div>${app(p.app).name}<div class="spin"></div></div>` : '') +
+      (p.loading ? `<div class="loader"><div class="ico">${appIcon(p.app)}</div>${app(p.app).name}<div class="spin"></div><span class="lstop" data-lstop="1" title="Huỷ mở app">${icon('close', 16)}</span></div>` : '') +
       (p.app && !p.picker ? '<div class="handle" data-handle="1" title="Chạm: hiện nút · Kéo: đổi chỗ"><i></i><i></i><i></i></div>' : '');
     if (p.picker) el.appendChild(pickerEl(i));
     if (S.bar === i && p.app && !p.picker) {
@@ -560,7 +567,7 @@ function pickerEl(i) {
   const el = document.createElement('div'); el.className = 'picker';
   const inUse = S.panes.map(p => p.app).concat(S.float ? [S.float.app] : []);
   el.innerHTML = `<div class="ptitle">${i === FL ? 'Cửa sổ nổi' : 'Chọn app CarPlay · ô ' + (i + 1)}</div><div class="pcancel" data-pcancel="1" title="Huỷ">${icon('close', 14)}</div>
-    <div class="pgrid">${APPS.map(a => `<div class="pcell ${inUse.includes(a.id) || (i === FL && BRIDGED.includes(a.id)) ? 'inuse' : ''}" data-pick="${a.id}"><div class="ico">${appIcon(a.id)}</div>${a.name}</div>`).join('')}</div>`;
+    <div class="pgrid">${APPS.filter(a => !(i === FL && BRIDGED.includes(a.id))).map(a => `<div class="pcell" data-pick="${a.id}"><div class="ico">${appIcon(a.id)}</div>${inUse.includes(a.id) ? '<b class="tick">✓</b>' : ''}${a.name}</div>`).join('')}</div>`;
   return el;
 }
 function layout() {
@@ -637,7 +644,7 @@ function ratioPresets() {
   return [[1 / 3, 1 / 3, 1 / 3], [.25, .5, .25], [.5, .25, .25], [.25, .25, .5]];
 }
 let ratioTimer = 0;
-function hideRatio() { clearTimeout(ratioTimer); const m = area.querySelector('.pill.ratio'); if (m) { m.remove(); area.querySelectorAll('.divider').forEach(d => d.classList.remove('drag')); removeCovers(); } }
+function hideRatio() { clearTimeout(ratioTimer); const m = area.querySelector('.pill.ratio'); if (m) { m.remove(); area.querySelectorAll('.divider').forEach(d => d.classList.remove('drag')); } }
 function showRatio(i) {
   hideRatio(); S.bar = -1; area.querySelectorAll('.pane .pill').forEach(b => b.remove());
   const d = area.querySelector(`.divider[data-div="${i}"]`), k = d && d.querySelector('.knob'); if (!k) return;
@@ -647,7 +654,7 @@ function showRatio(i) {
     return `<span data-ratio="${j}" class="${on ? 'on' : ''}" title="${fr.map(f => Math.round(f * 100)).join(' / ')}">${ratioIcon(fr, isMain(), vertical(), 22, isMainR())}</span>`;
   }).join('');
   area.appendChild(m);
-  d.classList.add('drag'); addCovers();
+  d.classList.add('drag');   // khong che cac o (ban do van hien)
   const kr = k.getBoundingClientRect(), ar = area.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
   let y = kr.top - ar.top - 10 - mh; if (y < 6) y = kr.bottom - ar.top + 10;
   const x = Math.min(area.clientWidth - mw - 6, Math.max(6, kr.left - ar.left + kr.width / 2 - mw / 2));
@@ -658,7 +665,7 @@ function showRatio(i) {
 function applyRatio(j) {
   const fr = ratioPresets()[j]; if (!fr) return;
   area.querySelectorAll('.pane').forEach(p => p.classList.remove('nofx'));
-  S.fr = fr.slice(); layout();
+  addCovers(); S.fr = fr.slice(); layout(); removeCovers();   // the icon che chi luc cac o co gian
   log('Chọn tỉ lệ: ' + S.fr.map(f => Math.round(f * 100)).join(' / '));
   setTimeout(hideRatio, 350);   // de the icon che luc cac o co gian
 }
@@ -687,7 +694,8 @@ function renderPanel() {
   const slotApps = S.mode === 'split' ? S.panes.map(q => q.app && !q.picker ? q.app : null) : (S.panel.app ? [S.panel.app] : []);
   let h = row('layouts', S.mode === 'split' ? 'Đổi bố cục' : 'Mặc định',
     [2, 3, 13, 31].map(id => `<button data-layout="${id}" title="${LAYOUT_NAME[id]}"${id === cur ? ' class="cur"' : ''}>${setupPic(id, slotApps, v)}</button>`).join('') +
-    `<i class="psep"></i><button class="exitb" data-exit="1" title="${S.mode === 'split' ? 'Thoát chia màn' : 'Đóng'}">${icon('exit', 20)}</button>`);
+    `<i class="psep"></i><button class="exitb" data-exit="1" title="${S.mode === 'split' ? 'Thoát chia màn' : 'Đóng'}">${icon('exit', 20)}` +
+    (S.mode === 'split' && keepApp() ? `<i class="keep">${appIcon(keepApp())}</i>` : '') + `</button>`);
   if (recentBox.checked) h += row('recent', 'Gần đây', recents.length
     ? recents.map((r, k) => `<button data-recent="${k}" title="${name(r.apps)}">${setupPic(r.id, r.apps, v)}</button>`).join('')
     : '<i class="pempty" title="Chia màn xong sẽ hiện ở đây"></i>');
@@ -721,13 +729,20 @@ function switchLayout(id) {
   const n = panesOf(id), kind = kindOf(id);
   if (n === S.panes.length && kind === S.kind) { render(); return; }
   const before = LAYOUT_NAME[layoutId()];
-  const dropped = S.panes.slice(n).filter(p => p.app).map(p => app(p.app).name);
-  S.panes = S.panes.slice(0, n);
+  // Bot o (giong switchToLayout): bo o trong truoc, roi o cuoi
+  const dropped = [];
+  while (S.panes.length > n) {
+    let k = S.panes.findIndex(q => !q.app || q.picker);
+    if (k < 0) k = S.panes.length - 1;   // roi o cuoi
+    if (S.panes[k].app && !S.panes[k].picker) dropped.push(app(S.panes[k].app).name);
+    S.panes.splice(k, 1); if (S.focus > k) S.focus--;
+  }
   while (S.panes.length < n) S.panes.push({ app: null, picker: true });
   S.kind = kind; S.bar = -1; S.fr = freshFractions();
   if (S.focus >= n) S.focus = n - 1;
   log(`Đổi bố cục ${before} → ${LAYOUT_NAME[id]}` + (dropped.length ? ` (${dropped.join(', ')} về nền)` : ''));
   rememberPair(); addRecent(); render();
+  if (dropped.length) toast(`${dropped.join(', ')} về nền`);
 }
 // Mo dung 1 cach chia (giong openSetupLayout): dang chia -> doi bo cuc va thay app theo thu tu o
 function openSetup(id, apps, label) {
@@ -742,7 +757,7 @@ function openSetup(id, apps, label) {
 // Cua so noi (giong ensureFloatPane / closeFloat)
 function newFloat() {
   const W = area.clientWidth, H = area.clientHeight;
-  const w = Math.min(W - 16, Math.min(300, Math.max(180, W * .36))), h = Math.min(H - 16, Math.min(220, Math.max(110, H * .55)));
+  const w = Math.min(W - 16, Math.min(360, Math.max(240, W * .3))), h = Math.min(H - 16, Math.min(255, Math.max(144, H * .45)));
   return { app: null, picker: true, x: W - w - 8, y: H - h - 8, w, h };
 }
 function closeFloat() {
@@ -758,6 +773,8 @@ function closeFloat() {
 }
 // Hinh trong hinh (giong canPopOutPane / panePopOut): o nao co app thuong cung dua ra cua so noi duoc.
 // Chua co cua so noi -> bot o do (can >= 2 o); da co -> doi cho, app dang noi ve lai o nay.
+// App duoc giu khi thoat chia (giong exitKeepBundle)
+function keepApp() { const f = S.panes[S.focus]; return (f && f.app && !f.picker) ? f.app : (S.panes.find(q => q.app)?.app || (S.float && S.float.app)); }
 function canPopOut(i) {
   const p = S.panes[i];
   if (i === FL || !p || !p.app || p.picker || BRIDGED.includes(p.app)) return false;
@@ -900,7 +917,7 @@ area.addEventListener('click', e => {
   if (t.closest('[data-exit]')) {   // giong exitTapped: dang chia -> thoat, app o dang chon ve toan man; chua chia -> dong bang
     S.panel = null; clearTimeout(timers.panel);
     if (S.mode !== 'split') { log('Nút thoát → đóng bảng'); render(); return; }
-    const keep = S.panes[S.focus]?.app || S.panes.find(q => q.app)?.app;
+    const keep = keepApp();
     log('Nút thoát → thoát chia màn' + (keep ? `, ${app(keep).name} về toàn màn` : ''));
     if (keep) openFull(keep); else goHome();
     return;
@@ -915,6 +932,12 @@ area.addEventListener('click', e => {
     if (p.app) { p.picker = false; log(`Huỷ chọn → ô ${i + 1} quay lại ${app(p.app).name}`); render(); }
     else { log(`Huỷ ở ô trống → bớt ô ${i + 1}`); removePane(i); }
     return;
+  }
+  if (t.closest('[data-lstop]')) {   // huy mo app: o hien lai bang chon (app cu cua o neu co)
+    const i = +t.closest('[data-pane]').dataset.pane, q = getPane(i);
+    log(`Huỷ mở ${app(q.app).name}`);
+    if (i === FL) { Object.assign(q, { app: null, picker: true, loading: false }); } else S.panes[i] = { app: null, picker: true };
+    render(); return;
   }
   const rt = t.closest('[data-ratio]'); if (rt) { applyRatio(+rt.dataset.ratio); return; }
   const act = t.closest('[data-act]');
@@ -934,7 +957,12 @@ dockEl.addEventListener('click', e => {
   if (e.target.closest('[data-home]')) { log(S.mode === 'split' ? 'Nút Home → tắt split, về màn chính' : 'Nút Home → màn chính'); goHome(); return; }
   const d = e.target.closest('[data-dock]'); if (!d) return;
   const id = d.dataset.dock;
-  if (S.mode === 'split') { const i = Math.min(S.focus, S.panes.length - 1); log(`Chạm ${app(id).name} trên dock → vào ô ${i + 1}`); pick(i, id); }
+  if (S.mode === 'split') {
+    let i = S.panes.findIndex(q => !q.app || q.picker); if (i < 0) i = Math.min(S.focus, S.panes.length - 1);
+    const old = S.panes[i].app && !S.panes[i].picker ? S.panes[i].app : null;
+    log(`Chạm ${app(id).name} trên dock → vào ô ${i + 1}`); pick(i, id);
+    if (old && old !== id && S.panes[i] && S.panes[i].app === id) toast(`${app(id).name} thay ${app(old).name} ở ô ${i + 1}`);
+  }
   else openFull(id);
 });
 

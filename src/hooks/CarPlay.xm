@@ -45,7 +45,8 @@ static void SCPHookError(const char *where, NSException *e)
 {
     @try {
         SCPCarSplit *sp = [SCPCarSplit shared];
-        if (sp.active && sp.bridgeStarting) SCPLog("CarSplit: Home trong luc CarBridge khoi dong -> giu split");
+        // CarBridge tu gui Home ngay luc bat dau chieu (~1s dau) -> giu split; sau do la nguoi dung bam -> dong
+        if (sp.active && [sp ignoreHomeDuringBridgeStart]) SCPLog("CarSplit: Home do CarBridge luc bat dau chieu -> giu split");
         else if (sp.active) [sp closeGoingHome:NO];
     } @catch (NSException *e) { SCPHookError("_handleHomeEvent", e); }
     %orig;
@@ -90,6 +91,7 @@ static void SCPHookError(const char *where, NSException *e)
     }
     %orig;
     @try {
+        [sp baseViewControllerPresented];   // bo the icon che luc thoat chia / toan man hinh
         [sp refreshAppTabSoon];   // app vua mo toan man -> tab icon o mep tren
         // App tung nam trong ngan: DashBoard co the trinh bay lai view dang bi an -> man den, cham khong vao.
         // Doi animation mo xong, van la app dang hien ma view con an thi hien lai.
@@ -256,8 +258,10 @@ static void SCPHookError(const char *where, NSException *e)
             } else if ([action isEqualToString:@"fav"]) {
                 [sp openFavorite:[u[@"index"] integerValue]];
             } else if ([action isEqualToString:@"picker"]) {
-                if (sp.active) [sp closeGoingHome:YES]; else [sp showPickerForSlot:-1];
+                [sp showPickerForFocusedPane];
             }
         } @catch (NSException *e) { SCPHookError("yeu cau tu SpringBoard", e); }
+        // Bao SpringBoard da nhan (khong thi SpringBoard giu lai, gui lai khi man xe san sang)
+        [[objc_getClass("NSDistributedNotificationCenter") defaultCenter] postNotificationName:SCP_NOTIF_ACK object:nil userInfo:nil];
     }];
 }

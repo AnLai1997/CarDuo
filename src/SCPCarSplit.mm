@@ -89,6 +89,9 @@ static void SCPCAfter(double delay, dispatch_block_t block)
     else dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), safe);
 }
 
+// Chu tren man xe: tieng Viet / tieng Anh theo Cai dat > CarDuo > ngon ngu
+static NSString *SCPCT(NSString *vi, NSString *en) { return [SCPPrefs english] ? en : vi; }
+
 static id SCPCDashboard(void)
 {
     UIApplication *app = [UIApplication sharedApplication];
@@ -306,6 +309,8 @@ static UIImage *SCPCGlyph(NSString *name, CGFloat pt, BOOL rot)
             SCPC_RR(3.5, 4.5, 17, 15, 3);
             SCPC_M(12, 4.5); SCPC_L(12, 19.5);
             [f appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(5.6, 6.6, 4.6, 10.8) cornerRadius:1.4]];
+        } else if ([name isEqualToString:@"check"]) {    // dau tich (app dang mo o o khac)
+            SCPC_M(6, 12.5); SCPC_L(10, 16.5); SCPC_L(18, 8);
         } else if ([name isEqualToString:@"swap"]) {     // 2 mui ten nguoc chieu
             SCPC_M(4.5, 8.5); SCPC_L(19, 8.5); SCPC_M(15.5, 5); SCPC_L(19, 8.5); SCPC_L(15.5, 12);
             SCPC_M(19.5, 15.5); SCPC_L(5, 15.5); SCPC_M(8.5, 12); SCPC_L(5, 15.5); SCPC_L(8.5, 19);
@@ -419,6 +424,13 @@ static void SCPCStyleIcon(UIImageView *iv)
 @interface SCPCButton : UIButton
 @end
 @implementation SCPCButton
+// Nut nho (34pt, nut x 34pt...) van nhan cham trong vung toi thieu 44 x 44pt (dung tay khi lai xe)
+- (BOOL)pointInside:(CGPoint)pt withEvent:(UIEvent *)e
+{
+    CGFloat dx = MIN(0, (self.bounds.size.width - 44) / 2), dy = MIN(0, (self.bounds.size.height - 44) / 2);
+    return CGRectContainsPoint(CGRectInset(self.bounds, dx, dy), pt);
+}
+
 - (void)setHighlighted:(BOOL)h
 {
     BOOL changed = (h != self.highlighted);
@@ -560,8 +572,11 @@ static void SCPCPopIn(NSArray<UIView *> *views)
 
 static BOOL SCPCIsBridgedApp(NSString *bid);
 
-@interface SCPCarSplit ()
+@interface SCPCarSplit () <UIScrollViewDelegate>
 @property (nonatomic, readwrite) BOOL active;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSDate *> *cancelledLaunches;   // app bi huy luc dang mo
+@property (nonatomic, strong) UIView *soloCover;      // the icon app che luc ve man chinh roi mo lai app toan man
+@property (nonatomic) CFAbsoluteTime bridgeStartedAt; // lan goi CarBridge chieu gan nhat
 @property (nonatomic, strong) SCPCarSplitView *container;
 @property (nonatomic, strong) NSMutableArray<SCPCarPane *> *slots;        // cac o theo thu tu (1..3)
 @property (nonatomic, strong) NSMutableArray<NSNumber *> *fractions;      // ti le tung o, tong = 1
@@ -582,10 +597,12 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
 @property (nonatomic, strong) UIView *ratioMenu;     // cham tay nam: thanh chon ti le mac dinh
 @property (nonatomic, weak) UIView *ratioKnob;       // tay nam dang mo thanh ti le (to xanh)
 @property (nonatomic, strong) NSTimer *ratioTimer;
+@property (nonatomic) BOOL ratioHidesBridge;          // thanh ti le de len o CarBridge -> CBWindow tam an
 // Cua so noi kieu HyperOS: 1 o rieng nam tren cac o chia, keo "•••" de di chuyen, tha ra hit sat canh
 @property (nonatomic, strong) SCPCarPane *floatPane;
 @property (nonatomic) CGRect floatFrame;             // khung cua so noi (toa do container)
 @property (nonatomic) BOOL floatClosing;             // da hen dong cua so noi (bi app CarBridge che)
+@property (nonatomic) BOOL floatLarge;               // cua so noi co lon (cham 2 lan "•••" de doi)
 // Bo cuc truoc khi dua app ra hinh trong hinh -> nut "dua ve o" tra app ve dung cho cu
 @property (nonatomic) int floatReturnLayout;          // ma bo cuc luc do (2 / 3 / 13 / 31), 0 = khong co
 @property (nonatomic) int floatReturnSlot;            // o cua app luc do
@@ -620,6 +637,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
 {
     if ((self = [super init])) {
         _pending = [NSMutableDictionary dictionary];
+        _cancelledLaunches = [NSMutableDictionary dictionary];
         _dragTarget = -1;
     }
     return self;
@@ -918,6 +936,10 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
         if (fp && fp.view.alpha > 0 && CGRectContainsPoint(fp.view.frame, p)) return;   // cham vao cua so noi
         for (SCPCarPane *pane in me.slots) {
             if (pane.view.alpha <= 0 || !CGRectContainsPoint(pane.view.frame, p)) continue;
+            if (me.focusedSlot != pane.slot && [me paneCount] > 1) {
+                SCPCarPane *fpane = pane;
+                SCPCAfter(0, ^{ [me flashFocusOnPane:fpane]; });
+            }
             me.focusedSlot = pane.slot;
             // Ngan app CarBridge dang trang (CarBridge chi chieu duoc 1 app) -> cham vao thi chieu app nay
             if ([me bridgeWaitingInPane:pane])
@@ -952,6 +974,20 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     return p;
 }
 
+// O vua thanh "o dang chon" (app tu dock / nut thoat dung o nay): vien xanh loe len 1 giay
+- (void)flashFocusOnPane:(SCPCarPane *)p
+{
+    if (!p.view || self.dragGhost) return;
+    p.view.layer.borderColor = [SCPCAccent() colorWithAlphaComponent:0.9].CGColor;
+    p.view.layer.borderWidth = 2.5;
+    __weak SCPCarPane *weakPane = p;
+    __weak SCPCarSplit *weakSelf = self;
+    SCPCAfter(1.0, ^{
+        SCPCarPane *pp = weakPane;
+        if (pp && !weakSelf.dragGhost) pp.view.layer.borderWidth = 0;
+    });
+}
+
 // Danh lai so o sau khi them / bot / doi cho
 // Them 1 o trong vao vi tri i (0..n): app dang cho mo o cac o phia sau doi so theo
 - (SCPCarPane *)insertPaneAt:(int)i
@@ -980,7 +1016,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
         SCPCarPane *fp = self.floatPane;
         int n = [self paneCount];
         if (!fp.vc || !fp.bundleID) return;
-        if (n >= SCPC_MAX_PANES) { [self toast:@"Đã đủ 3 ô, không đưa về được"]; return; }
+        if (n >= SCPC_MAX_PANES) { [self toast:SCPCT(@"Đã đủ 3 ô, không đưa về được", @"Already 3 panes, can't dock back")]; return; }
         int saved = self.floatReturnLayout;
         BOOL same = saved && SCPCPanesForLayout(saved) == n + 1;
         int at = (same && self.floatReturnSlot >= 0 && self.floatReturnSlot <= n) ? self.floatReturnSlot : n;
@@ -1108,6 +1144,22 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     NSInteger kind = SCPCKindForLayout(layoutID);
     if (n == [self paneCount] && kind == self.layoutKind) return;
     SCPLog("CarSplit: doi bo cuc %d -> %d", [self layoutID], layoutID);
+    // Bot o: bo o trong truoc, roi o cuoi (de doan; app chinh nhu ban do thuong o o 1 va it khi duoc cham nen khong
+    // dua theo lan cham), va bao app nao ve nen
+    NSMutableArray *dropped = [NSMutableArray array];
+    while ([self paneCount] > n) {
+        SCPCarPane *drop = nil;
+        for (SCPCarPane *q in self.slots) {
+            BOOL waiting = NO;
+            for (NSString *b in self.pending) if ([self pendingSlotForBundle:b] == q.slot) waiting = YES;
+            if (!q.vc && !waiting) { drop = q; break; }
+        }
+        if (!drop) drop = self.slots.lastObject;
+        if (drop.bundleID) [dropped addObject:[self displayNameFor:drop.bundleID]];
+        [self removePaneAt:drop.slot background:YES];
+    }
+    if (dropped.count) [self toast:[NSString stringWithFormat:SCPCT(@"%@ về nền", @"%@ moved to the background"),
+                                    [dropped componentsJoinedByString:@", "]]];
     [self setPaneCount:n];
     self.layoutKind = kind;
     [self resetFractions];
@@ -1189,6 +1241,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     self.layoutKind = SCPCLayoutColumns;
     [self setPaneCount:n];   // moi lan chia luon bat dau chia deu (keo vach chia van doi duoc)
     SCPLog("CarSplit: bat split CarPlay (%d o)", [self paneCount]);
+    [self showTipSoon];
 
     [self relayoutAnimated:NO];
     self.container.alpha = 0;
@@ -1207,7 +1260,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     if (!bid.length) return;
     if (![self isCarPlayApp:bid]) {
         SCPLog("CarSplit: %@ khong co giao dien CarPlay -> bo qua", bid);
-        [self toast:@"App này không hỗ trợ CarPlay"];
+        [self toast:SCPCT(@"App này không hỗ trợ CarPlay", @"This app doesn't support CarPlay")];
         return;
     }
     BOOL wasActive = self.active;
@@ -1217,7 +1270,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     // Cua so noi: khong nhan app CarBridge (CBWindow cua CarBridge luon nam tren moi view CarPlay)
     if (slot == SCPC_FLOAT_SLOT && self.floatPane && SCPCIsBridgedApp(bid)) {
         SCPLog("CarSplit: %@ la app CarBridge -> khong mo trong cua so noi", bid);
-        [self toast:[NSString stringWithFormat:@"%@ không mở được trong cửa sổ nổi", [self displayNameFor:bid]]];
+        [self toast:[NSString stringWithFormat:SCPCT(@"%@ không mở được trong cửa sổ nổi", @"%@ can't open in the floating window"), [self displayNameFor:bid]]];
         return;
     }
 
@@ -1225,8 +1278,8 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     if (autoSlotRequested) slot = existing ? existing.slot : [self autoSlot];
     // App dang o cua so noi ma chon cho o chia (hoac nguoc lai): khong doi cho giua 2 loai o
     if (existing && existing.slot != slot && (existing.slot == SCPC_FLOAT_SLOT || slot == SCPC_FLOAT_SLOT)) {
-        [self toast:[NSString stringWithFormat:@"%@ đang mở ở %@", [self displayNameFor:bid],
-                     existing.slot == SCPC_FLOAT_SLOT ? @"cửa sổ nổi" : @"ô khác"]];
+        [self toast:[NSString stringWithFormat:SCPCT(@"%@ đang mở ở %@", @"%@ is already open in %@"), [self displayNameFor:bid],
+                     existing.slot == SCPC_FLOAT_SLOT ? SCPCT(@"cửa sổ nổi", @"the floating window") : SCPCT(@"ô khác", @"another pane")]];
         return;
     }
 
@@ -1237,13 +1290,13 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
         for (NSString *b in self.pending.allKeys) {
             if ([b isEqualToString:bid] || !SCPCIsBridgedApp(b) || [self pendingSlotForBundle:b] < 0) continue;
             SCPLog("CarBridge: %@ dang mo -> chua mo %@ (CarBridge chi chay 1 app)", b, bid);
-            [self toast:[NSString stringWithFormat:@"Đợi %@ mở xong (CarBridge chỉ chạy 1 app)", [self displayNameFor:b]]];
+            [self toast:[NSString stringWithFormat:SCPCT(@"Đợi %@ mở xong (CarBridge chỉ chạy 1 app)", @"Wait for %@ to open (CarBridge runs 1 app)"), [self displayNameFor:b]]];
             return;
         }
         SCPCarPane *ob = [self bridgedPaneOtherThan:bid];
         if (ob) {
             SCPLog("CarBridge: %@ thay %@ trong ngan %d (CarBridge chi chay 1 app)", bid, ob.bundleID, ob.slot);
-            [self toast:[NSString stringWithFormat:@"%@ thay %@ (CarBridge chỉ chạy 1 app)", [self displayNameFor:bid], [self displayNameFor:ob.bundleID]]];
+            [self toast:[NSString stringWithFormat:SCPCT(@"%@ thay %@ (CarBridge chỉ chạy 1 app)", @"%@ replaces %@ (CarBridge runs 1 app)"), [self displayNameFor:bid], [self displayNameFor:ob.bundleID]]];
             SCPCarPane *asked = [self paneAtSlot:slot];
             if (asked && asked != ob && asked.vc) [self removePickerFromPane:asked];   // o vua bam "Doi app" van con app cua no
             slot = ob.slot;
@@ -1284,7 +1337,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     SCPLog("CarSplit: mo %@ vao ngan %d sau %.1fs (launchInfo=%@)", bid, slot, delay, launchInfo);
     if (!launchInfo) {
         [self launchFailed:bid slot:slot];
-        [self toast:[NSString stringWithFormat:@"Không mở được %@ trong ngăn", [self displayNameFor:bid]]];
+        [self toast:[NSString stringWithFormat:SCPCT(@"Không mở được %@ trong ô", @"Couldn't open %@ in the pane"), [self displayNameFor:bid]]];
         return;
     }
     __weak SCPCarSplit *weakSelf = self;
@@ -1331,7 +1384,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
         [seen addObject:[NSString stringWithFormat:@"%@(%@ fullScreen=%d)", NSStringFromClass([vc class]), b ?: @"?", SCPCBool(info, @"presentsFullScreen")]];
     }
     SCPLog("CarSplit: khong tim thay VC cua %@ sau khi mo; DashBoard dang giu: %@", bid, [seen componentsJoinedByString:@", "]);
-    [self toast:[NSString stringWithFormat:@"%@ chưa chia màn hình được", [self displayNameFor:bid]]];
+    [self toast:[NSString stringWithFormat:SCPCT(@"Không mở được %@ trong ô", @"Couldn't open %@ in the pane"), [self displayNameFor:bid]]];
     [self launchFailed:bid slot:[self pendingSlotForBundle:bid]];
 }
 
@@ -1439,8 +1492,22 @@ static BOOL SCPCIsBridgedApp(NSString *bid);
     // Mo tu dock / icon CarPlay (khong qua tweak): app CarBridge moi thay app CarBridge dang o ngan khac
     SCPCarPane *ob = (slot < 0 && !existing && SCPCIsBridgedApp(bid)) ? [self bridgedPaneOtherThan:bid] : nil;
     if (ob) { SCPLog("CarBridge: %@ mo tu CarPlay -> thay %@ o ngan %d", bid, ob.bundleID, ob.slot); slot = ob.slot; }
+    // App vua bi huy luc dang mo (nut x tren the "dang mo") ma DashBoard van trinh bay -> dua ve nen, khong vao o
+    NSDate *cancelled = bid ? self.cancelledLaunches[bid] : nil;
+    if (cancelled) [self.cancelledLaunches removeObjectForKey:bid];
+    if (cancelled && slot < 0 && !existing && [[NSDate date] timeIntervalSinceDate:cancelled] < 30) {
+        SCPLog("CarSplit: %@ da bi huy luc dang mo -> dua ve nen", bid);
+        [self detachVC:vc background:YES];
+        return;
+    }
+    BOOL fromCarPlay = (slot < 0 && !existing);
     if (![self validSlot:slot]) slot = existing ? existing.slot : [self autoSlot];
     if (bid) [self.pending removeObjectForKey:bid];
+    SCPCarPane *tp = [self paneAtSlot:slot];
+    if (fromCarPlay && tp.vc && tp.bundleID && ![tp.bundleID isEqualToString:bid]) {   // cham app tren dock khi dang chia
+        [self toast:[NSString stringWithFormat:SCPCT(@"%@ thay %@ ở ô %d", @"%@ replaced %@ in pane %d"),
+                     [self displayNameFor:bid], [self displayNameFor:tp.bundleID], slot + 1]];
+    }
     [self adopt:vc slot:slot];
 }
 
@@ -1789,6 +1856,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     int n = [self paneCount];
     if (a == b || a < 0 || b < 0 || a >= n || b >= n) return;
     [self.slots exchangeObjectAtIndex:a withObjectAtIndex:b];
+    if (self.focusedSlot == a) self.focusedSlot = b; else if (self.focusedSlot == b) self.focusedSlot = a;   // focus theo app
     if (![self mainStack] && (int)self.fractions.count == n) [self.fractions exchangeObjectAtIndex:a withObjectAtIndex:b];
     for (NSString *bid in self.pending.allKeys) {
         NSArray *v = self.pending[bid];
@@ -1855,8 +1923,12 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     if (!bid) { [self closeGoingHome:YES]; return; }
     SCPLog("CarSplit: chi giu %@ -> mo toan man", bid);
     id launchInfo = objcInvoke_1(objc_getClass("DBApplicationLaunchInfo"), @"launchInfoForApplication:", SCPCAppInfo(bid));
+    if (launchInfo) [self showSoloCoverForBundle:bid];   // che man chinh nhay qua + app ve lai tu dau
     [self closeGoingHome:YES];
-    if (!launchInfo) return;
+    if (!launchInfo) {
+        [self toast:[NSString stringWithFormat:SCPCT(@"Không mở lại được %@", @"Couldn't reopen %@"), [self displayNameFor:bid]]];
+        return;
+    }
     __weak SCPCarSplit *weakSelf = self;
     SCPCAfter(0.8, ^{
         if (weakSelf && !weakSelf.active) SCPCSendEvent(4, launchInfo);
@@ -1878,11 +1950,16 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     p.view.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.18].CGColor;
     [self.container addSubview:p.view];
     self.floatPane = p;
-    CGSize c = self.container.bounds.size;
-    CGFloat w = MIN(MAX(c.width * 0.36, 180), 300), h = MIN(MAX(c.height * 0.55, 110), 220);
-    w = MIN(w, c.width - 16); h = MIN(h, c.height - 16);
-    self.floatFrame = CGRectMake(c.width - w - 8, c.height - h - 8, w, h);
+    self.floatLarge = NO;
+    CGSize c = self.container.bounds.size, fs = [self floatSizeLarge:NO];
+    self.floatFrame = CGRectMake(c.width - fs.width - 8, c.height - fs.height - 8, fs.width, fs.height);
     [self fitFloatFrame];
+    // Cham 2 lan "•••" cua cua so noi: doi co nho <-> lon (man CarPlay thuong chi cham 1 ngon, khong pinch duoc)
+    UITapGestureRecognizer *dbl = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(floatHandleDoubleTapped:)];
+    dbl.numberOfTapsRequired = 2;
+    for (UIGestureRecognizer *g in p.handle.gestureRecognizers)
+        if ([g isKindOfClass:[UITapGestureRecognizer class]] && ((UITapGestureRecognizer *)g).numberOfTapsRequired == 1) [g requireGestureRecognizerToFail:dbl];
+    [p.handle addGestureRecognizer:dbl];
     p.view.frame = self.floatFrame;
     p.host.frame = p.view.bounds;
     p.view.alpha = 0;
@@ -1891,6 +1968,34 @@ static CGSize SCPCSceneSize(UIViewController *vc)
                      animations:^{ p.view.alpha = 1; p.view.transform = CGAffineTransformIdentity; } completion:nil];
     SCPLog("CarSplit: mo cua so noi %@", NSStringFromCGRect(self.floatFrame));
     return p;
+}
+
+// Co cua so noi: nho ~30% x 45% vung app (khong che het o ben duoi), lon ~45% x 62%
+- (CGSize)floatSizeLarge:(BOOL)large
+{
+    CGSize c = self.container.bounds.size;
+    CGFloat w = large ? MIN(MAX(c.width * 0.45, 220), 360) : MIN(MAX(c.width * 0.3, 160), 240);
+    CGFloat h = large ? MIN(MAX(c.height * 0.62, 130), 260) : MIN(MAX(c.height * 0.45, 96), 170);
+    return CGSizeMake(MIN(w, c.width - 16), MIN(h, c.height - 16));
+}
+
+- (void)floatHandleDoubleTapped:(UITapGestureRecognizer *)g
+{
+    @try {
+        SCPCarPane *fp = self.floatPane;
+        if (!fp || !self.container) return;
+        self.floatLarge = !self.floatLarge;
+        CGSize ns = [self floatSizeLarge:self.floatLarge];
+        CGRect f = self.floatFrame, c = self.container.bounds;
+        BOOL right = CGRectGetMidX(f) > CGRectGetMidX(c), bottom = CGRectGetMidY(f) > CGRectGetMidY(c);
+        f.origin.x = right ? CGRectGetMaxX(f) - ns.width : f.origin.x;   // giu nguyen goc dang bam canh
+        f.origin.y = bottom ? CGRectGetMaxY(f) - ns.height : f.origin.y;
+        f.size = ns;
+        self.floatFrame = f;
+        [self setBarVisible:NO forPane:fp];
+        SCPLog("CarSplit: cua so noi %@ %@", self.floatLarge ? @"lon" : @"nho", NSStringFromCGSize(ns));
+        [self relayoutAnimated:YES];   // scene cua so noi nhan kich thuoc moi
+    } @catch (NSException *e) { SCPLog("CarSplit: loi doi co cua so noi %@", e); }
 }
 
 // Giu cua so noi gon trong vung app va khong de len o dang chieu CarBridge. Khong con cho -> hen dong.
@@ -1921,7 +2026,7 @@ static CGSize SCPCSceneSize(UIViewController *vc)
                     me.floatClosing = NO;
                     return;
                 }
-                [me toast:@"Đóng cửa sổ nổi: YouTube / TikTok đang chiếu che mất"];
+                [me toast:[NSString stringWithFormat:SCPCT(@"Đóng cửa sổ nổi: %@ đang che hết chỗ", @"Floating window closed: %@ covers the screen"), [me displayNameFor:bpp.bundleID]]];
                 [me closeFloat:YES];
             });
         }
@@ -1954,19 +2059,34 @@ static CGSize SCPCSceneSize(UIViewController *vc)
 
 // Nut "hinh trong hinh" tren thanh nut cua 1 o: dua app cua o do ra cua so noi.
 // Chua co cua so noi -> bot 1 o (can con >= 2 o). Da co -> doi cho: app dang noi ve lai o nay.
-- (BOOL)canPopOutPane:(SCPCarPane *)p
+// Ly do khong dua o nay ra hinh trong hinh duoc (nil = duoc). Hien thanh thong bao khi bam nut bi mo.
+- (NSString *)popOutBlockReason:(SCPCarPane *)p
 {
-    if (!p || p == self.floatPane || !p.vc || !p.bundleID || SCPCIsBridgedApp(p.bundleID)) return NO;
-    if (self.floatPane.vc) return YES;   // doi cho voi cua so noi
-    return [self paneCount] >= 2;        // tao cua so noi, o nay bi bot
+    if (!p || p == self.floatPane || !p.vc || !p.bundleID) return SCPCT(@"Ô chưa có app", @"This pane has no app");
+    if (SCPCIsBridgedApp(p.bundleID))
+        return [NSString stringWithFormat:SCPCT(@"%@ không dùng được hình trong hình", @"%@ can't go picture-in-picture"), [self displayNameFor:p.bundleID]];
+    if (self.floatPane.vc) return nil;   // doi cho voi cua so noi
+    if ([self paneCount] < 2) return SCPCT(@"Cần ít nhất 2 ô", @"Needs at least 2 panes");
+    // Cac o con lai deu la app CarBridge: CBWindow phu het vung app, cua so noi khong con cho -> app vua dua ra se mat
+    BOOL roomLeft = NO;
+    for (SCPCarPane *o in self.slots) if (o != p && !(o.vc && SCPCIsBridgedApp(o.bundleID))) roomLeft = YES;
+    if (!roomLeft) {
+        NSString *other = nil;
+        for (SCPCarPane *o in self.slots) if (o != p) other = o.bundleID;
+        return [NSString stringWithFormat:SCPCT(@"%@ sẽ che mất cửa sổ nổi", @"%@ would cover the floating window"), [self displayNameFor:other]];
+    }
+    return nil;
 }
+
+- (BOOL)canPopOutPane:(SCPCarPane *)p { return [self popOutBlockReason:p] == nil; }
 
 - (void)panePopOut:(UIButton *)b
 {
     @try {
         SCPCarPane *p = [self paneForView:b];
         if (p && p == self.floatPane) { [self floatDockBack]; return; }   // nut cua cua so noi = dua ve o
-        if (![self canPopOutPane:p]) return;
+        NSString *why = [self popOutBlockReason:p];
+        if (why) { [self toast:why]; return; }
         [self setBarVisible:NO forPane:p];
         UIViewController *vc = p.vc;
         NSString *bid = p.bundleID;
@@ -2033,6 +2153,50 @@ static CGSize SCPCSceneSize(UIViewController *vc)
     self.floatFrame = f;
     [self relayoutAnimated:YES];   // fitFloatFrame: kep trong vung app, tranh o CarBridge
     SCPLog("CarSplit: tha cua so noi o %@", NSStringFromCGRect(self.floatFrame));
+}
+
+// The icon app phu vung app trong luc ve man chinh roi mo lai app toan man (khong thay man chinh nhay qua).
+// Bo khi DashBoard trinh bay app (baseViewControllerPresented) hoac sau 3s (CarBridge 6s).
+- (void)showSoloCoverForBundle:(NSString *)bid
+{
+    UIView *parent = [self tabParent];
+    if (!parent) return;
+    [self.soloCover removeFromSuperview];
+    UIView *cover = [[UIView alloc] initWithFrame:[self appAreaInParent:parent]];
+    cover.backgroundColor = [UIColor colorWithWhite:0.1 alpha:1];
+    cover.userInteractionEnabled = NO;
+    UIImageView *iv = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, 56, 56)];
+    iv.image = SCPCAppIcon(bid);
+    SCPCStyleIcon(iv);
+    iv.center = CGPointMake(cover.bounds.size.width / 2, cover.bounds.size.height / 2 - 6);
+    [cover addSubview:iv];
+    UIActivityIndicatorView *spin = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    spin.color = [UIColor colorWithWhite:1 alpha:0.7];
+    spin.center = CGPointMake(cover.bounds.size.width / 2, CGRectGetMaxY(iv.frame) + 18);
+    [spin startAnimating];
+    [cover addSubview:spin];
+    [parent addSubview:cover];
+    [self raiseView:cover];
+    self.soloCover = cover;
+    __weak SCPCarSplit *weakSelf = self;
+    __weak UIView *weakCover = cover;
+    SCPCAfter(SCPCIsBridgedApp(bid) ? 6.0 : 3.0, ^{ if (weakCover && weakSelf.soloCover == weakCover) [weakSelf hideSoloCover]; });
+}
+
+- (void)hideSoloCover
+{
+    UIView *c = self.soloCover;
+    self.soloCover = nil;
+    if (!c) return;
+    [UIView animateWithDuration:0.25 animations:^{ c.alpha = 0; } completion:^(BOOL f) { [c removeFromSuperview]; }];
+}
+
+// DashBoard vua trinh bay 1 app toan man (hook presentBaseViewController): bo the icon cua soloBundle
+- (void)baseViewControllerPresented
+{
+    if (!self.soloCover) return;
+    __weak SCPCarSplit *weakSelf = self;
+    SCPCAfter(0.35, ^{ [weakSelf hideSoloCover]; });   // doi app ve khung dau tien
 }
 
 - (void)closeApp:(NSString *)bundleID
@@ -2172,8 +2336,7 @@ static UIView *SCPCDotsHandle(void)
     BOOL isFloat = (p == self.floatPane);
     BOOL canPop = isFloat ? (p.vc && [self paneCount] < SCPC_MAX_PANES) : [self canPopOutPane:p];
     [p.popButton setImage:SCPCGlyph(isFloat ? @"dock" : @"float", 20, NO) forState:UIControlStateNormal];
-    p.popButton.enabled = canPop;
-    p.popButton.alpha = canPop ? 1 : 0.3;
+    p.popButton.alpha = canPop ? 1 : 0.35;   // van bam duoc: bam vao thi bao ly do
     [p.view bringSubviewToFront:p.handle];
     [p.view bringSubviewToFront:p.bar];
 }
@@ -2190,7 +2353,7 @@ static UIView *SCPCDotsHandle(void)
         if (wasHidden) SCPCDropIn(p.bar);
         __weak SCPCarSplit *weakSelf = self;
         __weak SCPCarPane *weakPane = p;
-        p.barTimer = [NSTimer scheduledTimerWithTimeInterval:3.5 repeats:NO block:^(NSTimer *t) {
+        p.barTimer = [NSTimer scheduledTimerWithTimeInterval:6 repeats:NO block:^(NSTimer *t) {
             if (weakPane) [weakSelf setBarVisible:NO forPane:weakPane];
         }];
         if (wasHidden && [p.bundleID isEqualToString:self.bridgedBundle]) [self pushBridgeFrame];   // nhuong cho thanh nut cung luc thanh hien
@@ -2337,8 +2500,9 @@ static UIView *SCPCDotsHandle(void)
         NSString *bid = p.bundleID;
         [self setBarVisible:NO forPane:p];
         [self closeSlot:p.slot background:YES];
-        // [x] = tat han app (khong chi bo khoi ngan)
-        if (bid) [self killAppSoon:bid];
+        // [x]: app CarBridge (YouTube / TikTok) tat han de khong phat tieng ngam; app khac chi ve nen
+        // (Maps / Waze giu chi duong, nhac van phat)
+        if (bid && SCPCIsBridgedApp(bid)) [self killAppSoon:bid];
     } @catch (NSException *e) { SCPLog("CarSplit: loi nut dong %@", e); }
 }
 
@@ -2390,6 +2554,7 @@ static UIView *SCPCDotsHandle(void)
     card.backgroundColor = [UIColor colorWithWhite:0.1 alpha:1];
     card.userInteractionEnabled = NO;
     card.accessibilityIdentifier = bid;
+    card.userInteractionEnabled = YES;   // nut huy
 
     UIView *group = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 120, 112)];   // icon + ten + vong xoay, luon giua o
     group.center = CGPointMake(CGRectGetMidX(card.bounds), CGRectGetMidY(card.bounds));
@@ -2432,6 +2597,12 @@ static UIView *SCPCDotsHandle(void)
     [p.view bringSubviewToFront:p.handle];
     [p.view bringSubviewToFront:p.bar];
     p.loader = card;
+    // Nut x: app mo lau / treo -> huy, o hien lai bang chon app
+    UIButton *stop = SCPCCircleButton(SCPCGlyph(@"close", 16, NO), 32, self, @selector(loaderCancelTapped:));
+    stop.center = CGPointMake(card.bounds.size.width - 22, 22);
+    stop.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleBottomMargin;
+    stop.accessibilityLabel = SCPCT(@"Huỷ mở app", @"Cancel opening");
+    [card addSubview:stop];
     // Chot chan: the "dang mo" khong bao gio ket mai (cho het han ma khong qua duong bao loi nao)
     __weak SCPCarSplit *weakSelf = self;
     __weak SCPCarPane *weakPane = p;
@@ -2456,6 +2627,18 @@ static UIView *SCPCDotsHandle(void)
         pulse.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
         [iv.layer addAnimation:pulse forKey:@"pulse"];
     }];
+}
+
+- (void)loaderCancelTapped:(UIButton *)b
+{
+    @try {
+        SCPCarPane *p = [self paneForView:b];
+        NSString *bid = p.loader.accessibilityIdentifier;
+        if (!p || !bid) return;
+        SCPLog("CarSplit: huy mo %@ o o %d", bid, p.slot);
+        self.cancelledLaunches[bid] = [NSDate date];
+        [self launchFailed:bid slot:p.slot];
+    } @catch (NSException *e) { SCPLog("CarSplit: loi huy mo app %@", e); }
 }
 
 // App da hien: icon phong to + the mo dan (de scene kip ve khung dau tien ben duoi)
@@ -2562,7 +2745,7 @@ static void SCPCKnobStyle(UIView *knob, NSInteger style)
     dbl.numberOfTapsRequired = 2;
     [d addGestureRecognizer:dbl];
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dividerTapped:)];
-    [tap requireGestureRecognizerToFail:dbl];   // cham 1 lan = thanh ti le, cham 2 lan = doi cho
+    // Cham 1 lan hien thanh ti le ngay (khong doi 0.3s xem co cham lan 2); cham 2 lan dong thanh roi doi cho
     [d addGestureRecognizer:tap];
     [self.container addSubview:d];
     return d;
@@ -2683,6 +2866,7 @@ static CGFloat SCPCSnap(CGFloat f, CGFloat pair, int n)
     int i = d.index;
     static CGFloat start0 = 0.5, start1 = 0.5;
     static BOOL both = NO;
+    static int axis = 0;   // tay nam tron: 0 chua ro, 1 chi o lon, 2 chi 2 o nho, 3 ca hai (keo cheo ro rang)
     CGRect a = CGRectInset(self.container.bounds, SCPC_INSET, SCPC_INSET);
     BOOL along0 = [self dividerRunsHorizontally:0], along1 = [self dividerRunsHorizontally:1];
     CGRect rest = CGRectUnion([self frameForSlot:1], [self frameForSlot:2]);
@@ -2694,13 +2878,18 @@ static CGFloat SCPCSnap(CGFloat f, CGFloat pair, int n)
     if (g.state == UIGestureRecognizerStateBegan) {
         start0 = [self fractionAt:0]; start1 = [self fractionAt:1];
         both = (i == 0 && !d.knob.hidden && CGRectContainsPoint(CGRectInset(d.knob.frame, -SCPC_DIVIDER_HIT, -SCPC_DIVIDER_HIT), [g locationInView:d]));
+        axis = 0;
         if (both || i == 0) SCPCKnobActive(knob, YES);
     }
     CGPoint t = [g translationInView:self.container];
     CGFloat f0 = start0, f1 = start1;
     CGFloat d0 = (along0 ? t.y : t.x) * ([self mainRight] ? -1 : 1);   // 2 + 1 lon: keo vach ve phia o lon = o lon nho lai
-    if (i == 0) f0 = MIN(0.75, MAX(0.04, start0 + d0 / len0));
-    if (i == 1 || both) f1 = MIN(0.96, MAX(0.04, start1 + (along1 ? t.y : t.x) / len1));
+    CGFloat d1 = along1 ? t.y : t.x;
+    // Keo tay nam tron: xe rung lam tay lech -> chi doi theo chieu keo chinh; cheo ro rang (lech < 1.5 lan) moi doi ca hai
+    if (both && axis == 0 && hypot(d0, d1) > 12) axis = fabs(d0) > fabs(d1) * 1.5 ? 1 : (fabs(d1) > fabs(d0) * 1.5 ? 2 : 3);
+    BOOL move0 = (i == 0) && (!both || axis == 1 || axis == 3), move1 = (i == 1) || (both && (axis == 2 || axis == 3));
+    if (move0) f0 = MIN(0.75, MAX(0.04, start0 + d0 / len0));
+    if (move1) f1 = MIN(0.96, MAX(0.04, start1 + d1 / len1));
     int dismiss = (f0 < SCPC_DISMISS) ? 0 : (f1 < SCPC_DISMISS ? 1 : (1 - f1 < SCPC_DISMISS ? 2 : -1));
     self.fractions[0] = @(f0);
     self.fractions[1] = @(f1);
@@ -2832,9 +3021,16 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     CGFloat x = MIN(cs.width - ms.width / 2 - 6, MAX(ms.width / 2 + 6, CGRectGetMidX(kf)));
     m.center = CGPointMake(x, MIN(cs.height - ms.height / 2 - 6, y));
 
-    // CBWindow (CarBridge) nam tren moi view CarPlay -> an no, phu the icon len cac o nhu luc keo
-    [self beginResize];
     [self.container addSubview:m];
+    // Khong che cac o (ban do van hien). Chi khi thanh de len o dang chieu CarBridge (CBWindow nam tren moi view
+    // CarPlay) moi an CBWindow va phu the icon rieng o do.
+    SCPCarPane *bp = [self bridgedPane];
+    if (bp && CGRectIntersectsRect(CGRectInset(m.frame, -6, -6), bp.view.frame)) {
+        self.ratioHidesBridge = YES;
+        [self addCoverToPane:bp];
+        self.lastBridgeFrame = CGRectNull;
+        [self pushBridgeFrame];
+    }
     self.ratioMenu = m;
     self.ratioKnob = d.knob;
     SCPCKnobActive(d.knob, YES);
@@ -2853,7 +3049,12 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     if (self.ratioKnob) SCPCKnobActive(self.ratioKnob, NO);
     self.ratioKnob = nil;
     [UIView animateWithDuration:0.15 animations:^{ m.alpha = 0; } completion:^(BOOL f) { [m removeFromSuperview]; }];
-    [self endResize];
+    if (self.ratioHidesBridge) {
+        self.ratioHidesBridge = NO;
+        if (!self.resizing) [self removeCoverFromPane:[self bridgedPane]];
+        self.lastBridgeFrame = CGRectNull;
+        [self pushBridgeFrame];
+    }
 }
 
 // Chon 1 ti le: cac o co gian ve dung ti le (the icon che trong luc scene doi kich thuoc)
@@ -2862,10 +3063,12 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     @try {
         NSArray<NSArray<NSNumber *> *> *presets = [self ratioPresets];
         if (b.tag < 0 || b.tag >= (NSInteger)presets.count) { [self hideRatioMenu]; return; }
+        [self hideRatioMenu];
+        [self beginResize];   // the icon che trong luc cac scene doi kich thuoc (nhu luc keo vach)
         self.fractions = [presets[b.tag] mutableCopy];
         [self relayoutAnimated:YES];
         [self saveRatio];
-        [self hideRatioMenu];
+        [self endResize];
     } @catch (NSException *e) { SCPLog("CarSplit: loi chon ti le %@\n%@", e, e.callStackSymbols); [self hideRatioMenu]; }
 }
 
@@ -2897,19 +3100,19 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     pv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(12, 6, size.width - 52, 22)];
-    title.text = @"Chọn app CarPlay";
+    title.text = SCPCT(@"Chọn app CarPlay", @"Choose a CarPlay app");
     title.textColor = [UIColor whiteColor];
     title.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
     title.adjustsFontSizeToFitWidth = YES;
     [pv addSubview:title];
 
-    UIButton *cancel = SCPCCircleButton(SCPCGlyph(@"close", 14, NO), 26, self, @selector(pickerCancel:));
+    UIButton *cancel = SCPCCircleButton(SCPCGlyph(@"close", 16, NO), 32, self, @selector(pickerCancel:));
     cancel.tag = slot;
-    cancel.center = CGPointMake(size.width - 20, 17);
+    cancel.center = CGPointMake(size.width - 22, 19);
     cancel.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [pv addSubview:cancel];
 
-    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 32, size.width, size.height - 32)];
+    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 38, size.width, size.height - 38)];
     scroll.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     scroll.alwaysBounceVertical = YES;
     [pv addSubview:scroll];
@@ -2917,12 +3120,14 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     NSArray *apps = SCPCCarPlayApps();
     NSMutableSet *inUse = [NSMutableSet set];
     for (SCPCarPane *o in [self allPanes]) if (o.bundleID) [inUse addObject:o.bundleID];
-    CGFloat cellW = 58, cellH = 56, icon = 32;   // icon nho: man CarPlay thap, 1 ngan chua duoc nhieu app
+    CGFloat cellW = 66, cellH = 64, icon = 40;   // vung cham >= 44pt, chu 11pt de doc khi lai xe
     NSInteger cols = MAX(1, (NSInteger)(size.width / cellW));
     CGFloat padX = (size.width - cols * cellW) / 2;
     NSInteger i = 0;
     NSMutableArray *cells = [NSMutableArray array];
+    BOOL inFloat = (slot == SCPC_FLOAT_SLOT);
     for (NSDictionary *app in apps) {
+        if (inFloat && SCPCIsBridgedApp(app[@"id"])) continue;   // cua so noi khong nhan YouTube / TikTok
         NSInteger row = i / cols, col = i % cols;
         UIButton *b = [SCPCButton buttonWithType:UIButtonTypeCustom];
         b.frame = CGRectMake(padX + col * cellW, 4 + row * cellH, cellW, cellH);
@@ -2933,12 +3138,24 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
         iv.image = SCPCAppIcon(app[@"id"]);
         SCPCStyleIcon(iv);
         iv.userInteractionEnabled = NO;
-        iv.alpha = [inUse containsObject:app[@"id"]] ? 0.4 : 1;
         [b addSubview:iv];
-        UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(1, icon + 6, cellW - 2, 13)];
+        if ([inUse containsObject:app[@"id"]]) {   // dang mo o 1 o khac: dau tich xanh (cham van chuyen app sang o nay)
+            UIImageView *tick = [[UIImageView alloc] initWithImage:SCPCGlyph(@"check", 12, NO)];
+            tick.tintColor = [UIColor whiteColor];
+            tick.backgroundColor = SCPCAccent();
+            tick.frame = CGRectMake(CGRectGetMaxX(iv.frame) - 12, CGRectGetMinY(iv.frame) - 4, 16, 16);
+            tick.contentMode = UIViewContentModeCenter;
+            tick.layer.cornerRadius = 8;
+            tick.layer.borderWidth = 1.5;
+            tick.layer.borderColor = [UIColor colorWithWhite:0.08 alpha:1].CGColor;
+            tick.clipsToBounds = YES;
+            tick.userInteractionEnabled = NO;
+            [b addSubview:tick];
+        }
+        UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(1, icon + 7, cellW - 2, 15)];
         l.text = app[@"name"];
         l.textColor = [UIColor colorWithWhite:1 alpha:0.85];
-        l.font = [UIFont systemFontOfSize:9.5 weight:UIFontWeightMedium];
+        l.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
         l.textAlignment = NSTextAlignmentCenter;
         l.numberOfLines = 1;
         l.userInteractionEnabled = NO;
@@ -2948,7 +3165,7 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
         i++;
     }
     scroll.contentSize = CGSizeMake(size.width, 12 + ((i + cols - 1) / cols) * cellH);
-    if (i == 0) title.text = @"Không tìm thấy app CarPlay";
+    if (i == 0) title.text = SCPCT(@"Không tìm thấy app CarPlay", @"No CarPlay apps found");
 
     [p.view addSubview:pv];
     [p.view bringSubviewToFront:p.handle];
@@ -3055,10 +3272,10 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
 - (NSArray<NSArray<NSDictionary *> *> *)panelSections:(NSArray<NSString *> **)titles
 {
     NSMutableArray *sections = [NSMutableArray array], *names = [NSMutableArray array];
-    [sections addObject:@[@{@"layout": @2, @"name": @"2 ô"}, @{@"layout": @3, @"name": @"3 ô"},
-                          @{@"layout": @(SCPC_LAYOUT_MAIN_STACK), @"name": @"1 lớn + 2"},
-                          @{@"layout": @(SCPC_LAYOUT_MAIN_RIGHT), @"name": @"2 + 1 lớn"}]];
-    [names addObject:@"Mặc định"];
+    [sections addObject:@[@{@"layout": @2, @"name": SCPCT(@"2 ô", @"2 panes")}, @{@"layout": @3, @"name": SCPCT(@"3 ô", @"3 panes")},
+                          @{@"layout": @(SCPC_LAYOUT_MAIN_STACK), @"name": SCPCT(@"1 lớn + 2", @"1 large + 2")},
+                          @{@"layout": @(SCPC_LAYOUT_MAIN_RIGHT), @"name": SCPCT(@"2 + 1 lớn", @"2 + 1 large")}]];
+    [names addObject:@"layouts"];
 
     NSMutableArray *recent = [NSMutableArray array];
     for (NSDictionary *r in ([SCPPrefs showRecent] ? [SCPPrefs recentLayouts] : @[])) {
@@ -3073,7 +3290,7 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     }
     if ([SCPPrefs showRecent]) {   // bat trong Cai dat -> luon hien (trong -> dong goi y)
         [sections addObject:recent];
-        [names addObject:@"Gần đây"];
+        [names addObject:@"recent"];
     }
 
     NSMutableArray *favs = [NSMutableArray array];
@@ -3084,7 +3301,7 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
         if (!apps) continue;
         [favs addObject:@{@"layout": f[@"layout"] ?: @2, @"apps": apps, @"name": f[@"name"] ?: @""}];
     }
-    if (favs.count) { [sections addObject:favs]; [names addObject:@"Yêu thích"]; }
+    if (favs.count) { [sections addObject:favs]; [names addObject:@"favorite"]; }
     if (titles) *titles = names;
     return sections;
 }
@@ -3117,7 +3334,8 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     if (self.active) for (SCPCarPane *pp in self.slots) [slotApps addObject:(pp.vc && pp.bundleID) ? pp.bundleID : [NSNull null]];
     else if (app) [slotApps addObject:app];
     // Chi icon, khong chu: moi hang = icon muc (bo cuc / gan day / yeu thich) + cac hinh bo cuc
-    NSDictionary *sectionGlyph = @{@"Mặc định": @"layouts", @"Gần đây": @"recent", @"Yêu thích": @"favorite"};
+    NSDictionary *sectionName = @{@"layouts": SCPCT(@"Bố cục", @"Layouts"), @"recent": SCPCT(@"Gần đây", @"Recent"),
+                                  @"favorite": SCPCT(@"Yêu thích", @"Favorites")};
     CGFloat pad = 8, iconCol = 30, rowH = 44, cellW = 66, imgW = 56, imgH = 30, rowGap = 4;
     NSUInteger cols = 1;
     for (NSArray *sec in sections) cols = MAX(cols, sec.count);
@@ -3132,16 +3350,17 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
     panel.layer.shadowOpacity = 0.45; panel.layer.shadowRadius = 14; panel.layer.shadowOffset = CGSizeMake(0, 4);
     UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:panel.bounds];   // man xe thap: cuon duoc
     scroll.showsVerticalScrollIndicator = NO;
+    scroll.delegate = self;   // cuon bang -> hen gio thu lai tinh tu dau
     scroll.layer.cornerRadius = 20; scroll.clipsToBounds = YES;
     [panel addSubview:scroll];
 
     NSMutableArray *choices = [NSMutableArray array], *cells = [NSMutableArray array];
     CGFloat y = pad;
     for (NSUInteger si = 0; si < sections.count; si++) {
-        UIImageView *head = [[UIImageView alloc] initWithImage:SCPCGlyph(sectionGlyph[titles[si]] ?: @"layouts", 18, NO)];
+        UIImageView *head = [[UIImageView alloc] initWithImage:SCPCGlyph(titles[si], 18, NO)];
         head.tintColor = [UIColor colorWithWhite:1 alpha:0.5];
         head.center = CGPointMake(pad + iconCol / 2, y + rowH / 2);
-        head.accessibilityLabel = (si == 0 && self.active) ? @"Đổi bố cục" : titles[si];
+        head.accessibilityLabel = (si == 0 && self.active) ? SCPCT(@"Đổi bố cục", @"Change layout") : sectionName[titles[si]];
         [scroll addSubview:head];
         NSArray<NSDictionary *> *items = sections[si];
         CGFloat x0 = pad + iconCol;
@@ -3153,7 +3372,7 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
             dash.strokeColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
             dash.lineWidth = 1; dash.lineDashPattern = @[@3, @3];
             [ph.layer addSublayer:dash];
-            ph.accessibilityLabel = @"Chia màn xong sẽ hiện ở đây";
+            ph.accessibilityLabel = SCPCT(@"Chia màn xong sẽ hiện ở đây", @"Your splits will show up here");
             [scroll addSubview:ph];
             y += rowH + rowGap;
             continue;
@@ -3187,7 +3406,18 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
             UIButton *exitBtn = SCPCRoundButton(SCPCGlyph(@"exit", 20, NO), self, @selector(exitTapped));
             exitBtn.tintColor = SCPCDanger();
             exitBtn.center = CGPointMake(px + 4 + (exitW - 4) / 2, y + rowH / 2);
-            exitBtn.accessibilityLabel = self.active ? @"Thoát chia màn" : @"Đóng";
+            exitBtn.accessibilityLabel = self.active ? SCPCT(@"Thoát chia màn", @"Exit split") : SCPCT(@"Đóng", @"Close");
+            NSString *keep = [self exitKeepBundle];
+            UIImage *keepIcon = keep ? SCPCAppIcon(keep) : nil;
+            if (keepIcon) {   // icon nho o goc: app nay se o lai toan man
+                UIImageView *kv = [[UIImageView alloc] initWithFrame:CGRectMake(exitBtn.bounds.size.width - 15, exitBtn.bounds.size.height - 15, 16, 16)];
+                kv.image = keepIcon;
+                SCPCStyleIcon(kv);
+                kv.layer.borderWidth = 1;
+                kv.layer.borderColor = [UIColor colorWithWhite:0.12 alpha:1].CGColor;
+                kv.userInteractionEnabled = NO;
+                [exitBtn addSubview:kv];
+            }
             [scroll addSubview:exitBtn];
             [cells addObject:exitBtn];
         }
@@ -3276,17 +3506,53 @@ static UIImage *SCPCRatioGlyph(NSArray<NSNumber *> *fr, BOOL mainStack, BOOL mir
 
 // Nut thoat trong bang: dang chia -> thoat chia man, app o dang chon ve toan man (khong co app -> man chinh).
 // Chua chia -> chi dong bang.
+// App duoc giu toan man khi thoat chia: o dang chon (cham gan nhat, app vua vao o, o vua chieu CarBridge),
+// khong co thi o dau tien co app (ca cua so noi)
+- (NSString *)exitKeepBundle
+{
+    if (!self.active) return nil;
+    NSString *keep = nil;
+    if (self.focusedSlot >= 0 && self.focusedSlot < [self paneCount]) keep = self.slots[self.focusedSlot].bundleID;
+    if (!keep) for (SCPCarPane *p in [self allPanes]) if (p.vc && p.bundleID) { keep = p.bundleID; break; }
+    return keep;
+}
+
+// carduo://picker khi dang chia: bang chon app cho o dang chon (truoc day lenh nay dong split)
+- (void)showPickerForFocusedPane
+{
+    if (!self.active) { [self showPickerForSlot:-1]; return; }
+    int s = (self.focusedSlot >= 0 && self.focusedSlot < [self paneCount]) ? self.focusedSlot : [self autoSlot];
+    [self showPickerForSlot:s];
+}
+
 - (void)exitTapped
 {
     @try {
         [self collapseAppTray];
         if (!self.active) { SCPLog("CarSplit: nut thoat (chua chia) -> dong bang"); return; }
-        NSString *keep = nil;
-        if (self.focusedSlot >= 0 && self.focusedSlot < [self paneCount]) keep = self.slots[self.focusedSlot].bundleID;
-        if (!keep) for (SCPCarPane *p in [self allPanes]) if (p.vc && p.bundleID) { keep = p.bundleID; break; }
+        NSString *keep = [self exitKeepBundle];
         SCPLog("CarSplit: nut thoat -> thoat chia man%@", keep ? [NSString stringWithFormat:@", %@ ve toan man", keep] : @"");
         if (keep) [self soloBundle:keep]; else [self closeGoingHome:YES];
     } @catch (NSException *e) { SCPLog("CarSplit: loi nut thoat %@\n%@", e, e.callStackSymbols); }
+}
+
+// 3 lan dau chia man: moi lan 1 meo ve thao tac khong nhin thay duoc (cham 2 lan vach, keo •••, keo sat mep)
+- (void)showTipSoon
+{
+    NSInteger n = [SCPPrefs tipCount];
+    if (n >= 3) return;
+    NSArray *tips = @[SCPCT(@"Mẹo: chạm 2 lần vào vạch chia để đổi chỗ 2 ô", @"Tip: double-tap a divider to swap the two panes"),
+                      SCPCT(@"Mẹo: giữ và kéo ••• thả lên ô khác để đổi chỗ", @"Tip: drag ••• onto another pane to swap them"),
+                      SCPCT(@"Mẹo: kéo vạch chia sát mép để đóng ô đó", @"Tip: drag a divider to the edge to close that pane")];
+    [SCPPrefs setTipCount:n + 1];
+    __weak SCPCarSplit *weakSelf = self;
+    SCPCAfter(3.0, ^{ if (weakSelf.active) [weakSelf toast:tips[n] duration:4.5]; });
+}
+
+// Bang nut CarDuo: dang cuon thi khong tu thu lai
+- (void)scrollViewWillBeginDragging:(UIScrollView *)sv
+{
+    if (self.tray && [sv isDescendantOfView:self.tray]) [self restartTrayTimer];
 }
 
 - (void)restartTrayTimer
@@ -3360,7 +3626,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
 - (CGRect)bridgeFrame
 {
     SCPCarPane *p = [self bridgedPane];
-    if (self.resizing) return CGRectZero;   // dang keo vach / doi cho: an CBWindow, ngan hien the icon
+    if (self.resizing || self.ratioHidesBridge) return CGRectZero;   // dang keo vach / doi cho / thanh ti le de len: an CBWindow
     if (!self.active || !p || p.view.alpha < 0.5 || p.view.bounds.size.width < 20 || !p.view.window) return CGRectZero;
     // Thanh nut cua ngan dang hien -> day khung chieu xuong duoi thanh nut de bam duoc
     CGFloat top = p.bar.hidden ? SCPC_BRIDGE_TOP : SCPC_HANDLE_Y + SCPC_HANDLE_H + 6 + SCPC_PILL + 6;
@@ -3397,7 +3663,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
             p.bridgeHint = l;
         }
         if (!p.bridgeHint) continue;
-        p.bridgeHint.text = waiting ? [NSString stringWithFormat:@"Chạm để hiện %@", [self displayNameFor:p.bundleID]] : nil;
+        p.bridgeHint.text = waiting ? [NSString stringWithFormat:SCPCT(@"Chạm để hiện %@", @"Tap to show %@"), [self displayNameFor:p.bundleID]] : nil;
         p.bridgeHint.hidden = !waiting;
         [p.bridgeHint sizeToFit];
         CGFloat w = MIN(p.bridgeHint.bounds.size.width + 32, p.view.bounds.size.width - 16);
@@ -3434,6 +3700,8 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
     self.bridgedBundle = p.bundleID;
     self.lastBridgeFrame = CGRectNull;
     self.bridgeStarting = YES;
+    self.bridgeStartedAt = CFAbsoluteTimeGetCurrent();
+    self.focusedSlot = p.slot;
     if (self.floatPane) [self relayoutAnimated:YES];   // cua so noi tranh khoi o sap chieu CarBridge
     [self updateBridgeHints];
     SCPLog("CarBridge: chieu %@ vao ngan %d, khung %@", p.bundleID, p.slot, NSStringFromCGRect([self bridgeFrame]));
@@ -3444,6 +3712,7 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
         void (^done)(void) = ^{
             SCPCAfter(0, ^{
                 SCPLog("CarBridge: da chieu %@", bid);
+                weakSelf.bridgeStarting = NO;   // chieu xong: Home lai dong split ngay
                 [weakSelf pushBridgeFrame];
             });
             SCPCAfter(0.5, ^{ [weakSelf removeBridgeLoader:bid]; });   // CBWindow da phu ngan -> bo the "dang mo"
@@ -3459,6 +3728,13 @@ static BOOL SCPCIsBridgedApp(NSString *bid)
             [me pushBridgeFrame];
         });
     }
+}
+
+// Home trong luc CarBridge khoi dong: CarBridge tu gui Home ngay luc bat dau chieu (~1s dau) -> bo qua;
+// sau do la nguoi dung bam -> dong split nhu binh thuong
+- (BOOL)ignoreHomeDuringBridgeStart
+{
+    return self.bridgeStarting && CFAbsoluteTimeGetCurrent() - self.bridgeStartedAt < 1.2;
 }
 
 - (void)removeBridgeLoader:(NSString *)bid
@@ -3808,6 +4084,35 @@ static void SCPCDumpTree(UIView *v, UIView *root, int depth, NSMutableString *ou
 
 // Cap dung lan cuoi (khong co thi cap trong Cai dat). App khong con tren CarPlay thi bo, o do hien bang chon.
 // Tu mo khi cam xe: mo lai dung cach chia gan nhat (bo cuc + app); khong co thi Bo cuc yeu thich 1
+// Cam xe: mo lai cach chia gan nhat nhung
+//  - khong tu phat YouTube / TikTok (o do hien bang chon app)
+//  - app CarPlay vua tu mo lai (ban do, nhac) duoc giu: vao o 1 neu chua nam trong cach chia
+//  - app dang mo la YouTube / TikTok (CarPlay tu mo lai) -> khong tu chia
+- (void)openRememberedPairForConnect
+{
+    NSArray *apps = nil;
+    int layoutID = 2;
+    for (NSDictionary *r in [SCPPrefs recentLayouts]) {
+        NSArray *a = r[@"apps"];
+        BOOL ok = a.count >= 2;
+        for (NSString *bid in a) if (![bid isKindOfClass:[NSString class]] || ![self isCarPlayApp:bid]) ok = NO;
+        if (ok) { apps = a; layoutID = [r[@"layout"] intValue]; break; }
+    }
+    if (!apps) {
+        NSDictionary *f = [SCPPrefs favorite:1];
+        apps = [self favoriteApps:f];
+        layoutID = [f[@"layout"] intValue] ?: 2;
+    }
+    if (!apps) { SCPLog("CarSplit: chua co cach chia gan day / yeu thich -> khong tu mo"); return; }
+    NSString *cur = [self fullscreenAppBundle];
+    if (cur && SCPCIsBridgedApp(cur)) { SCPLog("CarSplit: CarPlay dang mo %@ (CarBridge) -> khong tu chia", cur); return; }
+    NSMutableArray *list = [NSMutableArray array];
+    for (id a in apps) [list addObject:([a isKindOfClass:[NSString class]] && !SCPCIsBridgedApp(a)) ? a : [NSNull null]];
+    if (cur && ![list containsObject:cur] && list.count) list[0] = cur;
+    SCPLog("CarSplit: tu mo khi cam xe: bo cuc %d, app %@ (dang mo %@)", layoutID, list, cur ?: @"-");
+    [self openSetupLayout:layoutID apps:list];
+}
+
 - (void)openRememberedPair
 {
     for (NSDictionary *r in [SCPPrefs recentLayouts]) {
@@ -3869,7 +4174,7 @@ static void SCPCDumpTree(UIView *v, UIView *root, int depth, NSMutableString *ou
     }
     if (!bid || ![self isCarPlayApp:bid]) {
         SCPLog("CarSplit: giu icon %@ -> khong chia man duoc", bid);
-        if (bid) [self toast:@"App này không chia màn hình được"];
+        if (bid) [self toast:SCPCT(@"App này không chia màn hình được", @"This app can't be split")];
         return;
     }
     SCPLog("CarSplit: giu icon %@ -> bang bo cuc", bid);
@@ -3881,6 +4186,8 @@ static void SCPCDumpTree(UIView *v, UIView *root, int depth, NSMutableString *ou
 {
     if (self.autoLaunchDone) return;
     self.autoLaunchDone = YES;
+    // SpringBoard giu yeu cau carduo:// gui luc xe chua ket noi -> bao man xe da san sang de gui lai
+    [[objc_getClass("NSDistributedNotificationCenter") defaultCenter] postNotificationName:SCP_NOTIF_READY object:nil userInfo:nil];
     if (![SCPPrefs enabled] || ![SCPPrefs autoLaunch]) return;
     SCPLog("CarSplit: cam xe -> se tu mo split");
     [self autoLaunchAttempt:0];
@@ -3900,28 +4207,46 @@ static void SCPCDumpTree(UIView *v, UIView *root, int depth, NSMutableString *ou
         SCPCarSplit *me = weakSelf;
         if (!me || me.active) return;
         SCPLog("CarSplit: tu mo split khi cam xe");
-        [me openRememberedPair];
+        [me openRememberedPairForConnect];
     });
 }
 
-- (void)toast:(NSString *)msg
+- (void)toast:(NSString *)msg { [self toast:msg duration:2.6]; }
+
+// Thong bao nho o day vung app. Dang chieu CarBridge (CBWindow nam tren moi view CarPlay) thi dat len o khac.
+- (void)toast:(NSString *)msg duration:(NSTimeInterval)duration
 {
     UIView *host = SCPCRootVC().view;
-    if (!host) return;
+    if (!host || !msg.length) return;
     UILabel *l = [[UILabel alloc] init];
     l.text = msg;
     l.textColor = [UIColor whiteColor];
     l.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     l.textAlignment = NSTextAlignmentCenter;
-    [l sizeToFit];
-    l.bounds = CGRectMake(0, 0, l.bounds.size.width + 40, 38);
+    l.numberOfLines = 2;
+    CGFloat maxW = MAX(160, host.bounds.size.width - 48);
+    CGSize fit = [l sizeThatFits:CGSizeMake(maxW - 32, 60)];
+    l.bounds = CGRectMake(0, 0, MIN(maxW, fit.width + 32), MAX(38, fit.height + 18));
     SCPCChrome(l, 19);
     l.backgroundColor = [UIColor colorWithWhite:0.16 alpha:0.96];
-    l.center = CGPointMake(CGRectGetMidX(host.bounds), host.bounds.size.height - 50);
+    CGPoint c = CGPointMake(CGRectGetMidX(host.bounds), host.bounds.size.height - 50);
+    SCPCarPane *bp = [self bridgedPane];
+    if (self.active && bp && self.container) {
+        CGRect bf = [host convertRect:bp.view.frame fromView:self.container];
+        if (CGRectContainsPoint(CGRectInset(bf, -l.bounds.size.width / 2, -l.bounds.size.height / 2), c)) {
+            for (SCPCarPane *o in [self allPanes]) {
+                if (o == bp || o.view.alpha < 0.5) continue;
+                CGRect of = [host convertRect:o.view.frame fromView:self.container];
+                c = CGPointMake(CGRectGetMidX(of), CGRectGetMaxY(of) - l.bounds.size.height / 2 - 12);
+                break;
+            }
+        }
+    }
+    l.center = c;
     [host addSubview:l];
     l.alpha = 0;
     [UIView animateWithDuration:0.2 animations:^{ l.alpha = 1; } completion:^(BOOL f) {
-        [UIView animateWithDuration:0.3 delay:2.2 options:0 animations:^{ l.alpha = 0; } completion:^(BOOL f2) { [l removeFromSuperview]; }];
+        [UIView animateWithDuration:0.3 delay:duration options:0 animations:^{ l.alpha = 0; } completion:^(BOOL f2) { [l removeFromSuperview]; }];
     }];
 }
 

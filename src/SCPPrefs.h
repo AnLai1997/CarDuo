@@ -7,6 +7,9 @@
 // Doc moi lan can nen thay doi trong Settings co hieu luc ngay, khong can respring.
 @interface SCPPrefs : NSObject
 + (BOOL)enabled;
++ (BOOL)english;
++ (NSInteger)tipCount;          // so lan da hien meo thao tac tren xe (toi da 3)
++ (void)setTipCount:(NSInteger)n;               // ngon ngu chu tren man xe theo Cai dat > CarDuo (vi / en)
 + (NSString *)leftApp;
 + (NSString *)rightApp;
 + (NSString *)lastLeftApp;        // cap app dung lan cuoi tren xe (tu mo lai khi cam xe)

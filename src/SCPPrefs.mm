@@ -38,6 +38,18 @@ static NSString *str(NSString *key)
 }
 
 + (BOOL)enabled            { id v = value(@"Enabled");          return v ? [v boolValue] : YES; }
+
++ (NSInteger)tipCount            { return [value(@"TipCount") integerValue]; }
++ (void)setTipCount:(NSInteger)n { [defaults() setInteger:n forKey:@"TipCount"]; [defaults() synchronize]; }
+
+// Cung khoa "Language" voi trang Settings; chua chon thi theo ngon ngu may
++ (BOOL)english
+{
+    NSString *lang = str(@"Language");
+    if ([lang isEqualToString:@"vi"]) return NO;
+    if ([lang isEqualToString:@"en"]) return YES;
+    return ![[NSLocale preferredLanguages].firstObject hasPrefix:@"vi"];
+}
 + (NSString *)leftApp      { return str(@"LeftApp"); }
 + (NSString *)rightApp     { return str(@"RightApp"); }
 + (NSString *)lastLeftApp  { return str(@"LastLeft"); }
@@ -111,7 +123,10 @@ static NSString *pairKey(NSString *left, NSString *right)
     NSDictionary *entry = @{@"layout": @(layout), @"apps": apps};
     NSMutableArray *list = [[self recentLayouts] mutableCopy];
     if (list.count && [list[0] isEqualToDictionary:entry]) return;   // khong doi -> khong ghi lai
-    [list removeObject:entry];
+    // Cung bo cuc + cung bo app (chi khac thu tu, vd vua doi cho 2 o) = 1 cach chia: cap nhat thu tu, khong them muc
+    NSSet *set = [NSSet setWithArray:apps];
+    for (NSDictionary *d in [list copy])
+        if ([d[@"layout"] integerValue] == layout && [[NSSet setWithArray:d[@"apps"]] isEqualToSet:set]) [list removeObject:d];
     [list insertObject:entry atIndex:0];
     while (list.count > 3) [list removeLastObject];
     [defaults() setObject:list forKey:@"RecentLayouts"];
