@@ -77,7 +77,7 @@ static NSString *str(NSString *key)
     NSString *right = str([NSString stringWithFormat:@"Fav%ldRight", (long)index]);
     NSString *third = str([NSString stringWithFormat:@"Fav%ldThird", (long)index]);
     NSInteger layout = [value([NSString stringWithFormat:@"Fav%ldLayout", (long)index]) integerValue];
-    if (layout != 3 && layout != 13) { layout = 2; third = nil; }
+    if (layout != 3 && layout != 13 && layout != 31) { layout = 2; third = nil; }
     if (!left && !right && !third) return nil;
     NSString *name = str([NSString stringWithFormat:@"Fav%ldName", (long)index]) ?: [NSString stringWithFormat:@"Cặp %ld", (long)index];
     NSMutableDictionary *d = [NSMutableDictionary dictionaryWithObject:name forKey:@"name"];

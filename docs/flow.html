@@ -7,7 +7,7 @@
 <style>
 :root {
   --bg: #f4f6f9; --card: #ffffff; --ink: #1b2330; --muted: #5d6878; --line: #dfe4ec;
-  --green: #12b53a; --green-soft: #e3f8e8; --blue: #317af7; --blue-soft: #e6eeff;
+  --green: #12b53a; --green-soft: #e3f8e8; --blue: #3482ff; --blue-soft: #e6eeff;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -72,7 +72,7 @@ code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--blue-so
 .dock .bottom { display: flex; flex-direction: column; gap: 6px; align-items: center; width: 100%; }
 .shield { position: absolute; inset: 0; background: rgba(0,0,0,.3); z-index: 8; }
 .layoutpanel { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); z-index: 9; background: rgba(31,31,31,.96);
-  border: .5px solid rgba(255,255,255,.12); border-radius: 20px; padding: 6px 10px 8px; box-shadow: 0 6px 20px rgba(0,0,0,.5);
+  border: .5px solid rgba(255,255,255,.12); border-radius: 20px; padding: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.5);
   color: rgba(255,255,255,.72); font-size: 12px; font-weight: 600; text-align: center; white-space: nowrap; animation: drop .3s cubic-bezier(.3,1.3,.5,1); }
 .layoutpanel .opts { display: flex; gap: 6px; margin-top: 2px; justify-content: center; }
 .layoutpanel .sec { font-size: 11px; color: rgba(255,255,255,.55); text-align: left; padding: 4px 4px 0; }
@@ -82,23 +82,60 @@ code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--blue-so
 .layoutpanel button { background: none; border: 0; color: rgba(255,255,255,.88); font: inherit; font-size: 11px; font-weight: 500; cursor: pointer;
   padding: 4px 8px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .layoutpanel button:hover { background: rgba(255,255,255,.07); }
+.layoutpanel button.cur { background: rgba(52,130,255,.22); }
+.layoutpanel .prow { display: flex; align-items: center; gap: 2px; min-height: 44px; }
+.layoutpanel .prow + .prow { margin-top: 4px; }
+.layoutpanel .phead { width: 30px; flex: none; display: flex; justify-content: center; opacity: .5; }
+.layoutpanel .prow .opts { margin: 0; justify-content: flex-start; gap: 2px; }
+.layoutpanel .prow button { width: 66px; height: 44px; padding: 0; justify-content: center; }
+.layoutpanel .psep { display: block; width: 1px; height: 24px; background: rgba(255,255,255,.15); margin: 0 2px; flex: none; }
+.layoutpanel .prow button.exitb { width: 40px; }
+.layoutpanel button.exitb svg.ic { stroke: #ff5c54; }
+.layoutpanel .pempty { display: block; width: 56px; height: 30px; margin: 0 5px; border: 1px dashed rgba(255,255,255,.25); border-radius: 6px; }
 @keyframes drop { from { transform: translate(-50%, -30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 .pane { position: absolute; border-radius: 0; overflow: hidden; background: #14181f;
   transition: left .35s cubic-bezier(.3,.9,.3,1), top .35s cubic-bezier(.3,.9,.3,1), width .35s cubic-bezier(.3,.9,.3,1), height .35s cubic-bezier(.3,.9,.3,1), opacity .2s; }
 .pane.nofx { transition: none; }
 .pane.focused::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1.5px rgba(49,122,247,.6); pointer-events: none; z-index: 7; }
 .pane .appview { inset: 0; }
-.handle { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); width: 36px; height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,.8); box-shadow: 0 0 3px rgba(0,0,0,.4); z-index: 4; cursor: pointer; }
-.handle::before { content: ""; position: absolute; inset: -12px -14px; }
+.area.splitting { background: #000; }
+/* Thanh "•••" kieu HyperOS o dau moi o: cham -> thanh nut, keo -> doi cho */
+.handle { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 34px; height: 12px; border-radius: 6px;
+  background: rgba(0,0,0,.38); border: .5px solid rgba(255,255,255,.18); z-index: 8; cursor: grab; touch-action: none;
+  display: flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box; }
+.handle i { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,.92); display: block; pointer-events: none; }
+.handle::before { content: ""; position: absolute; inset: -14px -18px; }
+/* The toi + icon app phu len o luc keo (scene chi doi kich thuoc khi tha tay) */
+.cover { position: absolute; inset: 0; background: #212121; z-index: 5; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; transition: background .15s, opacity .15s; }
+.cover .ico { width: 52px; height: 52px; border-radius: 27%; overflow: hidden; display: flex; transition: opacity .15s, transform .15s; }
+.cover.lift { opacity: .55; }
+.cover.dismiss { background: #0d0d0d; }
+.cover.dismiss .ico { opacity: .35; transform: scale(.8); }
+.pane.floatwin { border-radius: 14px !important; box-shadow: 0 0 0 1px rgba(255,255,255,.18), 0 10px 28px rgba(0,0,0,.55); z-index: 7;
+  transition: left .3s cubic-bezier(.3,1.2,.4,1), top .3s cubic-bezier(.3,1.2,.4,1), opacity .2s; animation: floatin .4s cubic-bezier(.3,1.4,.5,1); }
+.pane.floatwin.nofx { transition: none; }
+.pane.floatwin .appview .glyph { width: 40px; height: 40px; }
+@keyframes floatin { from { transform: scale(.6); opacity: 0; } }
+.pill span.off { opacity: .3; pointer-events: none; }
+.pane.target::before { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 3px #3482ff; z-index: 9; pointer-events: none; }
+.ghost { position: absolute; z-index: 30; border-radius: 16px; background: rgba(46,46,46,.96); border: 1.5px solid rgba(52,130,255,.9);
+  box-shadow: 0 8px 24px rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; pointer-events: none;
+  transform: translate(-50%, -50%); animation: lift .25s cubic-bezier(.3,1.4,.5,1); }
+.ghost .ico { width: 44px; height: 44px; border-radius: 27%; overflow: hidden; display: flex; }
+@keyframes lift { from { transform: translate(-50%, -50%) scale(.6); } to { transform: translate(-50%, -50%) scale(1); } }
 .pill { position: absolute; display: flex; gap: 2px; padding: 3px; border-radius: 20px; background: rgba(33,33,33,.94);
   border: .5px solid rgba(255,255,255,.12); z-index: 6; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-.pane .pill { left: 50%; top: 14px; }
+.pane .pill { left: 50%; top: 24px; }
 .pill.vert { flex-direction: column; }
 .pill span { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 17px; cursor: pointer; flex: none; }
 .pill span:hover { background: rgba(255,255,255,.08); }
 .pill span.on { background: rgba(49,122,247,.22); }
-.pill span.on svg { stroke: #317af7; }
+.pill span.danger svg { stroke: #ff5c54; }
+.pill span.on { background: rgba(52,130,255,.22); }
+.pill span.on svg { fill: #3482ff; }
+.pill.ratio { z-index: 12; animation: fadein .2s; }
+.pill.ratio svg.ic { fill: rgba(255,255,255,.94); stroke: none; }
 .pill i.sep { width: 1px; height: 18px; background: rgba(255,255,255,.18); align-self: center; margin: 0 3.5px; flex: none; }
 .pane .pill { transform-origin: 50% 0; }
 .picker { position: absolute; inset: 0; background: rgba(20,20,20,.98); z-index: 3; display: flex; flex-direction: column; }
@@ -111,21 +148,34 @@ code { font: 12.5px ui-monospace, Consolas, monospace; background: var(--blue-so
 .picker .pcell.inuse { opacity: .4; }
 .divider { position: absolute; z-index: 5; cursor: col-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
 .divider.v { cursor: row-resize; }
-/* Nut keo kieu HyperOS: vien thuoc toi co 3 cham; vach ngang: nam ngang; 1 lon + 2: o vuong 4 cham */
-.divider .knob { position: absolute; width: 12px; height: 40px; margin: -20px 0 0 -6px; border-radius: 6px;
-  background: rgba(40,40,40,.92); border: .5px solid rgba(255,255,255,.25); box-shadow: 0 2px 6px rgba(0,0,0,.5);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  transition: transform .15s, background .15s; z-index: 1; }
-.divider .knob i { width: 3px; height: 3px; border-radius: 50%; background: #fff; display: block; }
-.divider.v .knob { width: 40px; height: 12px; margin: -6px 0 0 -20px; flex-direction: row; }
-.divider .knob.grid { width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 7px;
-  display: grid; grid-template-columns: 3px 3px; gap: 4px; place-content: center; }
-.divider.drag .knob { transform: scale(1.15); background: #317af7; }
-.divider::before { content: ""; position: absolute; inset: -10px; }
+/* Tay nam kieu HyperOS: vien thuoc trang trong khe den; 1 lon + 2: cham tron trang o cho giao 2 vach */
+.divider .knob { position: absolute; width: 4px; height: 40px; margin: -20px 0 0 -2px; border-radius: 2px;
+  background: #fff; box-shadow: 0 0 4px rgba(0,0,0,.5); transition: transform .2s cubic-bezier(.3,1.5,.5,1), background .15s; z-index: 1; }
+.divider.v .knob { width: 40px; height: 4px; margin: -2px 0 0 -20px; }
+.divider .knob.dot { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2.5px solid #000; box-sizing: border-box; }
+.divider.drag .knob { transform: scale(1.3); background: #3482ff; }
+.divider::before { content: ""; position: absolute; inset: -6px; }
 .divider .knob::before { content: ""; position: absolute; inset: -20px; border-radius: 50%; }
+.divider .knob.dot::before { inset: -18px; }
+/* The "dang mo app": icon phong ra + nhip tho + vong xoay (giong showLoaderInPane) */
+.loader { position: absolute; inset: 0; background: #1a1a1a; z-index: 4; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 6px; color: rgba(255,255,255,.75); font-size: 12px; font-weight: 500; animation: fadein .2s; }
+.loader .ico { width: 56px; height: 56px; border-radius: 27%; overflow: hidden; display: flex;
+  animation: popin .5s cubic-bezier(.3,1.5,.5,1), breathe 1.6s ease-in-out .5s infinite; }
+.loader .spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; border-top-color: #3482ff; border-right-color: #3482ff;
+  animation: spin .9s linear infinite; margin-top: 4px; }
+.loader.out { animation: fadeout .3s .2s ease-out forwards; }
+.loader.out .ico { animation: grow .3s .2s ease-out forwards; }
+@keyframes fadein { from { opacity: 0; } }
+@keyframes fadeout { to { opacity: 0; } }
+@keyframes popin { from { transform: scale(.6); } }
+@keyframes breathe { 50% { transform: scale(.93); } }
+@keyframes grow { to { transform: scale(1.25); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .loader .ico, .loader .spin { animation: none; } }
 .toast { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(40,40,40,.96); color: #fff;
   border-radius: 19px; padding: 7px 16px; font-size: 12px; z-index: 20; white-space: nowrap; }
-svg.ic { stroke: rgba(255,255,255,.92); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; display: block; }
+svg.ic { stroke: rgba(255,255,255,.94); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; display: block; }
 .narr { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 720px) { .narr { grid-template-columns: 1fr; } .appview .glyph { width: 32px; height: 32px; } .appview .name { font-size: 11px; } }
 .narr > div { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); min-width: 0; }
@@ -138,6 +188,7 @@ svg.ic { stroke: rgba(255,255,255,.92); fill: none; stroke-width: 1.6; stroke-li
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
 .item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); min-width: 0; }
+.item .ic2.red svg { stroke: #ff5c54; }
 .item .ic2 { width: 34px; height: 34px; border-radius: 10px; flex: none; display: flex; align-items: center; justify-content: center; background: #22262d; }
 .item b { display: block; font-size: 14px; }
 .item span { color: var(--muted); font-size: 13px; }
@@ -202,31 +253,36 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: cen
   <div class="arrow">→</div>
   <div class="step"><div class="tag">Nút dock</div><b>Bấm nút CarDuo trên dock</b><span>Ngay trên nút Home. Hiện bảng bố cục. Không chạm 8 giây hoặc chạm ra ngoài thì tự thu lại.</span></div>
   <div class="arrow">→</div>
-  <div class="step"><div class="tag">Bố cục</div><b>Chọn 2 ô, 3 ô hoặc 1 lớn + 2</b><span>Ô xanh là chỗ của app đang mở (ô 1).</span></div>
+  <div class="step"><div class="tag">Bố cục</div><b>Chọn 2 ô, 3 ô hoặc 1 lớn + 2</b><span>Ô có logo là app đang mở (ô 1), ô dấu + là chỗ chọn app. Ở màn chính mọi ô đều là dấu +.</span></div>
   <div class="arrow">→</div>
-  <div class="step"><div class="tag">Chọn app</div><b>Chọn app cho các ô còn lại</b><span>Mỗi ô trống hiện bảng app CarPlay. Tỉ lệ thì kéo thanh chia.</span></div>
+  <div class="step"><div class="tag">Chọn app</div><b>Chọn app cho các ô còn lại</b><span>Mỗi ô trống hiện bảng app CarPlay. Tỉ lệ thì kéo tay nắm trên vạch chia.</span></div>
 </div>
 
 <h2><span class="n">3</span>Trong lúc chia màn</h2>
 <div class="grid2">
-  <div class="item"><div class="ic2" data-ic="grid"></div><div><b>1 · Chọn app</b><span>Bảng chọn app ngay trong ô. Huỷ ở ô trống thì bớt ô đó.</span></div></div>
-  <div class="item"><div class="ic2" data-ic="expand"></div><div><b>2 · Phóng to / Thu nhỏ</b><span>Ô đó chiếm hết màn; bấm lại (icon xanh) để về bố cục đã chọn.</span></div></div>
-  <div class="item"><div class="ic2" data-ic="solo"></div><div><b>3 · Chỉ mở app này</b><span>Thoát split, app đó mở toàn màn như lúc đầu.</span></div></div>
-  <div class="item"><div class="ic2" data-ic="close"></div><div><b>4 · Tắt app (sau vạch ngăn)</b><span>Bớt ô đó: 3 còn 2, 2 còn 1 là app còn lại về toàn màn. Đặt cuối, tách riêng để khó bấm nhầm.</span></div></div>
-  <div class="item"><div class="ic2" data-ic="swap"></div><div><b>Thanh chia: kéo / chạm nút</b><span>Nút viên thuốc 3 chấm trên vạch: kéo đổi tỉ lệ 2 ô hai bên. Chạm núm: Đổi chỗ, Tỉ lệ (2 ô 50→70→30, 3 ô đều ↔ 25/50/25), Đóng split.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="float"></div><div><b>Hình trong hình</b><span>Nút trên thanh ••• của mỗi ô: đưa app của ô ra cửa sổ nổi (ô đó được bớt). Đã có cửa sổ nổi thì bấm ở ô khác là đổi chỗ 2 app. Nút "đưa về ô" trên thanh ••• của cửa sổ nổi trả app về đúng ô, bố cục và tỉ lệ cũ. Kéo ••• của cửa sổ nổi để di chuyển, thả ra tự hít sát cạnh. Không dùng được với YouTube / TikTok.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="layouts"></div><div><b>2 + 1 lớn</b><span>Bản lật của 1 lớn + 2: ô lớn bên phải (màn dọc: ở dưới), gần tài xế khi dock nằm bên phải.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="dots"></div><div><b>Thanh ••• trên mỗi ô</b><span>Chạm: hiện thanh nút bên dưới. Giữ và kéo: thẻ icon app chạy theo tay, ô bên dưới viền xanh, thả là 2 ô đổi chỗ.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="replace"></div><div><b>1 · Đổi app</b><span>Bảng chọn app ngay trong ô. Huỷ ở ô trống thì bớt ô đó.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="fullscreen"></div><div><b>2 · Toàn màn hình</b><span>Thoát chia, app đó mở toàn màn như lúc đầu.</span></div></div>
+  <div class="item"><div class="ic2 red" data-ic="close"></div><div><b>3 · Tắt app (đỏ, sau vạch ngăn)</b><span>Bớt ô đó: 3 còn 2, 2 còn 1 là app còn lại về toàn màn.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="swap"></div><div><b>YouTube / TikTok (CarBridge)</b><span>CarBridge chỉ chạy được 1 app iPhone. Mở app CarBridge thứ hai thì nó thay app cũ ngay trong ô đó, app cũ bị tắt hẳn. App cũ còn đang mở dở thì phải đợi nó mở xong.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="dots"></div><div><b>Đang mở app</b><span>Ô hiện icon app phóng ra, nhịp nhẹ và vòng xoay cho tới khi app vẽ xong, rồi icon phóng to mờ dần. App mở chậm (2–6 giây) vẫn có chuyển động, không đứng hình.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="split"></div><div><b>Chạm tay nắm: tỉ lệ mặc định</b><span>Hiện thanh tỉ lệ ngay trên tay nắm. 2 ô: 1/3 · 1/2 · 2/3. 3 ô: đều · giữa to · trái to · phải to. 1 lớn + 2: ô lớn 1/3 · 1/2 · 2/3. Tỉ lệ đang dùng tô xanh; bấm là các ô co giãn ngay.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="handle"></div><div><b>Vạch chia: kéo / chạm 2 lần</b><span>Khe đen + tay nắm trắng. Kéo: các ô hiện thẻ icon, thả tay tự hít 1/3 · 1/2 · 2/3. Kéo sát mép (ô còn dưới 12%) là đóng ô đó. Chạm 2 lần: đổi chỗ 2 ô hai bên.</span></div></div>
   <div class="item"><div class="ic2" data-ic="home"></div><div><b>Dock CarPlay</b><span>Chạm app trên dock thì app vào ô vừa chạm (viền xanh). Nút Home tắt split.</span></div></div>
 </div>
 
 <div class="grid2" style="margin-top:12px">
   <div class="item"><div class="ic2" data-ic="split"></div><div><b>Bảng của nút CarDuo</b><span>3 mục: <b>Mặc định</b> (2 ô / 3 ô / 1 lớn + 2), <b>Gần đây</b> (tối đa 3 cách chia vừa dùng, mỗi ô hiện icon app; bấm là mở lại đúng như vậy), <b>Yêu thích</b> (bố cục yêu thích 1–3 trong Cài đặt: chọn bố cục rồi chọn app cho từng ô). "Gần đây" luôn hiện, trống thì có dòng gợi ý.</span></div></div>
   <div class="item"><div class="ic2" data-ic="swap"></div><div><b>Đổi bố cục khi đang chia</b><span>Bấm nút CarDuo trên dock → bảng "Đổi bố cục" (bố cục đang dùng được tô sáng). App giữ thứ tự ô: thêm ô thì ô mới hiện bảng chọn; bớt ô thì app ở ô cuối về nền; 3 ô ↔ 1 lớn + 2 giữ nguyên cả 3 app.</span></div></div>
-  <div class="item"><div class="ic2" data-ic="grid"></div><div><b>1 lớn + 2 nhỏ</b><span>Ô 1 lớn bên trái (chia trên/dưới: ở trên), ô 2 và 3 xếp chồng bên phải. Chỉ 1 nút (ô vuông 4 chấm) ở chỗ giao 2 vạch: kéo ngang đổi bề rộng ô lớn, kéo dọc đổi chiều cao 2 ô nhỏ, cùng lúc (25–75%). Trên xe 595×240pt, ô nhỏ chỉ khoảng 295×118pt.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="grid"></div><div><b>1 lớn + 2 nhỏ</b><span>Ô 1 lớn bên trái (chia trên/dưới: ở trên), ô 2 và 3 xếp chồng bên phải. Chỉ 1 tay nắm (chấm tròn trắng) ở chỗ giao 2 vạch: kéo ngang đổi bề rộng ô lớn, kéo dọc đổi chiều cao 2 ô nhỏ, cùng lúc. Trên xe 595×240pt, ô nhỏ chỉ khoảng 295×118pt.</span></div></div>
 </div>
-<p class="note">Bố cục tiết kiệm chỗ: các ô sát dock và sát mép màn như app toàn màn, khe giữa 2 ô chỉ 4pt (vùng chạm để kéo vẫn rộng), chỉ bo góc 8pt ở chỗ 2 ô giáp nhau. Ô hẹp thì thanh nút tự thu nhỏ cho vừa.</p>
+<p class="note">Bố cục tiết kiệm chỗ: các ô sát dock và sát mép màn như app toàn màn, khe đen giữa 2 ô 6pt kiểu HyperOS (vùng chạm để kéo vẫn rộng), bo góc 12pt ở chỗ 2 ô giáp nhau và 2 góc trái của ô sát dock. Ô hẹp thì thanh nút tự thu nhỏ cho vừa.</p>
 
 <h2><span class="n">4</span>Các cách mở khác</h2>
 <div class="grid2">
-  <div class="item"><div class="ic2" data-ic="split"></div><div><b>Nút CarDuo trên dock</b><span>Ngay trên nút Home của dock CarPlay, hiện cả ở màn chính lẫn khi đang mở app. Đang mở app thì app đó vào ô 1; ở màn chính thì mở lại cặp app lần trước.</span></div></div>
+  <div class="item"><div class="ic2" data-ic="split"></div><div><b>Nút CarDuo trên dock</b><span>Ngay trên nút Home của dock CarPlay, hiện cả ở màn chính lẫn khi đang mở app. Đang mở app thì app đó vào ô 1; ở màn chính thì mọi ô trống, mỗi ô hiện bảng chọn app.</span></div></div>
   <div class="item"><div class="ic2" data-ic="grid"></div><div><b>Giữ icon 0,7 giây</b><span>Bảng bố cục hiện ra, app đó vào ô 1.</span></div></div>
   <div class="item"><div class="ic2" data-ic="expand"></div><div><b>Tự mở khi cắm xe</b><span>Bật trong Cài đặt: vài giây sau khi màn xe hiện thì mở lại cặp lần trước.</span></div></div>
   <div class="item"><div class="ic2" data-ic="swap"></div><div><b>Siri / Shortcuts</b><span><code>carduo://open?left=…&amp;right=…</code>, <code>carduo://fav?n=1</code>, <code>carduo://close</code></span></div></div>
@@ -235,7 +291,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: cen
 <h2><span class="n">5</span>Phía sau</h2>
 <div class="tablewrap"><table>
   <tr><th>Process</th><th>Việc</th></tr>
-  <tr><td><b>CarPlay (DashBoard)</b></td><td>Toàn bộ split: nút CarDuo trên dock, bảng bố cục, các ô, thanh chia, menu, nút màn chính, giữ icon, tự mở khi cắm xe. Mở app như khi chạm icon rồi đưa view của app vào ô, báo kích thước ô để app tự bố cục lại.</td></tr>
+  <tr><td><b>CarPlay (DashBoard)</b></td><td>Toàn bộ split: nút CarDuo trên dock, bảng bố cục, các ô, vạch chia, thanh •••, giữ icon, tự mở khi cắm xe. Mở app như khi chạm icon rồi đưa view của app vào ô, báo kích thước ô để app tự bố cục lại.</td></tr>
   <tr><td><b>SpringBoard</b></td><td>Nhận URL <code>carduo://</code> chuyển sang CarPlay, đặt khung cửa sổ CarBridge đúng vào ô, ghi hộ log.</td></tr>
   <tr><td><b>App CarDuo + Cài đặt</b></td><td>App nhỏ nhận URL; trang Cài đặt lưu cấu hình vào <code>com.anlai97.carduo</code>.</td></tr>
 </table></div>
@@ -247,57 +303,63 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: cen
 <script>
 (() => {
 const ICONS = {
-  solo: '<rect x="3" y="4.5" width="18" height="15" rx="3.2"/><path d="M3 9h18"/>',
-  expand: '<path d="M4 9V6.2C4 5 5 4 6.2 4H9"/><path d="M15 4h2.8C19 4 20 5 20 6.2V9"/><path d="M20 15v2.8c0 1.2-1 2.2-2.2 2.2H15"/><path d="M9 20H6.2C5 20 4 19 4 17.8V15"/>',
-  collapse: '<path d="M9 4v3c0 1.1-.9 2-2 2H4"/><path d="M15 4v3c0 1.1.9 2 2 2h3"/><path d="M20 15h-3c-1.1 0-2 .9-2 2v3"/><path d="M4 15h3c1.1 0 2 .9 2 2v3"/>',
-  close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
-  grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
-  swap: '<path d="M4 8.5h15M15.5 5L19 8.5 15.5 12"/><path d="M20 15.5H5M8.5 12L5 15.5 8.5 19"/>',
+  fullscreen: '<path d="M13.5 4H20v6.5M20 4l-6 6"/><path d="M10.5 20H4v-6.5M4 20l6-6"/>',
+  replace: '<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2.4"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2.4"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="2.4"/><path d="M16.75 13.5v6.5M13.5 16.75H20"/>',
+  close: '<path d="M7 7l10 10M17 7L7 17"/>',
+  swap: '<path d="M4.5 8.5H19M15.5 5L19 8.5 15.5 12"/><path d="M19.5 15.5H5M8.5 12L5 15.5 8.5 19"/>',
+  exit: '<path d="M10 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20H10"/><path d="M10 12h10M16.5 8.5L20 12l-3.5 3.5"/>',
+  dock: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M12 4.5v15"/><rect x="5.6" y="6.6" width="4.6" height="10.8" rx="1.4" fill="#fff" stroke="none"/>',
+  float: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><rect x="11.5" y="11" width="6.5" height="6" rx="1.6" fill="#fff" stroke="none"/>',
+  layouts: '<rect x="3.5" y="5" width="9" height="14" rx="2.6"/><rect x="14" y="5" width="6.5" height="14" rx="2.6"/>',
+  recent: '<circle cx="12" cy="12" r="8.25"/><path d="M12 7.5V12l3 2"/>',
+  favorite: '<path d="M12 4l2.3 5.1 5.6.6-4.2 3.8 1.2 5.5L12 16.2 7.1 19l1.2-5.5-4.2-3.8 5.6-.6z"/>',
   split: '<rect x="3" y="4.5" width="10" height="15" rx="2.6"/><rect x="15" y="4.5" width="6" height="15" rx="2.6"/>',
-  resize: '<path d="M4 12h16M7.5 8.5L4 12l3.5 3.5M16.5 8.5L20 12l-3.5 3.5"/>',
-  move: '<path d="M12 3.5v17M3.5 12h17M9.5 6L12 3.5 14.5 6M9.5 18l2.5 2.5 2.5-2.5M6 9.5L3.5 12 6 14.5M18 9.5l2.5 2.5-2.5 2.5"/>',
+  dots: '<circle cx="7" cy="12" r="1.3" fill="#fff"/><circle cx="12" cy="12" r="1.3" fill="#fff"/><circle cx="17" cy="12" r="1.3" fill="#fff"/>',
+  handle: '<path d="M12 4v16"/><path d="M7 9l-3 3 3 3M17 9l3 3-3 3"/>',
   home: '<rect x="4.5" y="4.5" width="4" height="4" rx="1.2"/><rect x="10" y="4.5" width="4" height="4" rx="1.2"/><rect x="15.5" y="4.5" width="4" height="4" rx="1.2"/><rect x="4.5" y="15.5" width="4" height="4" rx="1.2"/><rect x="10" y="15.5" width="4" height="4" rx="1.2"/><rect x="15.5" y="15.5" width="4" height="4" rx="1.2"/>',
+};
+// Icon 1 ti le: cac o to dac dung ti le (giong SCPCRatioGlyph)
+const ratioIcon = (fr, main, rot, s = 22, mirror = false) => {
+  const x0 = 3, y0 = 5, W = 18, H = 14, gap = 1.6, B = [];
+  if (main) {
+    const mw = (W - gap) * fr[0], th = (H - gap) * fr[1], sx = mirror ? x0 : x0 + mw + gap, mx = mirror ? x0 + W - mw : x0;
+    B.push([mx, y0, mw, H], [sx, y0, W - mw - gap, th], [sx, y0 + th + gap, W - mw - gap, H - th - gap]);
+  } else {
+    const len = W - gap * (fr.length - 1); let x = x0;
+    fr.forEach((f, i) => { const w = i === fr.length - 1 ? x0 + W - x : len * f; B.push([x, y0, w, H]); x += w + gap; });
+  }
+  const h = B.map(b => `<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" rx="${Math.min(1.8, Math.min(b[2], b[3]) / 2)}"/>`).join('');
+  return `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24"${rot ? ' style="transform:rotate(90deg)"' : ''}>${h}</svg>`;
 };
 const rotStyle = rot => rot ? ' style="transform:rotate(90deg)"' : '';
 const icon = (k, s = 20, rot = false) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24"${rotStyle(rot)}>${ICONS[k]}</svg>`;
-const boxes = (fr, s = 20, rot = false) => {
-  let x = 3, h = '';
-  const total = 18, gap = 1.6, len = total - gap * (fr.length - 1);
-  fr.forEach((f, i) => {
-    const w = i === fr.length - 1 ? 3 + total - x : len * f;
-    h += `<rect x="${x}" y="5" width="${w}" height="14" rx="${fr.length > 2 ? 1.8 : 2.2}"/>`;
-    x += w + gap;
-  });
-  return `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24"${rotStyle(rot)}>${h}</svg>`;
-};
 // Hinh bo cuc: 2 / 3 o deu, 13 = 1 lon + 2 nho. O xanh = cho cua app dang mo
-const layoutPic = (id, vert) => {
-  const W = 56, H = 32, gap = 3, B = [];
-  if (id === 13) {
-    if (vert) { const mh = (H - gap) / 2, bw = (W - gap) / 2; B.push([0, 0, W, mh], [0, mh + gap, bw, H - mh - gap], [bw + gap, mh + gap, W - bw - gap, H - mh - gap]); }
-    else { const mw = (W - gap) / 2, th = (H - gap) / 2; B.push([0, 0, mw, H], [mw + gap, 0, W - mw - gap, th], [mw + gap, th + gap, W - mw - gap, H - th - gap]); }
-  } else {
-    const len = (vert ? H : W) - gap * (id - 1), w = len / id;
-    for (let i = 0; i < id; i++) { const q = i * (w + gap); B.push(vert ? [0, q, W, w] : [q, 0, w, H]); }
-  }
-  const h = B.map((b, i) => `<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" rx="4" fill="${i === 0 ? '#317af7' : 'rgba(255,255,255,.85)'}"/>`).join('');
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${h}</svg>`;
-};
-const LAYOUT_NAME = { 2: '2 ô', 3: '3 ô', 13: '1 lớn + 2' };
+const LAYOUT_NAME = { 2: '2 ô', 3: '3 ô', 13: '1 lớn + 2', 31: '2 + 1 lớn' };
+const FL = 9;   // so o gia cua cua so noi (giong SCPC_FLOAT_SLOT)
+const kindOf = id => id === 13 ? 'main' : id === 31 ? 'mainR' : 'cols';
+const panesOf = id => (id === 13 || id === 31) ? 3 : id;
+const getPane = i => i === FL ? S.float : S.panes[i];
 // Hinh "gan day / yeu thich": khung bo cuc, moi o la icon app trong o do
 const setupPic = (id, apps, vert) => {
-  const W = 56, H = 28, gap = 3, B = [];
-  if (id === 13) {
+  const W = 56, H = 30, gap = 2.5, B = [];
+  if (id === 13 || id === 31) {
     if (vert) { const mh = (H - gap) / 2, bw = (W - gap) / 2; B.push([0, 0, W, mh], [0, mh + gap, bw, H - mh - gap], [bw + gap, mh + gap, W - bw - gap, H - mh - gap]); }
     else { const mw = (W - gap) / 2, th = (H - gap) / 2; B.push([0, 0, mw, H], [mw + gap, 0, W - mw - gap, th], [mw + gap, th + gap, W - mw - gap, H - th - gap]); }
   } else {
     const len = (vert ? H : W) - gap * (id - 1), w = len / id;
     for (let i = 0; i < id; i++) { const q = i * (w + gap); B.push(vert ? [0, q, W, w] : [q, 0, w, H]); }
   }
+  if (id === 31) B.forEach(b => { if (vert) b[1] = H - b[1] - b[3]; else b[0] = W - b[0] - b[2]; });
   const h = B.map((b, i) => {
     const a = apps[i] ? app(apps[i]) : null, side = Math.min(b[2], b[3]) - 4;
+    const back = '';
     const cx = b[0] + b[2] / 2, cy = b[1] + b[3] / 2;
-    return `<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" rx="4" fill="rgba(255,255,255,.14)"/>` +
+    if (!a) {   // o trong: vien mo + dau cong (cho chon app)
+      const arm = Math.min(4, Math.floor(Math.min(b[2], b[3]) / 4));
+      return back + `<rect x="${b[0] + .6}" y="${b[1] + .6}" width="${b[2] - 1.2}" height="${b[3] - 1.2}" rx="4.4" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>` +
+        `<path d="M${cx - arm} ${cy}h${arm * 2}M${cx} ${cy - arm}v${arm * 2}" stroke="rgba(255,255,255,.8)" stroke-width="1.4" stroke-linecap="round"/>`;
+    }
+    return back + `<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" rx="5" fill="rgba(255,255,255,.14)"/>` +
       (a ? `<clipPath id="c${++gid}"><rect x="${cx - side / 2}" y="${cy - side / 2}" width="${side}" height="${side}" rx="${side * .23}"/></clipPath>` +
            `<g clip-path="url(#c${gid})"><svg x="${cx - side / 2}" y="${cy - side / 2}" width="${side}" height="${side}" viewBox="0 0 60 60">${iconBody(a.id)}</svg></g>` : '');
   }).join('');
@@ -308,7 +370,7 @@ const FAVS = [{ name: 'Đi làm', id: 2, apps: ['maps', 'spotify'] }, { name: '�
 let recents = [];
 try { const r = JSON.parse(localStorage.getItem('carduo.recents') || '[]'); if (Array.isArray(r)) recents = r.filter(x => x && x.apps && x.apps.every(a => app(a))).slice(0, 3); } catch (e) {}
 function addRecent() {
-  if (S.mode !== 'split' || S.panes.some(p => !p.app || p.picker)) return;
+  if (S.mode !== 'split' || S.panes.length < 2 || S.panes.some(p => !p.app || p.picker || p.loading)) return;
   const e = { id: layoutId(), apps: S.panes.map(p => p.app) }, key = JSON.stringify(e);
   if (recents.length && JSON.stringify(recents[0]) === key) return;
   recents = [e, ...recents.filter(r => JSON.stringify(r) !== key)].slice(0, 3);
@@ -324,6 +386,7 @@ const APPS = [
   { id: 'podcasts', name: 'Podcasts', color: '#9b59d0', g: '◉' },
   { id: 'phone', name: 'Điện thoại', color: '#2ecc71', g: '✆' },
   { id: 'youtube', name: 'YouTube', color: '#ff0000', g: '▷' },
+  { id: 'tiktok', name: 'TikTok', color: '#111111', g: '♪' },
 ];
 const app = id => APPS.find(a => a.id === id);
 // Icon app ve lai bang SVG (minh hoa gan giong icon that, khong phai logo goc). Luoi 60x60.
@@ -339,6 +402,10 @@ function iconBody(id) {
       '<g fill="none" stroke="#121212" stroke-linecap="round"><path d="M19 24 Q31 19.5 42 26" stroke-width="3.6"/><path d="M20.5 31 Q30.5 27.5 40 33" stroke-width="3"/><path d="M22 37.5 Q30 35 37.5 39" stroke-width="2.5"/></g>';
     case 'ytm': return '<rect width="60" height="60" fill="#0f0f0f"/><circle cx="30" cy="30" r="18" fill="#ff0033"/>' +
       '<circle cx="30" cy="30" r="10.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M27 25 L35 30 L27 35 Z" fill="#fff"/>';
+    case 'tiktok': return '<rect width="60" height="60" fill="#111"/>' +
+      '<g fill="none" stroke-linecap="round" stroke-width="5"><path d="M33 14v22a7 7 0 1 1-7-7" stroke="#25f4ee" transform="translate(-1.5 -1)"/>' +
+      '<path d="M33 14v22a7 7 0 1 1-7-7" stroke="#fe2c55" transform="translate(1.5 1)"/><path d="M33 14v22a7 7 0 1 1-7-7" stroke="#fff"/>' +
+      '<path d="M33 14c1 5 4 8 9 8.5" stroke="#fff"/></g>';
     case 'youtube': return '<rect width="60" height="60" fill="#fff"/><rect x="10" y="17" width="40" height="27" rx="8" fill="#ff0000"/><path d="M26 24 L37 30.5 L26 37 Z" fill="#fff"/>';
     case 'waze': return grad('#5fd8ff', '#1fb8ef') +
       '<path d="M18 38 C11 36 10 28 13 22 C17 14 28 11 37 13 C46 15 51 23 48 31 C46 37 40 40 33 40 L28 40 C26 44 22 44 21 41 C20 40 19 39 18 38 Z" fill="#fff" stroke="#123" stroke-width="2"/>' +
@@ -357,7 +424,7 @@ function iconBody(id) {
 }
 const appIcon = id => `<svg class="appicon" viewBox="0 0 60 60" preserveAspectRatio="xMidYMid slice">${iconBody(id)}</svg>`;
 const DOCK = ['maps', 'spotify', 'phone'];
-const GAP = 4, INSET = 0, RADIUS = 8, BAR_HIDE = 3000, PANEL_HIDE = 8000, MENU_HIDE = 3500;
+const GAP = 6, INSET = 0, RADIUS = 12, BAR_HIDE = 3500, PANEL_HIDE = 8000, DISMISS = .12, MIN_FRAC = .2;
 const CAR_W = 595;   // vung app tren xe (point), de doi px -> point
 
 const area = document.getElementById('area'), dockEl = document.getElementById('dock');
@@ -368,7 +435,7 @@ let lastPair = ['maps', 'spotify'];
 
 function reset() {
   clearTimers();
-  S = { mode: 'home', full: null, panes: [], fr: [], kind: 'cols', fs: -1, focus: 0, bar: -1, menu: -1, panel: null };
+  S = { mode: 'home', full: null, panes: [], fr: [], kind: 'cols', focus: 0, bar: -1, panel: null, float: null };
   render();
 }
 function clearTimers() { Object.values(timers).forEach(clearTimeout); timers = {}; }
@@ -383,7 +450,6 @@ const pt = px => Math.round(px * CAR_W / Math.max(1, area.clientWidth));
 function rects() {
   const W = area.clientWidth, H = area.clientHeight, n = S.panes.length;
   const a = { x: INSET, y: INSET, w: W - INSET * 2, h: H - INSET * 2 };
-  if (S.fs >= 0) return S.panes.map((_, i) => i === S.fs ? { x: 0, y: 0, w: W, h: H } : { x: a.x, y: a.y, w: 0, h: 0 });
   if (n === 1) return [a];
   if (isMain()) return mainRects(a);
   const v = vertical(), len = (v ? a.h : a.w) - GAP * (n - 1);
@@ -396,9 +462,16 @@ function rects() {
 }
 
 // 1 lon + 2 nho (giong mainStackFrameForSlot): fr = [ti le o lon, ti le o nho thu nhat]
-const isMain = () => S.kind === 'main' && S.panes.length === 3;
-const layoutId = () => isMain() ? 13 : S.panes.length;
+const isMain = () => (S.kind === 'main' || S.kind === 'mainR') && S.panes.length === 3;
+const isMainR = () => isMain() && S.kind === 'mainR';   // 2 + 1 lon: o lon ben phai (man doc: duoi)
+const layoutId = () => isMainR() ? 31 : isMain() ? 13 : S.panes.length;
 function mainRects(a) {
+  const R = leftMainRects(a);
+  if (!isMainR()) return R;
+  const v = vertical();
+  return R.map(r => v ? { ...r, y: a.y + a.y + a.h - (r.y + r.h) } : { ...r, x: a.x + a.x + a.w - (r.x + r.w) });
+}
+function leftMainRects(a) {
   const v = vertical(), mainLen = Math.floor(((v ? a.h : a.w) - GAP) * S.fr[0]);
   const main = v ? { x: a.x, y: a.y, w: a.w, h: mainLen } : { x: a.x, y: a.y, w: mainLen, h: a.h };
   const rest = v ? { x: a.x, y: a.y + mainLen + GAP, w: a.w, h: a.h - mainLen - GAP } : { x: a.x + mainLen + GAP, y: a.y, w: a.w - mainLen - GAP, h: a.h };
@@ -410,14 +483,20 @@ function mainRects(a) {
 const divHorizontal = i => (isMain() && i === 1) ? !vertical() : vertical();
 function divRect(i, R) {
   if (isMain() && i === 1) { const t = R[1]; return divHorizontal(1) ? { x: t.x, y: t.y + t.h, w: t.w, h: GAP } : { x: t.x + t.w, y: t.y, w: GAP, h: t.h }; }
-  const l = R[i];
+  let l = R[i];
+  if (isMain() && i === 0) {   // vach 0 nam sau khoi dung truoc (o lon hoac cum 2 o nho)
+    const rest = { x: Math.min(R[1].x, R[2].x), y: Math.min(R[1].y, R[2].y) };
+    rest.w = Math.max(R[1].x + R[1].w, R[2].x + R[2].w) - rest.x; rest.h = Math.max(R[1].y + R[1].h, R[2].y + R[2].h) - rest.y;
+    if (vertical() ? rest.y < l.y : rest.x < l.x) l = rest;
+  }
   return vertical() ? { x: 0, y: l.y + l.h, w: area.clientWidth, h: GAP } : { x: l.x + l.w, y: 0, w: GAP, h: area.clientHeight };
 }
-function freshFractions() { const n = S.panes.length; return S.kind === 'main' && n === 3 ? [.5, .5] : S.panes.map(() => 1 / n); }
+function freshFractions() { const n = S.panes.length; return S.kind !== 'cols' && n === 3 ? [.5, .5] : S.panes.map(() => 1 / n); }
 
 // ---------- ve ----------
 function render() {
   area.innerHTML = '';
+  area.classList.toggle('splitting', S.mode === 'split');   // khe giua cac o la nen den nhu HyperOS
   renderDock();
   if (S.mode === 'home') renderHome();
   if (S.mode === 'full') renderFull();
@@ -444,44 +523,57 @@ function renderFull() {
   area.querySelector('.size').textContent = `${pt(area.clientWidth)}×${pt(area.clientHeight)}`;
 }
 function renderSplit() {
-  S.panes.forEach((p, i) => {
+  const paneEl = (p, i) => {
     const el = document.createElement('div');
-    el.className = 'pane nofx' + (i === S.focus && S.panes.length > 1 && S.fs < 0 ? ' focused' : '');
+    el.className = 'pane nofx' + (i === FL ? ' floatwin' : (i === S.focus && S.panes.length > 1 ? ' focused' : ''));
     el.dataset.pane = i;
-    el.innerHTML = (p.app ? appView(p.app) : '') + (p.app ? '<div class="handle" data-handle="1" title="Chạm để hiện nút"></div>' : '');
+    el.innerHTML = (p.app ? appView(p.app) : '') +
+      (p.loading ? `<div class="loader"><div class="ico">${appIcon(p.app)}</div>${app(p.app).name}<div class="spin"></div></div>` : '') +
+      (p.app && !p.picker ? '<div class="handle" data-handle="1" title="Chạm: hiện nút · Kéo: đổi chỗ"><i></i><i></i><i></i></div>' : '');
     if (p.picker) el.appendChild(pickerEl(i));
     if (S.bar === i && p.app && !p.picker) {
       const bar = document.createElement('div'); bar.className = 'pill';
-      const full = S.fs === i;
-      // Hay dung va an toan truoc, thoat split, vach ngan, cuoi cung la Tat app
-      bar.innerHTML = `<span data-act="grid" title="Chọn app">${icon('grid')}</span>` +
-        `<span data-act="expand" class="${full ? 'on' : ''}" title="${full ? 'Thu nhỏ' : 'Phóng to'}">${icon(full ? 'collapse' : 'expand')}</span>` +
-        `<span data-act="solo" title="Chỉ mở app này">${icon('solo')}</span><i class="sep"></i>` +
-        `<span data-act="close" title="Tắt app">${icon('close')}</span>`;
+      // Kieu HyperOS: Doi app, Dua ra cua so noi, Toan man hinh, vach ngan, Tat app (do)
+      const canPop = canPopOut(i);
+      bar.innerHTML = `<span data-act="replace" title="Đổi app">${icon('replace')}</span>` +
+        (i === FL ? `<span data-act="dock" class="${S.panes.length < 3 ? '' : 'off'}" title="Đưa về ô">${icon('dock')}</span>`
+                  : `<span data-act="pop" class="${canPop ? '' : 'off'}" title="Hình trong hình">${icon('float')}</span>`) +
+        `<span data-act="fullscreen" title="Toàn màn hình">${icon('fullscreen')}</span><i class="sep"></i>` +
+        `<span data-act="close" class="danger" title="Tắt app">${icon('close')}</span>`;
       el.appendChild(bar);
     }
     area.appendChild(el);
-  });
+  };
+  S.panes.forEach(paneEl);
   for (let i = 0; i + 1 < S.panes.length; i++) {
     const hz = divHorizontal(i);
     const d = document.createElement('div'); d.className = 'divider' + (hz ? ' v' : ''); d.dataset.div = i;
-    d.innerHTML = (isMain() && i === 1) ? '' : isMain() ? '<div class="knob grid"><i></i><i></i><i></i><i></i></div>' : '<div class="knob"><i></i><i></i><i></i></div>';
+    d.title = 'Kéo: đổi tỉ lệ (sát mép = đóng ô) · Chạm 2 lần: đổi chỗ';
+    d.innerHTML = (isMain() && i === 1) ? '' : isMain() ? '<div class="knob dot"></div>' : '<div class="knob"></div>';
     area.appendChild(d);
   }
-  if (S.menu >= 0) renderMenu();
+  if (S.float) paneEl(S.float, FL);   // cua so noi nam tren cac o va vach chia
   layout();
   requestAnimationFrame(() => area.querySelectorAll('.pane').forEach(el => el.classList.remove('nofx')));
 }
 function pickerEl(i) {
   const el = document.createElement('div'); el.className = 'picker';
-  const inUse = S.panes.map(p => p.app);
-  el.innerHTML = `<div class="ptitle">Chọn app CarPlay · ô ${i + 1}</div><div class="pcancel" data-pcancel="1" title="Huỷ">${icon('close', 14)}</div>
-    <div class="pgrid">${APPS.map(a => `<div class="pcell ${inUse.includes(a.id) ? 'inuse' : ''}" data-pick="${a.id}"><div class="ico">${appIcon(a.id)}</div>${a.name}</div>`).join('')}</div>`;
+  const inUse = S.panes.map(p => p.app).concat(S.float ? [S.float.app] : []);
+  el.innerHTML = `<div class="ptitle">${i === FL ? 'Cửa sổ nổi' : 'Chọn app CarPlay · ô ' + (i + 1)}</div><div class="pcancel" data-pcancel="1" title="Huỷ">${icon('close', 14)}</div>
+    <div class="pgrid">${APPS.map(a => `<div class="pcell ${inUse.includes(a.id) || (i === FL && BRIDGED.includes(a.id)) ? 'inuse' : ''}" data-pick="${a.id}"><div class="ico">${appIcon(a.id)}</div>${a.name}</div>`).join('')}</div>`;
   return el;
 }
 function layout() {
-  const R = rects(), showDiv = S.fs < 0 && S.panes.length >= 2;
+  const R = rects(), showDiv = S.panes.length >= 2;
   area.querySelectorAll('.pane').forEach(el => {
+    if (+el.dataset.pane === FL) {   // cua so noi: khung rieng, bo du 4 goc
+      const f = S.float; if (!f) return;
+      Object.assign(el.style, { left: f.x + 'px', top: f.y + 'px', width: f.w + 'px', height: f.h + 'px', opacity: 1 });
+      const sz = el.querySelector('.size'); if (sz) sz.textContent = `${pt(f.w)}×${pt(f.h)}`;
+      const bar = el.querySelector('.pill');
+      if (bar) { const k = Math.min(1, (f.w - 10) / bar.offsetWidth); bar.style.transform = `translateX(-50%) scale(${k > 0 ? k : 1})`; }
+      return;
+    }
     const r = R[+el.dataset.pane];
     Object.assign(el.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px',
       opacity: r.w > 1 ? 1 : 0, pointerEvents: r.w > 1 ? '' : 'none', borderRadius: innerCorners(+el.dataset.pane) });
@@ -503,92 +595,136 @@ function layout() {
       k.style.left = kx + 'px'; k.style.top = ky + 'px';
     }
   });
-  const m = area.querySelector('.menu'); if (m) placeMenu(m);
 }
 // Chi bo goc giap o ben canh (giong innerCornersForSlot), goc sat mep man de vuong
+// Goc bo tron: goc giap o ben canh + 2 goc ben trai cua o sat mep trai (canh dock)
 function innerCorners(i) {
+  const c = neighbourCorners(i);
+  if (c === '0') return c;
+  const R = rects()[i], k = c.split(' ');
+  if (R && R.x <= INSET + .5) { k[0] = RADIUS + 'px'; k[3] = RADIUS + 'px'; }
+  return k.join(' ');
+}
+function neighbourCorners(i) {
   const n = S.panes.length;
-  if (S.fs >= 0 || n < 2) return '0';
+  if (n < 2) return '0';
   const r = RADIUS + 'px', z = '0', v = vertical(), before = i > 0, after = i < n - 1;
   // thu tu CSS: tren-trai, tren-phai, duoi-phai, duoi-trai
   if (isMain()) {
     const C = { top: [1, 1, 0, 0], bottom: [0, 0, 1, 1], left: [1, 0, 0, 1], right: [0, 1, 1, 0] };
     const or = (...k) => [0, 1, 2, 3].map(j => k.some(x => C[x][j]) ? r : z).join(' ');
-    if (i === 0) return or(v ? 'bottom' : 'right');
-    return i === 1 ? or(v ? 'top' : 'left', v ? 'right' : 'bottom') : or(v ? 'top' : 'left', v ? 'left' : 'top');
+    const m = (i === 0 ? or(v ? 'bottom' : 'right')
+      : i === 1 ? or(v ? 'top' : 'left', v ? 'right' : 'bottom') : or(v ? 'top' : 'left', v ? 'left' : 'top')).split(' ');
+    if (!isMainR()) return m.join(' ');
+    return (v ? [m[3], m[2], m[1], m[0]] : [m[1], m[0], m[3], m[2]]).join(' ');   // lat goc theo chieu chia
   }
   return v ? [before ? r : z, before ? r : z, after ? r : z, after ? r : z].join(' ')
            : [before ? r : z, after ? r : z, after ? r : z, before ? r : z].join(' ');
 }
-function nextFractions() {
-  const n = S.panes.length;
-  if (isMain()) { const r = S.fr[0]; return [Math.abs(r - .5) < .05 ? .6 : (r > .55 ? .4 : .5), S.fr[1]]; }
-  if (n === 2) { const r = S.fr[0]; const nx = Math.abs(r - .5) < .05 ? .7 : (r > .6 ? .3 : .5); return [nx, 1 - nx]; }
-  const eq = S.fr.every(f => Math.abs(f - 1 / n) < .03);
-  return n === 3 && eq ? [.25, .5, .25] : S.panes.map(() => 1 / n);
+// Keo kieu HyperOS: moi o phu the toi + icon app (giong addCoverToPane trong SCPCarSplit.mm)
+function addCovers() {
+  area.querySelectorAll('.pane').forEach(el => {
+    const p = S.panes[+el.dataset.pane];
+    if (!p || !p.app || p.picker || el.querySelector('.cover')) return;
+    const c = document.createElement('div'); c.className = 'cover'; c.innerHTML = `<div class="ico">${appIcon(p.app)}</div>`;
+    el.appendChild(c);
+  });
 }
-function renderMenu() {
-  const v = divHorizontal(S.menu);
-  const m = document.createElement('div'); m.className = 'pill menu' + (v ? '' : ' vert');
-  const nf = nextFractions(), pic = isMain() ? [nf[0], 1 - nf[0]] : nf;
-  m.innerHTML = `<span data-mact="swap" title="Đổi chỗ">${icon('swap', 20, v)}</span><span data-mact="ratio" title="Tỉ lệ">${boxes(pic, 20, vertical())}</span>` +
-    `<span data-mact="closeall" title="Đóng split">${icon('close')}</span>`;
+// Ti le mac dinh khi cham tay nam (giong ratioPresets)
+function ratioPresets() {
+  if (isMain()) return [[1 / 3, .5], [.5, .5], [2 / 3, .5]];
+  if (S.panes.length === 2) return [[1 / 3, 2 / 3], [.5, .5], [2 / 3, 1 / 3]];
+  return [[1 / 3, 1 / 3, 1 / 3], [.25, .5, .25], [.5, .25, .25], [.25, .25, .5]];
+}
+let ratioTimer = 0;
+function hideRatio() { clearTimeout(ratioTimer); const m = area.querySelector('.pill.ratio'); if (m) { m.remove(); area.querySelectorAll('.divider').forEach(d => d.classList.remove('drag')); removeCovers(); } }
+function showRatio(i) {
+  hideRatio(); S.bar = -1; area.querySelectorAll('.pane .pill').forEach(b => b.remove());
+  const d = area.querySelector(`.divider[data-div="${i}"]`), k = d && d.querySelector('.knob'); if (!k) return;
+  const m = document.createElement('div'); m.className = 'pill ratio';
+  m.innerHTML = ratioPresets().map((fr, j) => {
+    const on = fr.length === S.fr.length && fr.every((f, q) => Math.abs(f - S.fr[q]) < .03);
+    return `<span data-ratio="${j}" class="${on ? 'on' : ''}" title="${fr.map(f => Math.round(f * 100)).join(' / ')}">${ratioIcon(fr, isMain(), vertical(), 22, isMainR())}</span>`;
+  }).join('');
   area.appendChild(m);
+  d.classList.add('drag'); addCovers();
+  const kr = k.getBoundingClientRect(), ar = area.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+  let y = kr.top - ar.top - 10 - mh; if (y < 6) y = kr.bottom - ar.top + 10;
+  const x = Math.min(area.clientWidth - mw - 6, Math.max(6, kr.left - ar.left + kr.width / 2 - mw / 2));
+  m.style.left = x + 'px'; m.style.top = Math.min(area.clientHeight - mh - 6, y) + 'px';
+  ratioTimer = setTimeout(hideRatio, 4000);
+  log(`Chạm tay nắm vạch ${i + 1} → thanh tỉ lệ`);
 }
-function placeMenu(m) {
-  const d = area.querySelector(`.divider[data-div="${S.menu}"]`); if (!d) return;
-  const v = divHorizontal(S.menu), dx = d.offsetLeft, dy = d.offsetTop, dw = d.offsetWidth, dh = d.offsetHeight, mw = m.offsetWidth, mh = m.offsetHeight;
-  const kn = d.querySelector('.knob'), kcy = kn ? dy + kn.offsetTop : dy + dh / 2;
-  if (!v) { m.style.left = (dx + dw / 2 - mw / 2) + 'px'; m.style.top = Math.max(6, kcy - kn.offsetHeight / 2 - 8 - mh) + 'px'; }
-  else {   // vach ngang: num o 1/4 ben trai -> menu ben phai num
-    const kx = kn ? dx + kn.offsetLeft : dx + dw / 2;
-    m.style.top = (dy + dh / 2 - mh / 2) + 'px'; m.style.left = Math.min(area.clientWidth - mw - 6, kx + (kn ? kn.offsetWidth / 2 : 6) + 8) + 'px';
-  }
+function applyRatio(j) {
+  const fr = ratioPresets()[j]; if (!fr) return;
+  area.querySelectorAll('.pane').forEach(p => p.classList.remove('nofx'));
+  S.fr = fr.slice(); layout();
+  log('Chọn tỉ lệ: ' + S.fr.map(f => Math.round(f * 100)).join(' / '));
+  setTimeout(hideRatio, 350);   // de the icon che luc cac o co gian
 }
+function removeCovers() { setTimeout(() => area.querySelectorAll('.cover').forEach(c => { c.style.opacity = 0; setTimeout(() => c.remove(), 200); }), 250); }
+function markDismiss(i) { area.querySelectorAll('.pane').forEach(el => el.querySelector('.cover')?.classList.toggle('dismiss', +el.dataset.pane === i)); }
+// Ti le hit khi tha tay (giong SCPCSnap): 2 o 1/3 · 1/2 · 2/3; 3 o buoc 1/12, moi o >= 20%
+function snap(f, pair, n) {
+  if (n === 2) return [1 / 3, .5, 2 / 3].reduce((b, x) => Math.abs(f - x) < Math.abs(f - b) ? x : b, .5);
+  if (pair < MIN_FRAC * 2) return pair / 2;
+  return Math.min(pair - MIN_FRAC, Math.max(MIN_FRAC, Math.round(f * 12) / 12));
+}
+function swapPanes(a, b) {
+  [S.panes[a], S.panes[b]] = [S.panes[b], S.panes[a]];
+  if (!isMain()) [S.fr[a], S.fr[b]] = [S.fr[b], S.fr[a]];
+  if (S.focus === a) S.focus = b; else if (S.focus === b) S.focus = a;
+  log(`Đổi chỗ ô ${a + 1} và ô ${b + 1}`); rememberPair(); addRecent(); render();
+}
+// Bang chi icon, khong chu (giong showLayoutPanelForApp): moi hang = icon muc + cac hinh bo cuc
 function renderPanel() {
   const sh = document.createElement('div'); sh.className = 'shield'; sh.dataset.shield = 1; area.appendChild(sh);
   const p = document.createElement('div'); p.className = 'layoutpanel';
   const cur = S.mode === 'split' ? layoutId() : 0, v = vertical();
   const name = apps => apps.map(a => a ? app(a).name : '?').join(' + ');
-  let h = `<div class="sec">${S.mode === 'split' ? 'Đổi bố cục' : 'Mặc định'}</div><div class="opts">` +
-    [2, 3, 13].map(id => `<button data-layout="${id}"${id === cur ? ' style="background:rgba(49,122,247,.22)"' : ''}>${layoutPic(id, v)}<span class="lbl">${LAYOUT_NAME[id]}</span></button>`).join('') + '</div>';
-  if (recentBox.checked) h += '<div class="sec">Gần đây</div>' + (recents.length
-    ? '<div class="opts">' + recents.map((r, k) => `<button data-recent="${k}" title="${name(r.apps)}">${setupPic(r.id, r.apps, v)}<span class="lbl">${name(r.apps)}</span></button>`).join('') + '</div>'
-    : '<div class="sec" style="color:rgba(255,255,255,.4);padding-top:2px">Chia màn xong sẽ hiện ở đây</div>');
-  if (favBox.checked) h += '<div class="sec">Yêu thích</div><div class="opts">' +
-    FAVS.map((f, k) => `<button data-favp="${k}" title="${name(f.apps)}">${setupPic(f.id, f.apps, v)}<span class="lbl">${f.name}</span></button>`).join('') + '</div>';
+  const row = (ic, title, body) => `<div class="prow"><span class="phead" title="${title}">${icon(ic, 18)}</span><div class="opts">${body}</div></div>`;
+  // O nao se co app thi hien logo app do, o trong la dau cong (giong showLayoutPanelForApp)
+  const slotApps = S.mode === 'split' ? S.panes.map(q => q.app && !q.picker ? q.app : null) : (S.panel.app ? [S.panel.app] : []);
+  let h = row('layouts', S.mode === 'split' ? 'Đổi bố cục' : 'Mặc định',
+    [2, 3, 13, 31].map(id => `<button data-layout="${id}" title="${LAYOUT_NAME[id]}"${id === cur ? ' class="cur"' : ''}>${setupPic(id, slotApps, v)}</button>`).join('') +
+    `<i class="psep"></i><button class="exitb" data-exit="1" title="${S.mode === 'split' ? 'Thoát chia màn' : 'Đóng'}">${icon('exit', 20)}</button>`);
+  if (recentBox.checked) h += row('recent', 'Gần đây', recents.length
+    ? recents.map((r, k) => `<button data-recent="${k}" title="${name(r.apps)}">${setupPic(r.id, r.apps, v)}</button>`).join('')
+    : '<i class="pempty" title="Chia màn xong sẽ hiện ở đây"></i>');
+  if (favBox.checked) h += row('favorite', 'Yêu thích',
+    FAVS.map((f, k) => `<button data-favp="${k}" title="${f.name}: ${name(f.apps)}">${setupPic(f.id, f.apps, v)}</button>`).join(''));
   p.innerHTML = h;
   area.appendChild(p);
 }
 
 // ---------- hanh dong (giong SCPCarSplit.mm) ----------
-function openFull(id) { clearTimers(); S = { ...S, mode: 'full', full: id, panes: [], fr: [], kind: 'cols', fs: -1, bar: -1, menu: -1, panel: null }; log(`Mở ${app(id).name} toàn màn`); render(); }
-function goHome() { clearTimers(); S = { ...S, mode: 'home', full: null, panes: [], fr: [], kind: 'cols', fs: -1, bar: -1, menu: -1, panel: null }; render(); }
+function openFull(id) { clearTimers(); S = { ...S, mode: 'full', full: id, panes: [], fr: [], kind: 'cols', bar: -1, panel: null, float: null }; log(`Mở ${app(id).name} toàn màn`); render(); }
+function goHome() { clearTimers(); S = { ...S, mode: 'home', full: null, panes: [], fr: [], kind: 'cols', bar: -1, panel: null, float: null }; render(); }
 function showPanel(appId) {
   S.panel = { app: appId }; clearTimeout(timers.panel);
   timers.panel = setTimeout(() => { if (S.panel) { S.panel = null; log('Bảng bố cục tự thu lại sau 8 giây'); render(); } }, PANEL_HIDE);
-  log(S.mode === 'split' ? 'Bảng đổi bố cục' : (appId ? `Bảng bố cục cho ${app(appId).name}` : 'Bảng bố cục (sẽ mở cặp app lần trước)'));
+  log(S.mode === 'split' ? 'Bảng đổi bố cục' : (appId ? `Bảng bố cục cho ${app(appId).name}` : 'Bảng bố cục (mọi ô trống, dấu +)'));
   render();
 }
 function chooseLayout(id) {
   const a = S.panel.app; S.panel = null; clearTimeout(timers.panel);
   if (S.mode === 'split') { switchLayout(id); return; }
-  const n = id === 13 ? 3 : id, apps = a ? [a] : lastPair.slice();
-  S.mode = 'split'; S.full = null; S.fs = -1; S.bar = -1; S.menu = -1; S.focus = 0; S.kind = id === 13 ? 'main' : 'cols';
+  const n = panesOf(id), apps = a ? [a] : [];   // man chinh: moi o deu hien bang chon
+  S.mode = 'split'; S.full = null; S.bar = -1; S.focus = 0; S.kind = kindOf(id);
   S.panes = Array.from({ length: n }, (_, i) => apps[i] ? { app: apps[i], picker: false } : { app: null, picker: true });
   S.fr = freshFractions();
-  log(`Chọn bố cục ${LAYOUT_NAME[id]}: ${a ? app(a).name + ' vào ô 1' : 'cặp lần trước'}, ô trống hiện bảng chọn app`);
+  log(`Chọn bố cục ${LAYOUT_NAME[id]}: ${a ? app(a).name + ' vào ô 1, ô còn lại' : 'mọi ô'} hiện bảng chọn app`);
   addRecent(); render();
 }
 // Doi bo cuc khi dang chia (giong switchToLayout): giu app theo thu tu o; them o -> bang chon; bot o -> app o cuoi ve nen
 function switchLayout(id) {
-  const n = id === 13 ? 3 : id, kind = id === 13 ? 'main' : 'cols';
+  const n = panesOf(id), kind = kindOf(id);
   if (n === S.panes.length && kind === S.kind) { render(); return; }
   const before = LAYOUT_NAME[layoutId()];
   const dropped = S.panes.slice(n).filter(p => p.app).map(p => app(p.app).name);
   S.panes = S.panes.slice(0, n);
   while (S.panes.length < n) S.panes.push({ app: null, picker: true });
-  S.kind = kind; S.fs = -1; S.bar = -1; S.menu = -1; S.fr = freshFractions();
+  S.kind = kind; S.bar = -1; S.fr = freshFractions();
   if (S.focus >= n) S.focus = n - 1;
   log(`Đổi bố cục ${before} → ${LAYOUT_NAME[id]}` + (dropped.length ? ` (${dropped.join(', ')} về nền)` : ''));
   rememberPair(); addRecent(); render();
@@ -596,30 +732,122 @@ function switchLayout(id) {
 // Mo dung 1 cach chia (giong openSetupLayout): dang chia -> doi bo cuc va thay app theo thu tu o
 function openSetup(id, apps, label) {
   S.panel = null; clearTimeout(timers.panel);
-  const n = id === 13 ? 3 : id;
-  S.mode = 'split'; S.full = null; S.fs = -1; S.bar = -1; S.menu = -1; S.focus = 0; S.kind = id === 13 ? 'main' : 'cols';
+  const n = panesOf(id);
+  S.mode = 'split'; S.full = null; S.bar = -1; S.focus = 0; S.kind = kindOf(id);
   S.panes = Array.from({ length: n }, (_, i) => apps[i] ? { app: apps[i], picker: false } : { app: null, picker: true });
   S.fr = freshFractions();
   log(`Mở lại ${label}: ${LAYOUT_NAME[id]}, ${apps.map(a => app(a).name).join(' + ')}`);
   rememberPair(); addRecent(); render();
 }
+// Cua so noi (giong ensureFloatPane / closeFloat)
+function newFloat() {
+  const W = area.clientWidth, H = area.clientHeight;
+  const w = Math.min(W - 16, Math.min(300, Math.max(180, W * .36))), h = Math.min(H - 16, Math.min(220, Math.max(110, H * .55)));
+  return { app: null, picker: true, x: W - w - 8, y: H - h - 8, w, h };
+}
+function closeFloat() {
+  const fa = S.float && S.float.app;
+  S.float = null; S.floatRet = null; S.bar = -1;
+  log('Đóng cửa sổ nổi' + (fa ? ` (${app(fa).name})` : ''));
+  if (S.panes.length <= 1) {
+    const keep = S.panes[0] && S.panes[0].app;
+    if (keep) { log(`Còn 1 app → ${app(keep).name} về toàn màn`); openFull(keep); } else goHome();
+    return;
+  }
+  render();
+}
+// Hinh trong hinh (giong canPopOutPane / panePopOut): o nao co app thuong cung dua ra cua so noi duoc.
+// Chua co cua so noi -> bot o do (can >= 2 o); da co -> doi cho, app dang noi ve lai o nay.
+function canPopOut(i) {
+  const p = S.panes[i];
+  if (i === FL || !p || !p.app || p.picker || BRIDGED.includes(p.app)) return false;
+  return (S.float && S.float.app && !S.float.picker) || S.panes.length >= 2;
+}
+function popOut(i) {
+  if (!canPopOut(i)) return;
+  const p = S.panes[i], f = S.float;
+  if (f && f.app && !f.picker) {
+    log(`Hình trong hình: ${app(p.app).name} (ô ${i + 1}) ↔ ${app(f.app).name} (cửa sổ nổi)`);
+    [p.app, f.app] = [f.app, p.app]; S.bar = -1; render(); return;
+  }
+  S.floatRet = { id: layoutId(), slot: i, fr: S.fr.slice() };   // de "dua ve o" tra lai dung cho cu
+  S.float = { ...newFloat(), app: p.app, picker: false };
+  log(`Hình trong hình: ${app(p.app).name} từ ô ${i + 1} ra cửa sổ nổi`);
+  p.app = null;
+  removePane(i);
+}
+// Nut "dua ve o" cua cua so noi (giong floatDockBack): tra app ve dung o / bo cuc / ti le cu
+function dockBack() {
+  const f = S.float; if (!f || !f.app || f.picker) return;
+  const n = S.panes.length;
+  if (n >= 3) { const m = 'Đã đủ 3 ô, không đưa về được'; log(m); toast(m); return; }
+  const r = S.floatRet, same = !!r && panesOf(r.id) === n + 1, at = same ? Math.min(r.slot, n) : n;
+  S.panes.splice(at, 0, { app: f.app, picker: false });
+  S.kind = same ? kindOf(r.id) : 'cols';
+  const want = S.kind !== 'cols' ? 2 : n + 1;
+  S.fr = same && r.fr.length === want ? r.fr.slice() : freshFractions();
+  S.focus = at; S.float = null; S.floatRet = null; S.bar = -1;
+  log(`Đưa ${app(f.app).name} về ô ${at + 1} (${LAYOUT_NAME[layoutId()]}${same ? ', như trước' : ''})`);
+  rememberPair(); addRecent(); render();
+}
 function rememberPair() { if (S.panes.length === 2 && S.panes.every(p => p.app)) lastPair = S.panes.map(p => p.app); }
+// App iPhone qua CarBridge: chi chieu duoc 1 app cung luc (giong openApp / adopt trong SCPCarSplit.mm)
+const BRIDGED = ['youtube', 'tiktok'];
+function toast(msg) {
+  area.querySelector('.toast')?.remove();
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; area.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
 function pick(i, id) {
+  if (i === FL) {   // cua so noi: khong nhan app CarBridge
+    if (BRIDGED.includes(id)) { const m = `${app(id).name} không mở được trong cửa sổ nổi`; log(m); toast(m); return; }
+    if (S.panes.some(q => q.app === id)) { const m = `${app(id).name} đang mở ở ô khác`; log(m); toast(m); return; }
+    const f = S.float; Object.assign(f, { app: id, picker: false, loading: true }); S.bar = -1;
+    log(`Mở ${app(id).name} trong cửa sổ nổi…`); render();
+    setTimeout(() => { if (S.float === f) { f.loading = false; render(); } }, 1100);
+    return;
+  }
+  if (S.float && S.float.app === id) { const m = `${app(id).name} đang mở ở cửa sổ nổi`; log(m); toast(m); return; }
+  let note = '';
+  if (BRIDGED.includes(id)) {
+    const busy = S.panes.findIndex(p => p.loading && p.app !== id && BRIDGED.includes(p.app));
+    if (busy >= 0) { const m = `Đợi ${app(S.panes[busy].app).name} mở xong (CarBridge chỉ chạy 1 app)`; log(m); toast(m); return; }
+    const j = S.panes.findIndex(p => p.app && !p.picker && p.app !== id && BRIDGED.includes(p.app));
+    if (j >= 0) {
+      const m = `${app(id).name} thay ${app(S.panes[j].app).name} (CarBridge chỉ chạy 1 app)`;
+      log(m + ', app cũ bị tắt hẳn'); note = m;
+      if (j !== i && S.panes[i].app) S.panes[i].picker = false;   // o vua bam "Doi app" giu app cua no
+      i = j;
+    }
+  }
   S.panes.forEach((p, j) => { if (j !== i && p.app === id) { p.app = null; p.picker = true; } });
-  S.panes[i] = { app: id, picker: false }; S.focus = i; S.bar = -1;
-  log(`${app(id).name} vào ô ${i + 1}`); rememberPair(); addRecent(); render();
+  const pane = { app: id, picker: false, loading: true };
+  S.panes[i] = pane; S.focus = i; S.bar = -1;
+  log(`Mở ${app(id).name} vào ô ${i + 1}…`); render();
+  if (note) toast(note);   // sau render (render xoa sach vung app)
+  // App mo cham (CarBridge 2-6s): the "dang mo" den khi app ve xong
+  setTimeout(() => {
+    if (S.panes[S.panes.indexOf(pane)] !== pane) return;
+    const el = area.querySelector(`.pane[data-pane="${S.panes.indexOf(pane)}"] .loader`);
+    if (el) el.classList.add('out');
+    setTimeout(() => { pane.loading = false; if (S.panes.includes(pane)) { log(`${app(id).name} đã hiện trong ô`); rememberPair(); addRecent(); render(); } }, 500);
+  }, BRIDGED.includes(id) ? 2200 : 1100);
 }
 function removePane(i) {
-  if (S.kind === 'main') { S.kind = 'cols'; S.panes.splice(i, 1); S.fr = S.panes.map(() => 1 / Math.max(1, S.panes.length)); }
+  if (S.kind !== 'cols') { S.kind = 'cols'; S.panes.splice(i, 1); S.fr = S.panes.map(() => 1 / Math.max(1, S.panes.length)); }
   else {
     S.panes.splice(i, 1); S.fr.splice(i, 1);
     const sum = S.fr.reduce((a, b) => a + b, 0) || 1; S.fr = S.fr.map(f => f / sum);
   }
-  if (S.fs === i) S.fs = -1; else if (S.fs > i) S.fs--;
   if (S.focus > i) S.focus--;
   if (S.focus >= S.panes.length) S.focus = Math.max(0, S.panes.length - 1);
-  S.bar = -1; S.menu = -1;
-  if (S.panes.length === 0) { log('Hết ô → về màn chính'); goHome(); return; }
+  S.bar = -1;
+  if (S.panes.length === 0) {
+    const fa = S.float && S.float.app;
+    if (fa) { log(`Hết ô chia → ${app(fa).name} (cửa sổ nổi) về toàn màn`); openFull(fa); } else { log('Hết ô → về màn chính'); goHome(); }
+    return;
+  }
+  if (S.panes.length === 1 && S.float) { log('Còn 1 ô + cửa sổ nổi'); render(); return; }
   if (S.panes.length === 1) {
     const keep = S.panes[0].app;
     if (keep) { log(`Còn 1 app → ${app(keep).name} về toàn màn như lúc đầu`); openFull(keep); }
@@ -629,13 +857,8 @@ function removePane(i) {
   log(`Còn ${S.panes.length} ô, chia lại`); render();
 }
 function showBar(i) {
-  S.bar = i; S.menu = -1; clearTimeout(timers.bar);
+  S.bar = i; clearTimeout(timers.bar);
   timers.bar = setTimeout(() => { if (S.bar === i) { S.bar = -1; render(); } }, BAR_HIDE);
-  render();
-}
-function showMenu(i) {
-  S.menu = i; S.bar = -1; clearTimeout(timers.menu);
-  timers.menu = setTimeout(() => { if (S.menu === i) { S.menu = -1; render(); } }, MENU_HIDE);
   render();
 }
 
@@ -652,12 +875,15 @@ area.addEventListener('pointerdown', e => {
     }, 700);
     return;
   }
+  const hd = e.target.closest('[data-handle]');
+  if (hd) { startHandle(e, hd); return; }
   const d = e.target.closest('[data-div]');
   if (d) { startDrag(e, d); return; }
+  if (e.target.closest('.floatwin')) return;   // cham cua so noi khong doi o dang chon
   const pane = e.target.closest('[data-pane]');
   if (pane && S.mode === 'split') {
     const i = +pane.dataset.pane;
-    if (S.focus !== i) { S.focus = i; area.querySelectorAll('.pane').forEach(p => p.classList.toggle('focused', +p.dataset.pane === i && S.fs < 0)); }
+    if (S.focus !== i) { S.focus = i; area.querySelectorAll('.pane').forEach(p => p.classList.toggle('focused', +p.dataset.pane === i)); }
   }
 });
 area.addEventListener('pointerup', () => {
@@ -671,35 +897,36 @@ area.addEventListener('pointerleave', () => { if (press) { clearTimeout(timers.h
 area.addEventListener('click', e => {
   const t = e.target;
   if (t.closest('[data-shield]')) { S.panel = null; clearTimeout(timers.panel); log('Chạm ra ngoài → thu bảng bố cục'); render(); return; }
+  if (t.closest('[data-exit]')) {   // giong exitTapped: dang chia -> thoat, app o dang chon ve toan man; chua chia -> dong bang
+    S.panel = null; clearTimeout(timers.panel);
+    if (S.mode !== 'split') { log('Nút thoát → đóng bảng'); render(); return; }
+    const keep = S.panes[S.focus]?.app || S.panes.find(q => q.app)?.app;
+    log('Nút thoát → thoát chia màn' + (keep ? `, ${app(keep).name} về toàn màn` : ''));
+    if (keep) openFull(keep); else goHome();
+    return;
+  }
   const lay = t.closest('[data-layout]'); if (lay) { chooseLayout(+lay.dataset.layout); return; }
   const rc = t.closest('[data-recent]'); if (rc) { const r = recents[+rc.dataset.recent]; openSetup(r.id, r.apps, 'cách chia gần đây'); return; }
   const fv = t.closest('[data-favp]'); if (fv) { const f = FAVS[+fv.dataset.favp]; openSetup(f.id, f.apps, `bố cục yêu thích "${f.name}"`); return; }
   const pk = t.closest('[data-pick]'); if (pk) { pick(+t.closest('[data-pane]').dataset.pane, pk.dataset.pick); return; }
   if (t.closest('[data-pcancel]')) {
-    const i = +t.closest('[data-pane]').dataset.pane, p = S.panes[i];
+    const i = +t.closest('[data-pane]').dataset.pane, p = getPane(i);
+    if (i === FL && !p.app) { closeFloat(); return; }
     if (p.app) { p.picker = false; log(`Huỷ chọn → ô ${i + 1} quay lại ${app(p.app).name}`); render(); }
     else { log(`Huỷ ở ô trống → bớt ô ${i + 1}`); removePane(i); }
     return;
   }
-  if (t.closest('[data-handle]')) { const i = +t.closest('[data-pane]').dataset.pane; if (S.bar === i) { S.bar = -1; render(); } else showBar(i); return; }
+  const rt = t.closest('[data-ratio]'); if (rt) { applyRatio(+rt.dataset.ratio); return; }
   const act = t.closest('[data-act]');
   if (act) {
-    const i = +t.closest('[data-pane]').dataset.pane, p = S.panes[i]; S.bar = -1; clearTimeout(timers.bar);
+    const i = +t.closest('[data-pane]').dataset.pane, p = getPane(i); S.bar = -1; clearTimeout(timers.bar);
     const a = act.dataset.act;
-    if (a === 'solo') { log(`Chỉ mở ${app(p.app).name} → thoát split`); openFull(p.app); }
-    if (a === 'expand') { S.fs = S.fs === i ? -1 : i; log(S.fs === i ? `Phóng to ô ${i + 1}` : 'Thu nhỏ về bố cục đã chọn'); render(); }
-    if (a === 'close') { log(`Tắt ${app(p.app).name}`); removePane(i); }
-    if (a === 'grid') { p.picker = true; log(`Chọn app khác cho ô ${i + 1}`); render(); }
+    if (a === 'fullscreen') { log(`Toàn màn hình → thoát chia, ${app(p.app).name} mở toàn màn`); openFull(p.app); }
+    if (a === 'close') { log(`Tắt ${app(p.app).name}`); if (i === FL) closeFloat(); else removePane(i); }
+    if (a === 'pop') popOut(i);
+    if (a === 'dock') dockBack();
+    if (a === 'replace') { p.picker = true; log(`Đổi app cho ô ${i + 1}`); render(); }
     return;
-  }
-  const mact = t.closest('[data-mact]');
-  if (mact) {
-    const i = S.menu; S.menu = -1; clearTimeout(timers.menu);
-    const a = mact.dataset.mact;
-    if (a === 'swap') { [S.panes[i], S.panes[i + 1]] = [S.panes[i + 1], S.panes[i]]; if (!isMain()) [S.fr[i], S.fr[i + 1]] = [S.fr[i + 1], S.fr[i]]; log(`Đổi chỗ ô ${i + 1} và ô ${i + 2}`); rememberPair(); addRecent(); }
-    if (a === 'ratio') { S.fr = nextFractions(); S.fs = -1; log('Tỉ lệ: ' + S.fr.map(f => Math.round(f * 100)).join(' / ')); }
-    if (a === 'closeall') { log('Đóng split → màn chính'); goHome(); return; }
-    render(); return;
   }
 });
 dockEl.addEventListener('click', e => {
@@ -711,60 +938,143 @@ dockEl.addEventListener('click', e => {
   else openFull(id);
 });
 
-// keo thanh chia (chi doi 2 o hai ben) / cham num mo menu
+// Thanh "•••": cham -> thanh nut; keo -> the icon theo tay, tha len o khac -> doi cho (giong handlePanned)
+function startHandle(e, hd) {
+  e.preventDefault();
+  const src = +hd.closest('[data-pane]').dataset.pane, X0 = e.clientX, Y0 = e.clientY;
+  if (src === FL) { startFloatDrag(e, hd); return; }
+  let ghost = null, target = -1;
+  hd.setPointerCapture(e.pointerId);
+  const local = ev => { const b = area.getBoundingClientRect(); return { x: ev.clientX - b.left, y: ev.clientY - b.top }; };
+  const move = ev => {
+    if (!ghost) {
+      if (S.panes.length < 2 || Math.hypot(ev.clientX - X0, ev.clientY - Y0) < 6) return;
+      S.bar = -1; area.querySelectorAll('.pill').forEach(b => b.remove());
+      addCovers();
+      area.querySelector(`.pane[data-pane="${src}"] .cover`)?.classList.add('lift');
+      const r = rects()[src], w = Math.min(180, Math.max(96, r.w * .4)), h = Math.min(130, Math.max(72, w * r.h / Math.max(1, r.w)));
+      ghost = document.createElement('div'); ghost.className = 'ghost';
+      Object.assign(ghost.style, { width: w + 'px', height: h + 'px' });
+      ghost.innerHTML = `<div class="ico">${appIcon(S.panes[src].app)}</div>`;
+      area.appendChild(ghost);
+    }
+    const q = local(ev);
+    ghost.style.left = q.x + 'px'; ghost.style.top = q.y + 'px';
+    const R = rects();
+    let t = -1;
+    R.forEach((r, k) => { if (k !== src && q.x >= r.x && q.x <= r.x + r.w && q.y >= r.y && q.y <= r.y + r.h) t = k; });
+    if (t !== target) { target = t; area.querySelectorAll('.pane').forEach(el => el.classList.toggle('target', +el.dataset.pane === t)); }
+  };
+  const up = ev => {
+    hd.removeEventListener('pointermove', move); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up);
+    if (!ghost) { if (ev.type === 'pointerup') { if (S.bar === src) { S.bar = -1; render(); } else showBar(src); } return; }
+    ghost.remove();
+    area.querySelectorAll('.pane').forEach(el => el.classList.remove('target'));
+    if (target >= 0) swapPanes(src, target);
+    else { log('Thả ngoài ô khác → giữ nguyên'); area.querySelectorAll('.cover').forEach(c => c.classList.remove('lift')); removeCovers(); }
+  };
+  hd.addEventListener('pointermove', move); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+}
+
+// Keo "•••" cua cua so noi: di chuyen theo tay, tha ra hit sat canh trai / phai (giong floatPanned)
+function startFloatDrag(e, hd) {
+  const f = S.float, X0 = e.clientX, Y0 = e.clientY, x0 = f.x, y0 = f.y;
+  let moved = false;
+  hd.setPointerCapture(e.pointerId);
+  const el = hd.closest('.pane');
+  const move = ev => {
+    const dx = ev.clientX - X0, dy = ev.clientY - Y0;
+    if (!moved && Math.hypot(dx, dy) < 5) return;
+    if (!moved) { moved = true; S.bar = -1; el.querySelector('.pill')?.remove(); el.classList.add('nofx'); }
+    f.x = x0 + dx; f.y = y0 + dy; el.style.left = f.x + 'px'; el.style.top = f.y + 'px';
+  };
+  const up = ev => {
+    hd.removeEventListener('pointermove', move); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up);
+    if (!moved) { if (ev.type === 'pointerup') { if (S.bar === FL) { S.bar = -1; render(); } else showBar(FL); } return; }
+    const W = area.clientWidth, H = area.clientHeight;
+    f.x = (f.x + f.w / 2 < W / 2) ? 8 : W - f.w - 8;
+    f.y = Math.min(H - f.h - 8, Math.max(8, f.y));
+    el.classList.remove('nofx'); layout();
+    log(`Thả cửa sổ nổi → hít sát cạnh ${f.x < W / 2 ? 'trái' : 'phải'}`);
+  };
+  hd.addEventListener('pointermove', move); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+}
+
+// Vach chia: keo doi ti le 2 o hai ben (the icon phu cac o), tha tay hit 1/3 · 1/2 · 2/3,
+// keo sat mep -> dong o bi ep, cham 2 lan -> doi cho (giong dividerPanned / dividerDoubleTapped)
+let lastDivTap = { i: -1, t: 0, timer: 0 };
+function divTapped(i, onKnob) {
+  const now = Date.now();
+  if (lastDivTap.i === i && now - lastDivTap.t < 350) {
+    clearTimeout(lastDivTap.timer); lastDivTap = { i: -1, t: 0, timer: 0 };
+    hideRatio(); log(`Chạm 2 lần vạch ${i + 1}`); swapPanes(i, i + 1); return;
+  }
+  // Cham 1 lan vao tay nam: doi xem co cham lan 2 khong, roi moi hien thanh ti le
+  const timer = onKnob ? setTimeout(() => { if (area.querySelector('.pill.ratio')) hideRatio(); else showRatio(i); }, 300) : 0;
+  lastDivTap = { i, t: now, timer };
+}
 function startDrag(e, d) {
   if (isMain()) { startMainDrag(e, d); return; }
-  const i = +d.dataset.div, n = S.panes.length, v = vertical();
+  const i = +d.dataset.div, n = S.panes.length, v = vertical(), onKnob = !!e.target.closest('.knob');
   const len = (v ? area.clientHeight : area.clientWidth) - INSET * 2 - GAP * (n - 1);
-  const sA = S.fr[i], sB = S.fr[i + 1], pair = sA + sB, minF = n === 2 ? .2 : .15;
+  const sA = S.fr[i], sB = S.fr[i + 1], pair = sA + sB;
   const x0 = v ? e.clientY : e.clientX;
-  let moved = false;
-  d.setPointerCapture(e.pointerId); d.classList.add('drag');
-  area.querySelectorAll('.pane').forEach(p => p.classList.add('nofx'));
+  let moved = false, dismiss = -1;
+  d.setPointerCapture(e.pointerId);
   const move = ev => {
     const delta = (v ? ev.clientY : ev.clientX) - x0;
-    if (!moved && Math.abs(delta) > 4) { moved = true; S.menu = -1; area.querySelector('.menu')?.remove(); }
+    if (!moved && Math.abs(delta) > 4) {
+      hideRatio(); moved = true; d.classList.add('drag'); S.bar = -1; area.querySelectorAll('.pill').forEach(b => b.remove());
+      area.querySelectorAll('.pane').forEach(p => p.classList.add('nofx')); addCovers();
+    }
     if (!moved) return;
-    const na = Math.min(pair - minF, Math.max(minF, sA + delta / len));
-    S.fr[i] = na; S.fr[i + 1] = pair - na; layout();
+    const na = Math.min(pair - .04, Math.max(.04, sA + delta / len));
+    S.fr[i] = na; S.fr[i + 1] = pair - na;
+    dismiss = na < DISMISS ? i : (pair - na < DISMISS ? i + 1 : -1);
+    markDismiss(dismiss); layout();
   };
   const up = () => {
     d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up);
     d.classList.remove('drag');
     area.querySelectorAll('.pane').forEach(p => p.classList.remove('nofx'));
-    if (!moved) { if (S.menu === i) { S.menu = -1; render(); } else showMenu(i); return; }
-    if (n === 2) for (const snap of [.3, .5, .7]) if (Math.abs(S.fr[0] - snap) < .04) { S.fr = [snap, 1 - snap]; break; }
-    log('Kéo thanh chia: ' + S.fr.map(f => Math.round(f * 100)).join(' / ')); layout();
+    if (!moved) { divTapped(i, onKnob); return; }
+    if (dismiss >= 0) { const pa = S.panes[dismiss].app; log(`Kéo vạch sát mép → đóng ô ${dismiss + 1} (${pa ? app(pa).name : 'ô trống'})`); removePane(dismiss); return; }
+    const na = snap(S.fr[i], pair, n); S.fr[i] = na; S.fr[i + 1] = pair - na;
+    markDismiss(-1); layout(); removeCovers();
+    log('Thả tay → hít tỉ lệ: ' + S.fr.map(f => Math.round(f * 100)).join(' / '));
   };
   d.addEventListener('pointermove', move); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
 }
 
-// 1 lon + 2 nho: vach 0 doi be rong o lon, vach 1 doi chieu cao 2 o nho (25%..75%)
+// 1 lon + 2 nho: tay nam tron o cho giao 2 vach keo 2 chieu; keo doc vach chi doi 1 chieu
 function startMainDrag(e, d) {
-  const i = +d.dataset.div, R = rects(), both = i === 0 && !!e.target.closest('.knob');
+  const i = +d.dataset.div, R = rects(), both = i === 0 && !!e.target.closest('.knob'), onKnob = both;
   const a0 = divHorizontal(0), a1 = divHorizontal(1);
   const len0 = (a0 ? area.clientHeight : area.clientWidth) - GAP;
   const len1 = (a1 ? R[1].h + R[2].h + GAP : R[1].w + R[2].w + GAP) - GAP;
   const s0 = S.fr[0], s1 = S.fr[1], X0 = e.clientX, Y0 = e.clientY;
-  let moved = false;
-  d.setPointerCapture(e.pointerId); d.classList.add('drag');
-  area.querySelectorAll('.pane').forEach(p => p.classList.add('nofx'));
-  const clamp = f => Math.min(.75, Math.max(.25, f));
+  let moved = false, dismiss = -1;
+  d.setPointerCapture(e.pointerId);
   const move = ev => {
     const dx = ev.clientX - X0, dy = ev.clientY - Y0;
-    if (!moved && Math.hypot(dx, dy) > 4) { moved = true; S.menu = -1; area.querySelector('.menu')?.remove(); }
+    if (!moved && Math.hypot(dx, dy) > 4) {
+      hideRatio(); moved = true; d.classList.add('drag'); S.bar = -1; area.querySelectorAll('.pill').forEach(b => b.remove());
+      area.querySelectorAll('.pane').forEach(p => p.classList.add('nofx')); addCovers();
+    }
     if (!moved) return;
-    if (i === 0) S.fr[0] = clamp(s0 + (a0 ? dy : dx) / len0);
-    if (i === 1 || both) S.fr[1] = clamp(s1 + (a1 ? dy : dx) / len1);
-    layout();
+    if (i === 0) S.fr[0] = Math.min(.75, Math.max(.04, s0 + (a0 ? dy : dx) * (isMainR() ? -1 : 1) / len0));
+    if (i === 1 || both) S.fr[1] = Math.min(.96, Math.max(.04, s1 + (a1 ? dy : dx) / len1));
+    dismiss = S.fr[0] < DISMISS ? 0 : (S.fr[1] < DISMISS ? 1 : (1 - S.fr[1] < DISMISS ? 2 : -1));
+    markDismiss(dismiss); layout();
   };
   const up = () => {
     d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up); d.removeEventListener('pointercancel', up);
     d.classList.remove('drag'); area.querySelectorAll('.pane').forEach(p => p.classList.remove('nofx'));
-    if (!moved) { if (S.menu === i) { S.menu = -1; render(); } else showMenu(i); return; }
-    S.fr = S.fr.map(f => Math.abs(f - .5) < .04 ? .5 : f);
-    log(both ? `Kéo nút giao điểm: ô lớn ${Math.round(S.fr[0] * 100)}%, ô nhỏ trên ${Math.round(S.fr[1] * 100)}%`
-             : `Kéo ${i === 0 ? 'vạch ô lớn' : 'vạch 2 ô nhỏ'}: ${Math.round(S.fr[i] * 100)}%`); layout();
+    if (!moved) { divTapped(i, onKnob); return; }
+    if (dismiss >= 0) { log(`Kéo vạch sát mép → đóng ô ${dismiss + 1}`); removePane(dismiss); return; }
+    S.fr = [Math.min(2 / 3, snap(S.fr[0], 1, 2)), snap(S.fr[1], 1, 2)];
+    markDismiss(-1); layout(); removeCovers();
+    log(`Thả tay → ô lớn ${Math.round(S.fr[0] * 100)}%, ô nhỏ trên ${Math.round(S.fr[1] * 100)}%`);
   };
   d.addEventListener('pointermove', move); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
 }
@@ -772,11 +1082,11 @@ function startMainDrag(e, d) {
 function updateHint() {
   let h;
   if (S.panel) h = S.mode === 'split' ? 'Chọn bố cục mới. App giữ nguyên thứ tự ô; thêm ô thì ô mới hiện bảng chọn, bớt ô thì app ở ô cuối về nền.'
-                                    : '<b>Mặc định</b>: 2 ô / 3 ô / 1 lớn + 2 (ô xanh là chỗ của app đang mở). <b>Gần đây</b>: mở lại đúng cách chia vừa dùng. <b>Yêu thích</b>: bố cục yêu thích đặt trong Cài đặt.';
+                                    : '<b>Mặc định</b>: 2 ô / 3 ô / 1 lớn + 2 (ô có logo là app đang mở, ô dấu + là chỗ chọn app). <b>Gần đây</b>: mở lại đúng cách chia vừa dùng. <b>Yêu thích</b>: bố cục yêu thích đặt trong Cài đặt.';
   else if (S.mode === 'home') h = 'Chạm một icon để mở app. Hoặc <b>giữ icon</b> 0,7 giây, hoặc bấm <b>nút CarDuo</b> trên dock (ngay trên nút Home).';
   else if (S.mode === 'full') h = 'Bấm <b>nút CarDuo</b> trên dock (ngay trên nút Home) để chia màn: app đang mở vào ô 1.';
   else if (S.panes.some(p => p.picker)) h = 'Chọn app cho ô đang hiện bảng chọn. Bấm <b>✕</b> ở ô trống để bớt ô đó.';
-  else h = 'Chạm <b>thẻ trắng</b> trên một ô để hiện nút. <b>Kéo</b> thanh chia để đổi tỉ lệ, <b>chạm núm</b> để mở menu. Bấm <b>nút CarDuo</b> trên dock để <b>đổi bố cục</b>. Chạm app trên dock để đưa vào ô đang chọn (viền xanh).';
+  else h = 'Chạm <b>•••</b> trên một ô để hiện nút, <b>kéo •••</b> thả lên ô khác để đổi chỗ. <b>Kéo tay nắm</b> trên vạch để đổi tỉ lệ (kéo sát mép để đóng ô), <b>chạm 2 lần</b> vào vạch để đổi chỗ. Nút <b>CarDuo</b> trên dock: đổi bố cục.';
   hintEl.innerHTML = h;
 }
 

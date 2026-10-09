@@ -92,20 +92,46 @@ theo kiểu MIUI (lò xo, so le) khi hiện. Cùng một kiểu ở mọi nơi.
 Trên màn xe (xem sơ đồ `docs/flow.html`):
 - Mở split: nút CarDuo trên dock CarPlay (ngay trên nút Home; khe không đủ thì giữa đồng hồ và cụm icon dock)
   -> bảng bố cục. Đang mở app toàn màn: chọn bố cục thì app đó vào ô 1, các ô còn lại hiện bảng chọn app
-  (ô xanh trong hình là chỗ của app đang mở). Ở màn chính: mở cặp lần trước. Giữ icon app 0,7 giây ở màn chính
+  (trong hình ô 1 là logo app đang mở, ô còn lại dấu +). Ở màn chính: mọi ô trống, hiện bảng chọn app. Giữ icon app 0,7 giây ở màn chính
   cũng mở bảng bố cục. App mở toàn màn không có gì đè lên (đã bỏ logo ở mép trên app, nút dock làm thay).
   Bật "Tự mở split khi cắm xe" thì khi cắm xe tự mở cặp lần trước (chưa có thì dùng Ngăn trái / Ngăn phải).
-- Việc của TỪNG Ô: thẻ trắng nhỏ ở giữa mép trên ô, chạm hoặc kéo xuống để hiện thanh nút
-  Chọn app / Phóng to (thu nhỏ) / Chỉ mở app này │ Tắt app (tự ẩn sau 3 giây nếu không thao tác).
-  Nút Tắt app nằm cuối, sau vạch ngăn, để khó bấm nhầm; ô hẹp thì cả thanh nút tự thu nhỏ cho vừa.
+- Việc của TỪNG Ô (kiểu HyperOS): thanh "•••" ở giữa mép trên ô. Chạm -> thanh nút
+  Đổi app / Toàn màn hình (thoát chia, app này toàn màn) │ Tắt app (đỏ, tự ẩn sau 3,5 giây).
+  Giữ và kéo "•••": thẻ icon app chạy theo tay, ô bên dưới viền xanh, thả -> đổi chỗ 2 ô.
+  Ô hẹp thì cả thanh nút tự thu nhỏ cho vừa. Đã bỏ "Phóng to tạm" (trùng với Toàn màn hình).
   Tắt một app (hoặc huỷ bảng chọn của ô trống) thì bớt một ô: 3 còn 2, 2 còn 1 = app đó về toàn màn.
-- Tỉ lệ: kéo thanh giữa 2 ô kề nhau (chỉ 2 ô đó đổi). Bố cục 2 ô nhớ tỉ lệ riêng từng cặp app.
-- 1 lớn + 2 nhỏ: ô 1 lớn bên trái (chia trên/dưới: ở trên), ô 2 và 3 xếp chồng; vạch dọc đổi bề rộng ô lớn,
-  vạch ngang đổi chiều cao 2 ô nhỏ (25-75%). Núm vạch ngang lệch 1/4 để không đè thẻ trắng của ô dưới.
+- Góc ô: bo 12pt ở chỗ giáp ô bên cạnh và cả 2 góc trái của ô sát dock (ô bên trái); góc sát mép màn khác vuông.
+- Vạch chia (kiểu HyperOS): khe đen 6pt, tay nắm viên thuốc trắng. Kéo: mọi ô phủ thẻ tối + icon app,
+  scene chỉ đổi kích thước 1 lần khi thả tay (CBWindow CarBridge ẩn lúc kéo). Thả tay tự hít
+  1/3 · 1/2 · 2/3 (3 ô: bước 1/12, ô nhỏ nhất 20%). Kéo cho 1 ô còn dưới 12% -> đóng ô đó.
+  Chạm 1 lần vào tay nắm -> thanh tỉ lệ mặc định (2 ô: 1/3 · 1/2 · 2/3; 3 ô: đều · giữa to · trái to · phải to;
+  1 lớn + 2: ô lớn 1/3 · 1/2 · 2/3), tỉ lệ đang dùng tô xanh, tự ẩn sau 4 giây.
+  Chạm 2 lần vào vạch -> đổi chỗ 2 ô hai bên. Bố cục 2 ô nhớ tỉ lệ riêng từng cặp app.
+- CarBridge (YouTube, TikTok...) chỉ chạy 1 app: app CarBridge mới thay app CarBridge cũ ngay trong ô của nó
+  và app cũ bị tắt hẳn; app cũ đang mở dở thì báo "Đợi ... mở xong". Gần đây / Yêu thích có 2 app CarBridge
+  thì chỉ mở app đầu, ô kia hiện bảng chọn.
+- Đang mở app vào ô: thẻ icon app (phóng ra, nhịp thở, vòng xoay) tới khi app hiện (CarBridge: tới khi
+  CBWindow chiếu xong, tối đa 6 giây), rồi icon phóng to mờ dần. Mở lỗi thì ô trống hiện lại bảng chọn.
+- Mọi tác vụ hẹn giờ đi qua `SCPCAfter` (bọc @try), mọi nút / cử chỉ bọc @try: lỗi chỉ ghi log, không sập CarPlay.
+- 1 lớn + 2 nhỏ: ô 1 lớn bên trái (chia trên/dưới: ở trên), ô 2 và 3 xếp chồng; 1 tay nắm tròn ở chỗ giao
+  2 vạch kéo được 2 chiều; kéo dọc vạch thì chỉ đổi 1 chiều. Tay nắm vạch ngang lệch 1/4 để không đè "•••".
 - Đổi bố cục khi đang chia: nút CarDuo trên dock vẫn hiện -> bảng "Đổi bố cục" (bố cục đang dùng tô sáng).
   App giữ thứ tự ô; thêm ô thì ô mới hiện bảng chọn; bớt ô thì app ở ô cuối về nền.
-- Thanh giữa 2 ô: kéo để đổi tỉ lệ, chạm núm để mở menu Đổi chỗ 2 ô đó / Tỉ lệ (2 ô: 50-70-30,
-  3 ô: đều <-> giữa to 25-50-25) / Đóng split.
+- Bố cục "2 + 1 lớn" (mã 31): bản lật của 1 lớn + 2, ô lớn bên phải (màn dọc: ở dưới); kéo vạch, tỉ lệ mặc định,
+  đổi chỗ dùng chung với 1 lớn + 2. Có trong bảng nút CarDuo, Gần đây và Bố cục yêu thích trong Cài đặt.
+- Hình trong hình (kiểu "cửa sổ nhỏ" HyperOS): nút trên thanh ••• của mỗi ô đưa app của ô đó ra cửa sổ nổi
+  (`floatPane`, số ô giả `SCPC_FLOAT_SLOT` = 9), nằm trên các ô chia, bo đủ 4 góc. Chưa có cửa sổ nổi thì ô đó được
+  bớt (cần ≥ 2 ô); đã có thì đổi chỗ: app đang nổi về lại ô vừa bấm. Không có mục riêng trong bảng nút CarDuo.
+  Kéo ••• của cửa sổ nổi để di chuyển, thả ra hít sát cạnh trái/phải; thanh ••• của nó có Đổi app / Đưa về ô /
+  Toàn màn hình / Tắt app. "Đưa về ô" trả app về đúng ô, bố cục (cả 1 lớn + 2 / 2 + 1 lớn) và tỉ lệ trước khi đưa ra;
+  bố cục đã đổi từ đó thì thêm 1 ô ở cuối, chia đều; đã đủ 3 ô thì báo không đưa về được. Đóng cửa sổ nổi khi chỉ còn 1 ô thì app ô đó về toàn màn. Không dùng với YouTube/TikTok (CBWindow luôn nằm
+  trên mọi view CarPlay); cửa sổ nổi tự né ô đang chiếu CarBridge, không còn chỗ né thì tự đóng.
+- Bảng của nút CarDuo chỉ dùng icon, không có chữ: mỗi hàng có icon mục bên trái (2 ô = bố cục, đồng hồ = Gần đây,
+  ngôi sao = Yêu thích), các lựa chọn là hình bố cục / icon app trong từng ô; Gần đây trống thì là 1 ô viền nét đứt.
+  Cuối hàng đầu có nút thoát đỏ: đang chia thì thoát chia màn, app ở ô đang chọn về toàn màn (không có app thì
+  về màn chính); chưa chia thì chỉ đóng bảng.
+  Hàng bố cục vẽ theo app thật: ở màn chính mọi ô là dấu + (chọn là mọi ô hiện bảng chọn app); đang mở 1 app
+  thì ô 1 là logo app đó, các ô còn lại dấu +; đang chia thì mỗi ô là app đang nằm trong ô đó.
 - Bảng của nút CarDuo có 3 mục: Mặc định (2 ô / 3 ô / 1 lớn + 2), Gần đây (tối đa 3 cách chia vừa dùng,
   lưu ở key `RecentLayouts`, mỗi ô hiện icon app; bấm là mở lại đúng bố cục và app), Yêu thích (bố cục yêu thích
   1-3 trong Cài đặt). "Gần đây" luôn hiện (trống thì có dòng gợi ý). Yêu thích không còn nằm trong menu thanh chia.

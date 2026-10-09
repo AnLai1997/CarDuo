@@ -90,8 +90,8 @@
 			<key>cell</key><string>PSSegmentCell</string>
 			<key>key</key><string>Fav1Layout</string>
 			<key>default</key><integer>2</integer>
-			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer></array>
-			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string></array>
+			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer><integer>31</integer></array>
+			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string><string>LAYOUT_31</string></array>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
@@ -144,8 +144,8 @@
 			<key>cell</key><string>PSSegmentCell</string>
 			<key>key</key><string>Fav2Layout</string>
 			<key>default</key><integer>2</integer>
-			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer></array>
-			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string></array>
+			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer><integer>31</integer></array>
+			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string><string>LAYOUT_31</string></array>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>
@@ -199,8 +199,8 @@
 			<key>cell</key><string>PSSegmentCell</string>
 			<key>key</key><string>Fav3Layout</string>
 			<key>default</key><integer>2</integer>
-			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer></array>
-			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string></array>
+			<key>validValues</key><array><integer>2</integer><integer>3</integer><integer>13</integer><integer>31</integer></array>
+			<key>validTitles</key><array><string>LAYOUT_2</string><string>LAYOUT_3</string><string>LAYOUT_13</string><string>LAYOUT_31</string></array>
 			<key>defaults</key><string>com.anlai97.carduo</string>
 			<key>PostNotification</key><string>com.anlai97.carduo.prefschanged</string>
 		</dict>

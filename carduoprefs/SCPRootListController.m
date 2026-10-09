@@ -244,12 +244,12 @@ static BOOL SCPEnabled(void) {
 	if (!_specifiers) {
 		SCPLoadStrings();
 		NSMutableArray *specs = [[self loadSpecifiersFromPlistName:@"Root" target:self] mutableCopy];
-		// Bo cuc yeu thich: dong "O 3" chi hien khi bo cuc co 3 o (3 o / 1 lon + 2)
+		// Bo cuc yeu thich: dong "O 3" chi hien khi bo cuc co 3 o (3 o / 1 lon + 2 / 2 + 1 lon)
 		for (PSSpecifier *spec in [specs copy]) {
 			NSString *key = [spec propertyForKey:@"key"];
 			if (![key hasPrefix:@"Fav"] || ![key hasSuffix:@"Third"] || key.length < 4) continue;
 			NSInteger layout = [SCPPrefValue([[key substringToIndex:4] stringByAppendingString:@"Layout"]) integerValue];
-			if (layout != 3 && layout != 13) [specs removeObject:spec];
+			if (layout != 3 && layout != 13 && layout != 31) [specs removeObject:spec];
 		}
 		_specifiers = specs;
 		[self localizeSpecifiers:_specifiers];
